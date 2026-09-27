@@ -34,9 +34,10 @@ use crate::api::dto::diagnostics::{
     LogExportResultDto, UpdateDebugModeRequestDto, UpdateDebugModeResultDto,
 };
 use crate::api::dto::encryption::{
-    ChangeEncryptionPassphraseRequest, EncryptionActionResponse, EncryptionStateResponse,
-    KeychainAccessResponse, ProfileRecoveryLossDto, ProfileRecoveryResponse,
-    ProfileRecoveryStateDto, UnlockSpaceRequest, UnlockSpaceResponse,
+    AdmissionRecoveryActionDto, AdmissionRecoveryCategoryDto, AdmissionRecoveryDto,
+    AdmissionRecoveryStageDto, ChangeEncryptionPassphraseRequest, EncryptionActionResponse,
+    EncryptionStateResponse, KeychainAccessResponse, ProfileRecoveryLossDto,
+    ProfileRecoveryResponse, ProfileRecoveryStateDto, UnlockSpaceRequest, UnlockSpaceResponse,
 };
 use crate::api::dto::error::ApiErrorResponse;
 use crate::api::dto::member::{
@@ -456,6 +457,10 @@ impl Modify for ContractMeta {
             ProfileRecoveryResponse,
             ProfileRecoveryStateDto,
             ProfileRecoveryLossDto,
+            AdmissionRecoveryDto,
+            AdmissionRecoveryCategoryDto,
+            AdmissionRecoveryStageDto,
+            AdmissionRecoveryActionDto,
             EncryptionActionEnvelope,
             KeychainAccessEnvelope,
             UnlockSpaceEnvelope,
