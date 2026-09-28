@@ -66,7 +66,7 @@ pub fn export_diagnostic_logs(
     destination: &Path,
     request: DiagnosticArchiveRequest,
 ) -> Result<DiagnosticArchiveReport> {
-    let (mut candidates, unreadable_files) = collect_log_files(logs_dir, request.since)?;
+    let (mut candidates, unreadable_files) = collect_log_files(logs_dir)?;
     candidates.sort_by(|left, right| left.name.cmp(&right.name));
     if candidates.is_empty() && matches!(request.mode, DiagnosticArchiveMode::Offline) {
         bail!("No application logs are available to export");
@@ -86,16 +86,47 @@ pub fn export_diagnostic_logs(
         concurrent_writes_possible: true,
     };
 
+    // Files that belong to the requested window, whether or not they could be
+    // read. An offline export with none of them has nothing to report.
+    let mut in_window = 0;
     {
         let mut archive = zip::ZipWriter::new(temporary.as_file_mut());
         for candidate in candidates {
-            let Ok(input) = File::open(&candidate.path) else {
-                report.unreadable_files.push(candidate.name);
+            // Size and modification time come from the opened handle. On
+            // Windows the directory entry of a file that another process keeps
+            // open for appending is only refreshed when that writer closes it,
+            // so its size can be far behind or even zero.
+            let Ok((input, metadata)) = File::open(&candidate.path)
+                .and_then(|input| input.metadata().map(|metadata| (input, metadata)))
+            else {
+                // Without a handle, fall back to the listed metadata so an
+                // unreadable file outside the window stays out of the report.
+                match &candidate.listed {
+                    Some(listed)
+                        if !within_window(
+                            candidate.date,
+                            listed.modified().ok(),
+                            request.since,
+                        ) => {}
+                    Some(_) => {
+                        in_window += 1;
+                        report.unreadable_files.push(candidate.name);
+                    }
+                    None => report.unreadable_files.push(candidate.name),
+                }
                 continue;
             };
+            if !within_window(candidate.date, metadata.modified().ok(), request.since) {
+                continue;
+            }
+            in_window += 1;
+            // Copy the length observed at open time rather than reading to
+            // EOF, so an export converges while writers keep appending; later
+            // records are covered by `concurrent_writes_possible`.
+            let length = metadata.len();
             archive.start_file(format!("logs/{}", candidate.name), options)?;
-            let copied = io::copy(&mut input.take(candidate.length), &mut archive)?;
-            if copied != candidate.length {
+            let copied = io::copy(&mut input.take(length), &mut archive)?;
+            if copied != length {
                 report.truncated_files.push(candidate.name.clone());
             }
             report.included_files.push(candidate.name);
@@ -115,6 +146,13 @@ pub fn export_diagnostic_logs(
         archive.finish()?;
     }
 
+    // The window is checked against the opened handle, so an offline export
+    // with no file inside it is only known here. Dropping the temporary
+    // archive leaves any existing destination untouched.
+    if in_window == 0 && matches!(request.mode, DiagnosticArchiveMode::Offline) {
+        bail!("No application logs are available to export");
+    }
+
     temporary.as_file().sync_all()?;
     temporary.persist(destination).context("save log archive")?;
     Ok(report)
@@ -123,13 +161,12 @@ pub fn export_diagnostic_logs(
 struct LogCandidate {
     path: PathBuf,
     name: String,
-    length: u64,
+    date: NaiveDate,
+    /// Directory-entry metadata; only used when the file cannot be opened.
+    listed: Option<fs::Metadata>,
 }
 
-fn collect_log_files(
-    logs_dir: &Path,
-    since: Option<DateTime<Utc>>,
-) -> Result<(Vec<LogCandidate>, Vec<String>)> {
+fn collect_log_files(logs_dir: &Path) -> Result<(Vec<LogCandidate>, Vec<String>)> {
     if !logs_dir.exists() {
         return Ok((Vec::new(), Vec::new()));
     }
@@ -154,20 +191,11 @@ fn collect_log_files(
         if !file_type.is_file() {
             continue;
         }
-        let metadata = match entry.metadata() {
-            Ok(metadata) => metadata,
-            Err(_) => {
-                unreadable.push(name);
-                continue;
-            }
-        };
-        if !within_window(date, metadata.modified().ok(), since) {
-            continue;
-        }
         files.push(LogCandidate {
             path: entry.path(),
             name,
-            length: metadata.len(),
+            date,
+            listed: entry.metadata().ok(),
         });
     }
     Ok((files, unreadable))
