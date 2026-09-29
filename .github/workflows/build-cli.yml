@@ -15,6 +15,16 @@ on:
           - 'windows-latest'
           - 'all'
         default: 'all'
+      channel:
+        description: '发布渠道(决定 uniclipd 编译期嵌入的 APP_ENV)'
+        required: false
+        type: choice
+        options:
+          - 'stable'
+          - 'alpha'
+          - 'beta'
+          - 'rc'
+        default: 'stable'
       save_cache:
         description: '是否保存构建缓存(用于手动验证 cache warmup)'
         required: false
@@ -32,6 +42,19 @@ on:
         required: false
         type: string
         default: ''
+      channel:
+        description: '发布渠道,决定 uniclipd 编译期嵌入的 APP_ENV'
+        required: false
+        type: string
+        default: 'stable'
+      linux_only:
+        description: >-
+          Build only the Linux musl targets. Release sets this because build.yml
+          packages the macOS and Windows x64 CLI archives from the app build's
+          uniclipd sidecar (same target triple, profile and telemetry env).
+        required: false
+        type: boolean
+        default: false
       save_cache:
         description: '是否保存构建缓存'
         required: false
@@ -42,7 +65,7 @@ jobs:
   setup-matrix:
     runs-on: ubuntu-latest
     outputs:
-      matrix: ${{ steps.set-matrix.outputs.matrix }}
+      matrix: ${{ steps.select-targets.outputs.matrix }}
       windows-runner: ${{ steps.select-windows-runner.outputs.runner }}
       windows-runner-source: ${{ steps.select-windows-runner.outputs.source }}
     steps:
@@ -77,16 +100,36 @@ jobs:
             echo 'matrix=[{"platform":"ubuntu-22.04","target":"x86_64-unknown-linux-musl","args":"--target x86_64-unknown-linux-musl","container":"ghcr.io/uniclipboard/build-bookworm:latest"}]' >> "$GITHUB_OUTPUT"
           elif [ "$PLATFORM" == "ubuntu-22.04-arm" ]; then
             echo 'matrix=[{"platform":"ubuntu-22.04-arm","target":"aarch64-unknown-linux-musl","args":"--target aarch64-unknown-linux-musl","container":"ghcr.io/uniclipboard/build-bookworm:latest"}]' >> "$GITHUB_OUTPUT"
-          elif [ "$PLATFORM" == "windows-latest" ]; then
+          elif [ "$PLATFORM" == "windows-latest" ] || [ "$PLATFORM" == "windows-x86_64" ]; then
             echo "matrix=[{\"platform\":\"windows-latest\",\"runner\":\"$WINDOWS_RUNNER\",\"target\":\"x86_64-pc-windows-msvc\",\"args\":\"\"}]" >> "$GITHUB_OUTPUT"
+          elif [ "$PLATFORM" == "windows-arm64" ]; then
+            # Release accepts the app's platform names; there is no Windows
+            # arm64 CLI archive, so this selection builds no CLI target.
+            echo 'matrix=[]' >> "$GITHUB_OUTPUT"
           else
-            echo "Error: Unknown platform '$PLATFORM'. Valid options: all, macos-aarch64, macos-x86_64, ubuntu-22.04, ubuntu-22.04-arm, windows-latest"
+            echo "Error: Unknown platform '$PLATFORM'. Valid options: all, macos-aarch64, macos-x86_64, ubuntu-22.04, ubuntu-22.04-arm, windows-latest, windows-x86_64, windows-arm64"
             exit 1
           fi
+
+      - name: Select CLI targets
+        id: select-targets
+        # With linux_only, keep only the musl targets: Linux CLI builds are
+        # musl-static while the app ships glibc binaries, so they cannot reuse
+        # the app build's uniclipd. Every other target is packaged by build.yml.
+        env:
+          MATRIX: ${{ steps.set-matrix.outputs.matrix }}
+          LINUX_ONLY: ${{ inputs.linux_only }}
+        run: |
+          node -e '
+            const all = JSON.parse(process.env.MATRIX)
+            const keep = process.env.LINUX_ONLY === "true" ? all.filter(e => e.target.includes("-linux-musl")) : all
+            console.log("matrix=" + JSON.stringify(keep))
+          ' >> "$GITHUB_OUTPUT"
 
   build-cli:
     name: Build CLI ${{ matrix.target }}
     needs: setup-matrix
+    if: needs.setup-matrix.outputs.matrix != '[]'
     runs-on: ${{ matrix.runner || matrix.platform }}
     container: ${{ matrix.container || null }}
     strategy:
@@ -151,6 +194,12 @@ jobs:
           # 只在 main 写缓存,tag/PR 只读。详见 build.yml 同名 step 的注释。
           save-if: ${{ inputs.save_cache || github.ref == 'refs/heads/main' }}
 
+      - name: resolve APP_ENV from channel
+        id: resolve-env
+        env:
+          UC_CHANNEL: ${{ inputs.channel || 'stable' }}
+        run: node scripts/ci/resolve-app-env.mjs
+
       - name: build CLI binary
         # musl 链接器 + ring/cc-rs 的 C 编译器都指到 musl-gcc,产物完全静态,
         # 不再链 host glibc。其他 platform 这两个 env 是 noop。
@@ -180,6 +229,12 @@ jobs:
           CFLAGS_aarch64_unknown_linux_musl: "-mno-outline-atomics"
           CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_RUSTFLAGS: "-C relocation-model=static"
           CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_RUSTFLAGS: "-C relocation-model=static"
+          # uniclipd embeds these at compile time (option_env!), exactly like the
+          # app's sidecar build in build.yml, so every shipped daemon reports to
+          # the same Sentry/PostHog projects and environment.
+          SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
+          POSTHOG_PROJECT_KEY: ${{ secrets.POSTHOG_PROJECT_KEY }}
+          APP_ENV: ${{ steps.resolve-env.outputs.app_env }}
         run: |
           cargo build --release -p uc-cli ${{ matrix.args }} --timings
           # ADR-008 D13: ship the standalone `uniclipd` daemon in the same
@@ -189,115 +244,49 @@ jobs:
           # container, -mno-outline-atomics on aarch64) builds it the same way.
           cargo build --release -p uc-daemon --bin uniclipd ${{ matrix.args }} --timings
 
-      - name: import Apple certificate (macOS only)
-        if: matrix.platform == 'macos-latest'
+      - name: Upload Sentry debug symbols
+        # uniclipd embeds the backend Sentry DSN, so its crashes need these
+        # symbols to be readable. Same upload as build.yml; skipped when the
+        # Sentry upload credentials are not configured.
+        shell: bash
         env:
-          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
         run: |
-          CERTIFICATE_PATH=$RUNNER_TEMP/build_certificate.p12
-          KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
-          KEYCHAIN_PASSWORD=$(openssl rand -hex 12)
-
-          echo -n "$APPLE_CERTIFICATE" | base64 --decode -o $CERTIFICATE_PATH
-
-          security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
-          security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
-          security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
-
-          security import $CERTIFICATE_PATH -P "$APPLE_CERTIFICATE_PASSWORD" -A -t cert -f pkcs12 -k $KEYCHAIN_PATH
-          security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
-          security list-keychain -d user -s $KEYCHAIN_PATH
-
-          echo "KEYCHAIN_PATH=$KEYCHAIN_PATH" >> "$GITHUB_ENV"
-
-      - name: sign CLI binary (macOS only)
-        if: matrix.platform == 'macos-latest'
-        run: |
-          # Extract signing identity from imported certificate
-          IDENTITY=$(security find-identity -v -p codesigning "$KEYCHAIN_PATH" | grep "Developer ID Application" | head -1 | sed 's/.*"\(.*\)".*/\1/')
-          if [ -z "$IDENTITY" ]; then
-            echo "ERROR: No Developer ID Application identity found in keychain"
-            security find-identity -v -p codesigning "$KEYCHAIN_PATH"
-            exit 1
+          if [ -z "$SENTRY_AUTH_TOKEN" ] || [ -z "$SENTRY_PROJECT" ]; then
+            echo "::warning::SENTRY_AUTH_TOKEN/SENTRY_PROJECT not configured — skipping debug-files upload"
+            exit 0
           fi
-          echo "Signing with: $IDENTITY"
-
-          TARGET="${{ matrix.target }}"
-
-          # Sign both bundled binaries: the CLI and the daemon it spawns.
-          for BIN_NAME in uniclip uniclipd; do
-            BIN_PATH="target/${TARGET}/release/${BIN_NAME}"
-            if [ ! -f "$BIN_PATH" ]; then
-              BIN_PATH="target/release/${BIN_NAME}"
-            fi
-            echo "Signing $BIN_PATH"
-            codesign --force --options runtime --sign "$IDENTITY" --keychain "$KEYCHAIN_PATH" "$BIN_PATH"
-            codesign --verify --verbose "$BIN_PATH"
-          done
-
-      - name: notarize CLI binary (macOS only)
-        if: matrix.platform == 'macos-latest'
-        env:
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-        run: |
-          TARGET="${{ matrix.target }}"
-          BIN_DIR="target/${TARGET}/release"
-          if [ ! -f "${BIN_DIR}/uniclip" ]; then
-            BIN_DIR="target/release"
+          npm install -g @sentry/cli
+          if [ -n "${{ matrix.args }}" ]; then
+            TARGET_DIR="target/${{ matrix.target }}/release"
+          else
+            TARGET_DIR="target/release"
           fi
-
-          # notarytool requires a zip archive; stage both binaries so the CLI
-          # and the daemon it spawns are notarized together.
-          STAGE="$RUNNER_TEMP/cli-notarize-stage"
-          rm -rf "$STAGE"
-          mkdir -p "$STAGE"
-          cp "${BIN_DIR}/uniclip" "${BIN_DIR}/uniclipd" "$STAGE/"
-          NOTARIZE_ZIP="$RUNNER_TEMP/cli-notarize.zip"
-          ditto -c -k "$STAGE" "$NOTARIZE_ZIP"
-
-          xcrun notarytool submit "$NOTARIZE_ZIP" \
-            --apple-id "$APPLE_ID" \
-            --password "$APPLE_PASSWORD" \
-            --team-id "$APPLE_TEAM_ID" \
-            --wait
-
-          # Note: stapler staple only works on .app/.dmg/.pkg bundles, not bare binaries.
-          # For standalone CLI binaries, Gatekeeper checks the notarization ticket online.
+          echo "Uploading debug files from $TARGET_DIR"
+          sentry-cli debug-files upload --include-sources "$TARGET_DIR"
 
       - name: package CLI binary
         id: package
         shell: bash
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
-          VERSION=$(node -p "require('./package.json').version")
-          TARGET="${{ matrix.target }}"
-
-          # Ship `uniclipd` next to `uniclip` so `uniclip start` can spawn the
-          # daemon as a sibling binary (ADR-008 D13).
-          if [ "${{ matrix.platform }}" = "windows-latest" ]; then
-            BIN_SRC="target/release/uniclip.exe"
-            # Windows non-cross build puts binary in target/release/, not target/{target}/release/
-            if [ ! -f "$BIN_SRC" ]; then
-              BIN_SRC="target/${TARGET}/release/uniclip.exe"
-            fi
-            ARCHIVE="uniclipboard-cli-${VERSION}-${TARGET}.zip"
-            # 7z stores paths as given on the command line, so add the exes
-            # from inside their directory to keep the archive root flat
-            # (matching the tar.gz layout).
-            WORKDIR="$(pwd)"
-            (cd "$(dirname "$BIN_SRC")" && 7z a "${WORKDIR}/${ARCHIVE}" uniclip.exe uniclipd.exe)
+          # Windows builds with the host default target (args=""), landing in
+          # target/release; the other targets pass --target.
+          if [ -n "${{ matrix.args }}" ]; then
+            BIN_DIR="target/${{ matrix.target }}/release"
           else
-            BIN_DIR="target/${TARGET}/release"
-            # Fallback for non-cross builds
-            if [ ! -f "${BIN_DIR}/uniclip" ]; then
-              BIN_DIR="target/release"
-            fi
-            ARCHIVE="uniclipboard-cli-${VERSION}-${TARGET}.tar.gz"
-            tar -czf "$ARCHIVE" -C "$BIN_DIR" uniclip uniclipd
+            BIN_DIR="target/release"
           fi
-          echo "archive=$ARCHIVE" >> "$GITHUB_OUTPUT"
+          EXE=""
+          case "${{ matrix.target }}" in *windows*) EXE=".exe" ;; esac
+          bash scripts/ci/package-cli.sh "${{ matrix.target }}" "$BIN_DIR/uniclip$EXE" "$BIN_DIR/uniclipd$EXE"
 
       - name: Upload Cargo timing reports
         if: always()
@@ -313,7 +302,3 @@ jobs:
         with:
           name: cli-${{ matrix.target }}
           path: uniclipboard-cli-*
-
-      - name: cleanup keychain (macOS only)
-        if: matrix.platform == 'macos-latest' && always()
-        run: security delete-keychain $RUNNER_TEMP/app-signing.keychain-db 2>/dev/null || true
