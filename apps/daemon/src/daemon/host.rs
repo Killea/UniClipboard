@@ -75,6 +75,7 @@ async fn run_async_with_diagnostics(
     let prepared = prepare_desktop_engine_host()?;
     let process_paths = prepared.process_paths().clone();
     let analytics = prepared.analytics();
+    let secure_storage_source = prepared.secure_storage_source();
     let file_handles: Arc<dyn DaemonFileHandles> =
         Arc::new(DesktopDaemonFileHandles::new(prepared.file_handles()));
     let (engine_config, host_capabilities) = prepared.into_engine_start();
@@ -127,7 +128,11 @@ async fn run_async_with_diagnostics(
     let (engine, events) = match started {
         Ok(result) => result,
         Err(error) => {
-            tracing::error!("engine startup failed; startup status remains available");
+            // Engine errors carry only a stable code and category, never secrets.
+            tracing::error!(
+                error = %format!("{error:#}"),
+                "engine startup failed; startup status remains available"
+            );
             // Keep the terminal snapshot readable until an explicit retry or full quit.
             wait_for_shutdown_signal().await?;
             startup_server.shutdown().await?;
@@ -145,7 +150,7 @@ async fn run_async_with_diagnostics(
     .await;
 
     record_upgrade_status_at_startup(&engine).await;
-    spawn_startup_recovery(run_mode, Arc::clone(&engine));
+    spawn_startup_recovery(run_mode, Arc::clone(&engine), secure_storage_source);
 
     let wake_monitor = match super::system_wake::start(Arc::clone(&engine)).await {
         Ok(monitor) => Some(monitor),
@@ -178,9 +183,12 @@ async fn run_async_with_diagnostics(
         .await
         .map_err(anyhow::Error::new);
 
-    if result.is_err() {
+    if let Err(error) = &result {
         startup_server.mark_service_failed();
-        tracing::error!("daemon service startup failed; startup status remains available");
+        tracing::error!(
+            error = %format!("{error:#}"),
+            "daemon service startup failed; startup status remains available"
+        );
         wait_for_shutdown_signal().await?;
     }
     startup_server.shutdown().await?;
