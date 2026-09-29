@@ -9433,8 +9433,7 @@ checksum = "13c2bddecc57b384dee18652358fb23172facb8a2c51ccc10d74c157bdea3292"
 [[package]]
 name = "swarm-discovery"
 version = "0.6.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1b4877f20f064de34b77d79237c9caa37c393590af8ef5a2f3253d59be5a338b"
+source = "git+https://github.com/UniClipboard/Engine.git?rev=c7a821b4d899d32b375a707d2551f382e088b306#c7a821b4d899d32b375a707d2551f382e088b306"
 dependencies = [
  "acto",
  "hickory-proto",
