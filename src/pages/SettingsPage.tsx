@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router'
 import InsetSurface from '@/components/layout/InsetSurface'
 import {
@@ -6,6 +6,10 @@ import {
   SETTINGS_CATEGORIES,
   type SettingsCategory,
 } from '@/components/setting/settings-config'
+import {
+  readSettingsScrollOffset,
+  rememberSettingsScrollOffset,
+} from '@/components/setting/settings-scroll-session'
 import SettingsPageHeader from '@/components/setting/SettingsPageHeader'
 import SettingsSidebar from '@/components/setting/SettingsSidebar'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -51,7 +55,39 @@ function SettingsPage() {
     }
   }, [locationState, navigate, locationPathname])
 
+  const viewportRef = useRef<HTMLDivElement | null>(null)
+  // The offset the active category was restored to. A viewport still sitting on
+  // it has not been moved by the user, and a restore clamped by a temporarily
+  // taller window must not shrink the stored offset.
+  const restoredOffsetRef = useRef(0)
+
+  // One scroll area serves every category, so its offset carries over unless the
+  // outgoing category's offset is stored and the incoming one's is restored.
+  useLayoutEffect(() => {
+    const viewport = viewportRef.current
+    if (!viewport) return
+    const limit = Math.max(0, viewport.scrollHeight - viewport.clientHeight)
+    const restored = Math.min(readSettingsScrollOffset(activeCategory), limit)
+    restoredOffsetRef.current = restored
+    viewport.scrollTop = restored
+    // Recorded while scrolling, which also covers leaving the settings page.
+    // Reading the offset on teardown instead would already see it clamped by the
+    // incoming category's shorter content.
+    const record = () => {
+      if (viewport.scrollTop === restoredOffsetRef.current) return
+      rememberSettingsScrollOffset(activeCategory, viewport.scrollTop)
+    }
+    viewport.addEventListener('scroll', record, { passive: true })
+    return () => viewport.removeEventListener('scroll', record)
+  }, [activeCategory])
+
   const handleCategoryChange = (category: string) => {
+    // Scroll events are delivered at a later rendering step, so a switch in the
+    // same frame as the last scroll would otherwise store a stale offset.
+    const viewport = viewportRef.current
+    if (viewport && viewport.scrollTop !== restoredOffsetRef.current) {
+      rememberSettingsScrollOffset(activeCategory, viewport.scrollTop)
+    }
     setActiveCategory(category)
   }
 
@@ -69,7 +105,7 @@ function SettingsPage() {
 
   const content = (
     <SidebarInset className="min-h-0 bg-transparent">
-      <ScrollArea className="flex-1 min-h-0">
+      <ScrollArea className="flex-1 min-h-0" viewportRef={viewportRef}>
         <div className="p-4 sm:p-6 lg:p-8">
           {ActiveSection && (
             <SettingContentLayout header={sectionHeader}>
