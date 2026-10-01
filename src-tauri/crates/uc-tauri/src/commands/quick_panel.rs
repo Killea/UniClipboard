@@ -320,6 +320,7 @@ pub async fn set_quick_panel_double_tap_modifier(
     connection_state: State<'_, DaemonConnectionState>,
     modifier_monitor: State<'_, ModifierDoubleTapMonitor>,
     update_lock: State<'_, KeyboardShortcutsUpdateLock>,
+    backend: State<'_, quick_panel::QuickPanelBackend>,
     modifier: QuickPanelDoubleTapModifierArg,
     _trace: Option<TraceMetadata>,
 ) -> Result<(), CommandError> {
@@ -341,6 +342,34 @@ pub async fn set_quick_panel_double_tap_modifier(
             .map_err(CommandError::internal)?;
         let target: QuickPanelDoubleTapModifier = modifier.into();
         let target_dto = target;
+
+        if backend.is_native() {
+            if target != QuickPanelDoubleTapModifier::Disabled
+                && !quick_panel::QuickPanelBackend::supports_double_tap()
+            {
+                // Accepting the setting would promise a trigger that never fires.
+                return Err(CommandError::Conflict(
+                    "modifier double-tap is not available with the native quick panel on this platform yet"
+                        .to_string(),
+                ));
+            }
+            // The helper owns the trigger and reads the setting at startup: persist it, then
+            // restart the helper so the new value takes effect.
+            if current.quick_panel.double_tap_modifier != target_dto {
+                client
+                    .update_settings(SettingsPatchDto {
+                        quick_panel: Some(QuickPanelSettingsPatchDto {
+                            double_tap_modifier: Some(target_dto),
+                            ..Default::default()
+                        }),
+                        ..Default::default()
+                    })
+                    .await
+                    .map_err(CommandError::internal)?;
+                backend.restart();
+            }
+            return Ok(());
+        }
 
         let persisted_matches = current.quick_panel.double_tap_modifier == target_dto;
         let availability = modifier_double_tap_availability();
@@ -456,6 +485,18 @@ pub async fn set_quick_panel_enabled(
             return Ok(());
         }
 
+        let backend = app.state::<quick_panel::QuickPanelBackend>();
+        if backend.is_native() {
+            // The native helper owns the shortcut and the window, so there is no OS state
+            // to apply or roll back here: persist first, then start or stop the helper.
+            client
+                .update_settings(quick_panel_enabled_patch(enabled))
+                .await
+                .map_err(CommandError::internal)?;
+            backend.set_enabled(enabled);
+            return Ok(());
+        }
+
         // Reconstruct a domain `Settings`-shaped view of the current keyboard
         // shortcuts so we can reuse `resolve_quick_panel_shortcuts`. We only
         // need the `keyboard_shortcuts` field for that helper.
@@ -483,15 +524,10 @@ pub async fn set_quick_panel_enabled(
         )
         .await?;
 
-        let patch = SettingsPatchDto {
-            quick_panel: Some(QuickPanelSettingsPatchDto {
-                enabled: Some(enabled),
-                ..Default::default()
-            }),
-            ..Default::default()
-        };
-
-        match client.update_settings(patch).await {
+        match client
+            .update_settings(quick_panel_enabled_patch(enabled))
+            .await
+        {
             Ok(_) => {
                 shortcut_registry.replace(target_shortcuts);
                 app.state::<quick_panel::QuickPanelToggleController>()
@@ -525,6 +561,16 @@ pub async fn set_quick_panel_enabled(
     }
     .instrument(span)
     .await
+}
+
+fn quick_panel_enabled_patch(enabled: bool) -> SettingsPatchDto {
+    SettingsPatchDto {
+        quick_panel: Some(QuickPanelSettingsPatchDto {
+            enabled: Some(enabled),
+            ..Default::default()
+        }),
+        ..Default::default()
+    }
 }
 
 pub(crate) fn desired_live_modifier(

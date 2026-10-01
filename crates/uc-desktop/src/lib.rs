@@ -24,6 +24,7 @@ pub mod modifier_double_tap;
 pub mod modifier_double_tap_monitor;
 pub mod paths;
 pub mod preferences;
+pub mod quick_panel_helper;
 pub mod runtime;
 pub mod shell_settings;
 pub mod shortcuts;
