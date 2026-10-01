@@ -9,6 +9,7 @@ pub mod appearance;
 mod effects;
 mod history;
 mod image_preview;
+mod images;
 mod intents;
 mod keyboard;
 mod preview_window;
@@ -19,8 +20,8 @@ gpui::actions!(quick_panel, [NextSuggestion, PreviousSuggestion]);
 
 use crate::platform;
 use gpui::{
-    prelude::*, App, Context, Entity, EntityInputHandler, Image, ImageFormat, KeyDownEvent,
-    ScrollHandle, Subscription, Task, Window,
+    prelude::*, App, Context, Entity, EntityInputHandler, KeyDownEvent, RenderImage, ScrollHandle,
+    Subscription, Task, Window,
 };
 use gpui_component::input::{InputEvent, InputState};
 use quick_panel_core::ports::{HistoryService, HostLink, PasteTarget};
@@ -32,10 +33,12 @@ use quick_panel_core::text;
 use std::{collections::HashMap, rc::Rc, sync::Arc, time::Instant};
 use uc_daemon_contract::api::dto::search::SearchResultDto;
 
-/// A decoded image and how big it is.
+/// A decoded bitmap, and the size of the image it was made from.
+///
+/// The panel owns the bitmap and gives it back to GPUI with `App::drop_image` (see `images`).
 #[derive(Clone)]
 struct ImageData {
-    image: Arc<Image>,
+    image: Arc<RenderImage>,
     width: u32,
     height: u32,
     size_bytes: i64,
@@ -54,12 +57,16 @@ struct PreviewSnapshot {
     /// Name of the device the entry came from, when it is known.
     source_name: Option<String>,
     now_ms: i64,
+    /// The panel is open. A hidden panel draws nothing, so its preview window keeps no bitmaps.
+    open: bool,
 }
 
 impl PreviewSnapshot {
-    /// An image is drawn full size, except while the action list replaces it.
+    /// An image is drawn full size, except while the action list replaces it, and only while the
+    /// panel is open.
     fn is_image(&self) -> bool {
-        self.actions.is_none()
+        self.open
+            && self.actions.is_none()
             && self
                 .item
                 .as_ref()
@@ -79,6 +86,7 @@ struct Tasks {
     live: Option<Task<()>>,
     preview_timer: Option<Task<()>>,
     preview_load: Option<Task<()>>,
+    preview_decode: Option<Task<()>>,
     reconnect: Option<Task<()>>,
     count: Option<Task<()>>,
     blur: Option<Task<()>>,
@@ -96,7 +104,16 @@ pub struct Panel {
     preview_window: Option<gpui::AnyWindowHandle>,
     preview_anchor: Option<quick_panel_core::geometry::window_pair::PreviewAnchor>,
     image_bounds: HashMap<String, gpui::Bounds<gpui::Pixels>>,
-    images: HashMap<String, ImageData>,
+    /// Small bitmaps for the entries in the list, by entry id.
+    thumbnails: HashMap<String, ImageData>,
+    /// The full-size bitmap of the entry being previewed. Never more than one.
+    preview_image: Option<(String, ImageData)>,
+    /// The entry whose preview image has arrived from the daemon and is being decoded.
+    preview_decoding: Option<String>,
+    /// Allows one image decode at a time across the whole panel. A permit travels into the
+    /// blocking closure, so it is released when the decode ends, not when the task that asked
+    /// for it is dropped (dropping a task cannot stop a blocking closure that already started).
+    decode_gate: Arc<tokio::sync::Semaphore>,
     anchor: (f64, f64),
     scale: f64,
     /// General settings from the last successful read. They are applied before every show, so the
@@ -171,7 +188,10 @@ impl Panel {
             preview_window: None,
             preview_anchor: None,
             image_bounds: HashMap::new(),
-            images: HashMap::new(),
+            thumbnails: HashMap::new(),
+            preview_image: None,
+            preview_decoding: None,
+            decode_gate: Arc::new(tokio::sync::Semaphore::new(1)),
             anchor: (f64::from(bounds.origin.x), f64::from(bounds.origin.y)),
             scale: std::env::var("UC_GPUI_SCALE")
                 .ok()
@@ -251,15 +271,5 @@ impl Panel {
     fn list_lead(&self, cx: &App) -> usize {
         let data = self.ctx_data(cx);
         self.state.list_lead(&data.ctx())
-    }
-
-    fn image_data(payload: quick_panel_core::ports::ImagePayload, size: i64) -> Option<ImageData> {
-        let format = ImageFormat::from_mime_type(&payload.mime)?;
-        Some(ImageData {
-            image: Arc::new(Image::from_bytes(format, payload.bytes)),
-            width: payload.width,
-            height: payload.height,
-            size_bytes: size,
-        })
     }
 }
