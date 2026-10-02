@@ -27,7 +27,7 @@ Use this document when editing Rust, Tauri commands, daemon handlers, async loop
 ## tauri-specta IPC bindings (issue #698)
 
 所有 `#[tauri::command]` 通过 `tauri-specta` 自动派生 TypeScript 客户端，
-单一真相源在 `src-tauri/crates/uc-tauri/src/specta_builder.rs` 的
+单一真相源在 `crates/uc-tauri/src/specta_builder.rs` 的
 `build()` 函数。新增 / 修改 / 删除一个命令时必须：
 
 1. **Rust 端**：
@@ -45,7 +45,7 @@ Use this document when editing Rust, Tauri commands, daemon handlers, async loop
      需要补 `#[specta(type = Option<T>)]`，告诉 specta 实际 wire 类型。
 
 2. **Codegen**：本地跑 `cargo test -p uc-tauri --test specta_export` 重新
-   生成 `src/lib/ipc-bindings.generated.ts`，并把它一起提交。CI
+   生成 `apps/gui/src/lib/ipc-bindings.generated.ts`，并把它一起提交。CI
    `pr-check.yml` 会用 `git diff --exit-code` 校验，drift 会拒绝合并。
 
 3. **平台条件命令**：新增带 `#[cfg(target_os = "...")]` 的命令时，函数

@@ -48,7 +48,7 @@ import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..')
-const srcTauri = join(repoRoot, 'src-tauri')
+const srcTauri = join(repoRoot, 'apps', 'gui', 'src-tauri')
 const tauriConf = join(srcTauri, 'tauri.conf.json')
 
 // All generated state lives under the gitignored target dir.
@@ -162,7 +162,7 @@ function ensureSidecar(flags) {
     log(`sidecar already staged for ${triple} (pass --rebuild-sidecar to force)`)
     return
   }
-  run('node', [join(repoRoot, 'scripts', 'prepare-daemon-sidecar.mjs'), '--debug'])
+  run('node', [join(repoRoot, 'scripts', 'prepare-sidecars.mjs'), '--debug'])
 }
 
 // Write a minimal `-c` override config merged onto tauri.conf.json: isolated
