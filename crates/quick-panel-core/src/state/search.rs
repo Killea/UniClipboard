@@ -5,7 +5,7 @@ use uc_daemon_contract::api::dto::settings::QuickPanelPositionDto;
 
 use crate::empty_page;
 use crate::grid;
-use crate::ports::{Live, Options, SearchFailure, ServiceError};
+use crate::ports::{Choices, Live, Options, SearchFailure, ServiceError};
 use crate::query::filters::{Dimension, Filters};
 
 use super::{timing, Ctx, Effect, Effects, PanelState, Preview};
@@ -52,6 +52,10 @@ impl PanelState {
         self.search.loading = false;
         match result {
             Ok(result) => {
+                // Tags and devices were dropped while locked; read them again now it is open.
+                if self.search.locked {
+                    effects.push(Effect::LoadOptions);
+                }
                 self.search.locked = false;
                 self.search.disconnected = None;
                 effects.push(Effect::CancelReconnect);
@@ -66,6 +70,11 @@ impl PanelState {
             }
             Err(error) => {
                 self.search.locked = matches!(error, SearchFailure::Locked);
+                // A 423 means locked as much as the lock notice does, which may have been missed.
+                if self.search.locked {
+                    self.catalog.tags.clear();
+                    self.catalog.members.clear();
+                }
                 // Locked and disconnected have pages of their own instead of a message.
                 let own_page = self.search.locked || matches!(error, SearchFailure::Disconnected);
                 self.session.message = (!own_page).then(|| error.to_string());
@@ -184,13 +193,13 @@ impl PanelState {
                 QuickPanelPositionDto::FollowCursor
             );
         }
-        let Options {
-            tags,
-            members,
-            settings,
-        } = *options;
-        self.catalog.tags = tags;
-        self.catalog.members = members;
+        let Options { choices, settings } = *options;
+        // A failed read of the choices keeps what was known, and the settings still apply. While
+        // locked nothing is taken, not even an answer that was on its way when the lock came.
+        if let (Ok(Choices { tags, members }), false) = (choices, self.search.locked) {
+            self.catalog.tags = tags;
+            self.catalog.members = members;
+        }
         vec![Effect::ApplySettings(Box::new(settings))]
     }
 

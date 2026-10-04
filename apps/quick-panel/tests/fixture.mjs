@@ -33,6 +33,7 @@ const state = {
   searchStarts: [],
   settingsReads: 0,
   tagsReads: 0,
+  locked: false,
 }
 const fullText = new Map([
   [
@@ -73,7 +74,8 @@ const imageBytes = new Map()
 const settings = JSON.parse(readFileSync(new URL('./settings.json', import.meta.url), 'utf8'))
 settings.general.theme = process.env.UC_GPUI_FIXTURE_THEME ?? 'system'
 // The panel reads words as pinyin initials only in a Chinese interface, whatever the system says.
-settings.general.language = 'zh-CN'
+// An empty value leaves the language unset, so the panel follows the system language.
+settings.general.language = process.env.UC_GPUI_FIXTURE_LANGUAGE ?? 'zh-CN'
 if (process.env.UC_GPUI_IMAGE_FIXTURES === '1') {
   const images = [
     ['landscape', '横图预览 · 设计'],
@@ -133,6 +135,27 @@ const server = createServer(async (request, response) => {
     response.end(JSON.stringify(body))
   }
   if (url.pathname === '/__test/state') return json(200, state)
+  // Changes the configured language, as the main window's language setting does; the panel
+  // reads it again the next time it opens.
+  if (url.pathname === '/__test/language') {
+    settings.general.language = url.searchParams.get('value') || null
+    return json(200, { language: settings.general.language })
+  }
+  // Locks or unlocks the content as the daemon does: history, tags and devices answer 423, the
+  // settings the locked page is drawn with stay readable.
+  if (url.pathname === '/__test/locked') {
+    state.locked = url.searchParams.get('on') === '1'
+    return json(200, { locked: state.locked })
+  }
+  if (
+    state.locked &&
+    (url.pathname.startsWith('/search') ||
+      url.pathname.startsWith('/clipboard') ||
+      url.pathname === '/paired-devices')
+  ) {
+    if (url.pathname === '/search/tags') state.tagsReads++
+    return json(423, { error: { code: 'content_locked', message: 'Content locked' } })
+  }
   // Empties or refills the history, to see the first-use page.
   if (url.pathname === '/__test/empty') {
     state.empty = url.searchParams.get('on') === '1'
@@ -276,6 +299,11 @@ const server = createServer(async (request, response) => {
   if (request.method === 'POST' && url.pathname.startsWith('/clipboard/restore/')) {
     const row = rows.find(row => row.entryId === url.pathname.split('/').at(-1))
     if (!row || row.payloadState === 'Lost') return json(404, {})
+    // Tests that must leave the system clipboard alone refuse every restore instead of copying.
+    if (process.env.UC_GPUI_FIXTURE_NO_CLIPBOARD === '1') {
+      state.refusedRestores = (state.refusedRestores ?? 0) + 1
+      return json(403, { error: { code: 'clipboard_disabled', message: 'Clipboard disabled' } })
+    }
     const result = spawnSync('pbcopy', { input: row.textPreview })
     if (result.status !== 0) return json(500, {})
     state.restores.push(row.entryId)
