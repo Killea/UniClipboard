@@ -22,9 +22,12 @@
 # docs/release-workflow.md "GitCode mirror" for why .dmg/.deb/.rpm/the
 # Windows portable zip are not covered yet.
 #
-# - Called by release.yml after the release is published and registered with
-#   FlareRelease, non-blocking: a missing configuration or a failed mirror
-#   produces a warning annotation and a job summary, never a failed release.
+# - Dispatched with `ref: main` once a release is published — never called
+#   inline from release.yml, whose own ref is the release tag and gets
+#   rejected by `environment: mirror`'s main-only branch policy before any
+#   step runs. release.yml's dispatch-mirror-alpha covers alpha; this
+#   file's own `release: types: [published]` (via redispatch-from-release)
+#   covers stable/beta/rc.
 # - Run by hand (workflow_dispatch) to retry or to mirror an older tag. It
 #   downloads installers from the GitHub Release at that tag and rebuilds the
 #   registration payload with the current (default-branch) scripts and
@@ -103,18 +106,64 @@ on:
           - alpha
           - beta
           - rc
+      non_blocking:
+        description: 'Report problems as warnings instead of failing the run'
+        required: false
+        default: false
+        type: boolean
+  # Fires on a human-published stable/beta/rc release (alpha is published
+  # via GITHUB_TOKEN, which never fires release.published — see
+  # dispatch-mirror-alpha). Only runs redispatch-from-release below, which
+  # carries no environment and re-dispatches to ref=main.
+  release:
+    types: [published]
 
 concurrency:
-  group: gitcode-mirror-${{ inputs.tag_name }}
+  group: gitcode-mirror-${{ inputs.tag_name || github.event.release.tag_name }}
   cancel-in-progress: false
 
 jobs:
+  redispatch-from-release:
+    name: Redispatch mirror from a trusted main ref
+    if: github.event_name == 'release'
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      contents: read
+    steps:
+      - name: Dispatch from main with the published tag
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG_NAME: ${{ github.event.release.tag_name }}
+        run: |
+          # Same channel derivation as release.yml's validate job: strip the
+          # leading v, then a `-<word>` suffix names the channel, else stable.
+          VERSION="${TAG_NAME#v}"
+          if [[ "$VERSION" =~ -([a-zA-Z]+) ]]; then
+            CHANNEL="${BASH_REMATCH[1]}"
+          else
+            CHANNEL="stable"
+          fi
+
+          # non_blocking left at its default (false): a real mirror failure
+          # must show as a failed run here, not be swallowed.
+          gh api \
+            --method POST \
+            "repos/${{ github.repository }}/actions/workflows/mirror-desktop-gitcode.yml/dispatches" \
+            -f ref="main" \
+            -f inputs[tag_name]="$TAG_NAME" \
+            -f inputs[version]="$VERSION" \
+            -f inputs[channel]="$CHANNEL"
+
+          echo "Dispatched mirror-desktop-gitcode.yml for $TAG_NAME ($CHANNEL) from main; this only confirms the dispatch request was accepted, not that the mirror itself will succeed." >> "$GITHUB_STEP_SUMMARY"
+
   mirror:
     name: Mirror desktop installers to GitCode
+    if: github.event_name != 'release'
     runs-on: ubuntu-latest
     timeout-minutes: 45
-    # The SSH key is an environment secret that only the main branch may use,
-    # same environment Mobile's mirror-android-gitcode job uses.
+    # Main-only environment secret; only a run dispatched with ref=main
+    # ever reaches this job (see `if:` above).
     environment: mirror
     steps:
       # Not pinned to inputs.tag_name: the registration-building scripts below
@@ -129,6 +178,26 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: lts/*
+
+      # Not gated by `non_blocking`: a caller error, not flaky infra.
+      - name: Reject draft releases and inconsistent tag/version/channel
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO_NAME: ${{ github.repository }}
+          TAG_NAME: ${{ inputs.tag_name }}
+          VERSION: ${{ inputs.version }}
+          CHANNEL: ${{ inputs.channel }}
+        run: |
+          node scripts/validate-mirror-release.mjs \
+            --repo "$REPO_NAME" \
+            --tag-name "$TAG_NAME" \
+            --version "$VERSION" \
+            --channel "$CHANNEL"
+
       - name: Download release assets from the GitHub Release
         continue-on-error: ${{ inputs.non_blocking == true }}
         env:
@@ -137,11 +206,6 @@ jobs:
         run: |
           mkdir -p release-assets
           gh release download "$RELEASE_TAG" --repo "${{ github.repository }}" --dir release-assets
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version: lts/*
 
       - name: Rebuild the FlareRelease registration payload
         id: registration

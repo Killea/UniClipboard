@@ -497,17 +497,38 @@ jobs:
           echo "### FlareRelease" >> $GITHUB_STEP_SUMMARY
           echo "Release registered as Ready. Promote it explicitly in FlareRelease when approved." >> $GITHUB_STEP_SUMMARY
 
-  mirror-desktop-gitcode:
-    name: Mirror desktop installers to GitCode
+  dispatch-mirror-alpha:
+    # alpha's release never fires release.published (GITHUB_TOKEN-authored
+    # events don't cascade), so dispatch explicitly, same as dispatch-copr-
+    # alpha/dispatch-snap/dispatch-npm-alpha. ref=main because mirror's
+    # `environment: mirror` only allows main — inline `uses:` would inherit
+    # this run's tag ref and get rejected before any step runs.
+    name: Dispatch GitCode mirror for alpha
     needs: [validate, create-release]
-    if: success()
-    uses: ./.github/workflows/mirror-desktop-gitcode.yml
-    with:
-      tag_name: v${{ needs.validate.outputs.version }}
-      version: ${{ needs.validate.outputs.version }}
-      channel: ${{ needs.validate.outputs.channel }}
-      non_blocking: true
-    secrets: inherit
+    if: ${{ success() && needs.validate.outputs.channel == 'alpha' }}
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      contents: read
+    steps:
+      - name: Dispatch GitCode mirror
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ needs.validate.outputs.version }}
+          CHANNEL: ${{ needs.validate.outputs.channel }}
+        run: |
+          # non_blocking left at its default (false): this run is already
+          # isolated from release.yml and the other channels, so hiding a
+          # real mirror failure here would have no upside.
+          gh api \
+            --method POST \
+            "repos/${{ github.repository }}/actions/workflows/mirror-desktop-gitcode.yml/dispatches" \
+            -f ref="main" \
+            -f inputs[tag_name]="v${VERSION}" \
+            -f inputs[version]="${VERSION}" \
+            -f inputs[channel]="${CHANNEL}"
+
+          echo "Dispatched mirror-desktop-gitcode.yml for v${VERSION} (${CHANNEL}) from main; this only confirms the dispatch request was accepted, not that the mirror itself will succeed." >> "$GITHUB_STEP_SUMMARY"
 
   dispatch-snap:
     # snap 构建耗时较长,不能作为 reusable job 挂在 release 里等待。
