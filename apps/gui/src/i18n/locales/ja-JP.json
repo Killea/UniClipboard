@@ -1122,7 +1122,12 @@
       },
       "noMatches": "一致しません",
       "removeFilter": "フィルタを削除: {{filter}}",
+      "keyboardHint": "↑↓ 選択 · ↵ または ⇥ で条件に変換 · 空欄で ⌫ を押すと直前の条件を編集",
       "relaxTitle": "フィルタを 1 つ外してみてください",
+      "relaxTitleAll_one": "条件に一致する項目はありません",
+      "relaxTitleAll_other": "{{count}} 件の条件すべてに一致する項目はありません",
+      "relaxPrompt": "1 つ外すと検索を広げられます：",
+      "relaxWithout": "<strong>{{filter}}</strong> を外す",
       "moreFilters": "さらに {{count}} 個のフィルタを表示",
       "clearAll": "すべてクリア",
       "close": "検索パネルを閉じる",
@@ -1131,6 +1136,7 @@
       "done": "完了"
     },
     "sidebar": {
+      "library": "ライブラリ",
       "allItems": "すべてのアイテム",
       "pinned": "ピン留め",
       "recentlyDeleted": "最近削除した項目",
@@ -1141,6 +1147,7 @@
       "devices": "デバイス",
       "devicesOnline": "{{online}}/{{total}} オンライン",
       "devicesEmpty": "ペアリング済みデバイスはありません",
+      "manageDevices": "管理",
       "settings": "設定"
     }
   },

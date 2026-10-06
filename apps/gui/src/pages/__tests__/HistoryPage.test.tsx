@@ -1,6 +1,7 @@
 import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import React from 'react'
+import { MemoryRouter } from 'react-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { useHistoryController } from '@/hooks/useHistoryController'
 import HistoryPage from '@/pages/HistoryPage'
@@ -75,6 +76,7 @@ vi.mock('framer-motion', async () => {
 vi.mock('@/contexts/sidebar-slot-context', () => ({
   useSidebarSlot: () => ({
     contentToolbarHost: sidebarSlot.contentToolbarHost,
+    libraryOwnsNavigation: false,
   }),
 }))
 
@@ -229,6 +231,14 @@ function makeControllerState(
   } as HistoryControllerState
 }
 
+function renderPage() {
+  return render(
+    <MemoryRouter initialEntries={['/history']}>
+      <HistoryPage />
+    </MemoryRouter>
+  )
+}
+
 describe('HistoryPage', () => {
   beforeEach(() => {
     shortcuts.configs = []
@@ -238,7 +248,7 @@ describe('HistoryPage', () => {
   })
 
   it('puts the horizontal filter strip in the content toolbar', () => {
-    render(<HistoryPage />)
+    renderPage()
 
     expect(sidebarSlot.contentToolbarHost).toContainElement(
       screen.getByTestId('history-filter-panel')
@@ -246,7 +256,7 @@ describe('HistoryPage', () => {
   })
 
   it('puts the search control in the content toolbar', () => {
-    render(<HistoryPage />)
+    renderPage()
 
     const trigger = screen.getByRole('button', { name: 'history.composite.title' })
     expect(sidebarSlot.contentToolbarHost).toContainElement(trigger)
@@ -257,7 +267,7 @@ describe('HistoryPage', () => {
 
   it('morphs the toolbar trigger into a right-anchored surface above the filter strip', async () => {
     const user = userEvent.setup()
-    render(<HistoryPage />)
+    renderPage()
 
     const filterPanel = screen.getByTestId('history-filter-panel')
     const trigger = screen.getByRole('button', { name: 'history.composite.title' })
@@ -275,7 +285,7 @@ describe('HistoryPage', () => {
 
   it('keeps the query when closed and returns focus to the search trigger', async () => {
     const user = userEvent.setup()
-    render(<HistoryPage />)
+    renderPage()
 
     await user.click(screen.getByRole('button', { name: 'history.composite.title' }))
     const input = screen.getByRole('combobox', { name: 'history.searchPlaceholder' })
@@ -295,7 +305,7 @@ describe('HistoryPage', () => {
 
   it('puts the result count beside the X and clears while closing the surface', async () => {
     const user = userEvent.setup()
-    render(<HistoryPage />)
+    renderPage()
 
     await user.click(screen.getByRole('button', { name: 'history.composite.title' }))
     const input = screen.getByRole('combobox', { name: 'history.searchPlaceholder' })
@@ -321,7 +331,7 @@ describe('HistoryPage', () => {
   })
 
   it('opens and focuses search from the configurable shortcut', async () => {
-    render(<HistoryPage />)
+    renderPage()
 
     const shortcut = shortcuts.configs.find(config => config.id === 'clipboard.search')
     expect(shortcut?.key).toBe('mod+f')
@@ -332,7 +342,7 @@ describe('HistoryPage', () => {
   })
 
   it('opens search with slash only outside form fields', () => {
-    render(<HistoryPage />)
+    renderPage()
 
     const shortcut = shortcuts.configs.find(
       config => Array.isArray(config.key) && config.key.includes('/') && config.key.includes('、')
@@ -345,7 +355,7 @@ describe('HistoryPage', () => {
 
   it('disables browser text correction in the toolbar search', async () => {
     const user = userEvent.setup()
-    render(<HistoryPage />)
+    renderPage()
 
     await user.click(screen.getByRole('button', { name: 'history.composite.title' }))
     const input = screen.getByRole('combobox', { name: 'history.searchPlaceholder' })
@@ -357,7 +367,7 @@ describe('HistoryPage', () => {
   })
 
   it('animates the preview pane shortly after history rows start entering', () => {
-    render(<HistoryPage />)
+    renderPage()
 
     const previewMotion = screen.getByTestId('history-preview-motion')
 
@@ -377,7 +387,7 @@ describe('HistoryPage', () => {
   })
 
   it('keeps the history list within readable bounds while preview uses extra width', () => {
-    render(<HistoryPage />)
+    renderPage()
 
     expect(screen.getByTestId('history-list-panel')).toHaveAttribute('data-default-size', '42%')
     expect(screen.getByTestId('history-list-panel')).toHaveAttribute('data-min-size', '20rem')

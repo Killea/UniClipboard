@@ -2,9 +2,14 @@ import CompositeSearchClearShortcut from './CompositeSearchClearShortcut'
 import CompositeSearchInput from './CompositeSearchInput'
 import { type CompositeSearchBarProps, useCompositeSearchBar } from './useCompositeSearchBar'
 
-function CompositeSearchBar(props: CompositeSearchBarProps) {
-  const state = useCompositeSearchBar(props)
+type CompositeSearchState = ReturnType<typeof useCompositeSearchBar>
 
+/** Renders a composite search state owned by the caller, so a page can share
+ * one state between the box and other consumers (e.g. zero-result hints). */
+export function CompositeSearchBarView({
+  state,
+  ...props
+}: CompositeSearchBarProps & { state: CompositeSearchState }) {
   return (
     <>
       {props.clearShortcutEnabled !== false && (
@@ -45,10 +50,21 @@ function CompositeSearchBar(props: CompositeSearchBarProps) {
         onResetDimension={state.resetDimension}
         onSelectOption={state.selectOption}
         onHighlight={state.setHighlight}
+        variant={props.variant}
+        shortcutHint={props.shortcutHint}
+        typingToken={state.inToken}
+        suggestionsFooter={
+          props.variant === 'list' ? state.t('history.composite.keyboardHint') : undefined
+        }
         className={props.className}
       />
     </>
   )
+}
+
+function CompositeSearchBar(props: CompositeSearchBarProps) {
+  const state = useCompositeSearchBar(props)
+  return <CompositeSearchBarView {...props} state={state} />
 }
 
 export default CompositeSearchBar

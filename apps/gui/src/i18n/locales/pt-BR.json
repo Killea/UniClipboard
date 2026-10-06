@@ -1123,7 +1123,13 @@
       },
       "noMatches": "Nenhum resultado",
       "removeFilter": "Remover filtro: {{filter}}",
+      "keyboardHint": "↑↓ escolher · ↵ ou ⇥ vira filtro · ⌫ com o campo vazio edita o último filtro",
       "relaxTitle": "Tente remover um filtro",
+      "relaxTitleAll_one": "Nenhum item corresponde ao filtro",
+      "relaxTitleAll_many": "Nenhum item corresponde aos {{count}} filtros",
+      "relaxTitleAll_other": "Nenhum item corresponde aos {{count}} filtros",
+      "relaxPrompt": "Remova um para ampliar a busca:",
+      "relaxWithout": "Sem <strong>{{filter}}</strong>",
       "moreFilters": "Mostrar mais {{count}} filtros",
       "clearAll": "Limpar tudo",
       "close": "Fechar painel de pesquisa",
@@ -1134,6 +1140,7 @@
       "done": "Concluir"
     },
     "sidebar": {
+      "library": "Biblioteca",
       "allItems": "Todos os itens",
       "pinned": "Fixados",
       "recentlyDeleted": "Excluídos recentemente",
@@ -1144,6 +1151,7 @@
       "devices": "Dispositivos",
       "devicesOnline": "{{online}} de {{total}} on-line",
       "devicesEmpty": "Nenhum dispositivo pareado",
+      "manageDevices": "Gerenciar",
       "settings": "Configurações"
     }
   },

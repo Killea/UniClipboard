@@ -1,7 +1,7 @@
 import React from 'react'
 import AddDeviceDialog from '@/components/device/AddDeviceDialog'
 import ConnectMobileDialog from '@/components/device/ConnectMobileDialog'
-import DevicesSidebar from '@/components/device/DevicesSidebar'
+import DeviceList from '@/components/device/DeviceList'
 import LocalDevicePanel from '@/components/device/LocalDevicePanel'
 import LocalPanelSkeleton from '@/components/device/LocalPanelSkeleton'
 import MobileDevicePanel from '@/components/device/MobileDevicePanel'
@@ -10,6 +10,7 @@ import PeerDetailPanelContainer from '@/components/device/PeerDetailPanelContain
 import RemovedDevicePanel from '@/components/device/RemovedDevicePanel'
 import SwitchSpaceDialog from '@/components/device/SwitchSpaceDialog'
 import UnpairAlertDialog from '@/components/device/UnpairAlertDialog'
+import HistorySidebar from '@/components/history/sidebar/HistorySidebar'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import {
   AlertDialog,
@@ -23,6 +24,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { useSidebarSlot } from '@/contexts/sidebar-slot-context'
 import { useDevicesPage } from '@/hooks/useDevicesPage'
 import { createLogger } from '@/lib/logger'
 import {
@@ -36,6 +38,7 @@ import {
 const log = createLogger('devices-page')
 const DevicesPage: React.FC = () => {
   const page = useDevicesPage()
+  const { libraryOwnsNavigation } = useSidebarSlot()
   const {
     t,
     dispatch,
@@ -71,8 +74,9 @@ const DevicesPage: React.FC = () => {
   } = page
   return (
     <div className="flex h-full min-w-0">
+      {libraryOwnsNavigation && <HistorySidebar context="devices" />}
       {/* ── list column ───────────────────────────────────────── */}
-      <DevicesSidebar page={page} />
+      <DeviceList page={page} />
 
       {/* ── detail pane ───────────────────────────────────────── */}
       <main className="min-w-0 flex-1 bg-muted/20">

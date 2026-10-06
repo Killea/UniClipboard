@@ -1126,7 +1126,14 @@
       },
       "noMatches": "Совпадений нет",
       "removeFilter": "Удалить фильтр: {{filter}}",
+      "keyboardHint": "↑↓ выбор · ↵ или ⇥ — в фильтр · ⌫ в пустом поле правит последний фильтр",
       "relaxTitle": "Попробуйте убрать один фильтр",
+      "relaxTitleAll_one": "Нет элементов, подходящих под {{count}} фильтр",
+      "relaxTitleAll_few": "Нет элементов, подходящих под все {{count}} фильтра",
+      "relaxTitleAll_many": "Нет элементов, подходящих под все {{count}} фильтров",
+      "relaxTitleAll_other": "Нет элементов, подходящих под все {{count}} фильтра",
+      "relaxPrompt": "Уберите один, чтобы расширить поиск:",
+      "relaxWithout": "Без <strong>{{filter}}</strong>",
       "moreFilters": "Показать ещё фильтры ({{count}})",
       "clearAll": "Очистить всё",
       "close": "Закрыть панель поиска",
@@ -1138,6 +1145,7 @@
       "done": "Готово"
     },
     "sidebar": {
+      "library": "Библиотека",
       "allItems": "Все элементы",
       "pinned": "Закреплённые",
       "recentlyDeleted": "Недавно удалённые",
@@ -1148,6 +1156,7 @@
       "devices": "Устройства",
       "devicesOnline": "{{online}} из {{total}} онлайн",
       "devicesEmpty": "Нет сопряжённых устройств",
+      "manageDevices": "Управлять",
       "settings": "Настройки"
     },
     "subtitle_few": "{{count}} элемента",

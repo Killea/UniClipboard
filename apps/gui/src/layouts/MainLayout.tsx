@@ -1,12 +1,13 @@
-import { getCurrentWindow } from '@tauri-apps/api/window'
 import { LayoutGroup } from 'framer-motion'
-import React, { ReactNode, useId, useMemo, useRef, useState } from 'react'
+import React, { ReactNode, useId, useMemo, useState } from 'react'
 import InsetSurface from '@/components/layout/InsetSurface'
 import SidebarFooter from '@/components/layout/SidebarFooter'
 import SidebarNavigation from '@/components/layout/SidebarNavigation'
 import { ContentToolbar } from '@/components/TitleBar'
 import { SidebarSlotContext } from '@/contexts/sidebar-slot-context'
+import { useMacTrafficLightPosition } from '@/hooks/useMacTrafficLightPosition'
 import { usePlatform } from '@/hooks/usePlatform'
+import { useWindowDragging } from '@/hooks/useWindowDragging'
 import { useWindowFrame } from '@/hooks/useWindowFrame'
 
 interface MainLayoutProps {
@@ -18,37 +19,14 @@ interface SidebarAreaProps {
   title?: ReactNode
 }
 
-interface ContentToolbarProps {
-  toolbarHostRef: (element: HTMLDivElement | null) => void
-}
-
 const SidebarArea: React.FC<SidebarAreaProps> = ({ title }) => {
   const selectionId = useId()
-  const dragStartRef = useRef<{ x: number; y: number } | null>(null)
-
-  const handlePointerDown = (event: React.PointerEvent<HTMLElement>) => {
-    if (event.button !== 0) return
-    dragStartRef.current = { x: event.clientX, y: event.clientY }
-  }
-
-  const handlePointerMove = (event: React.PointerEvent<HTMLElement>) => {
-    const start = dragStartRef.current
-    if (!start || (event.buttons & 1) === 0) return
-    if (Math.hypot(event.clientX - start.x, event.clientY - start.y) < 4) return
-    dragStartRef.current = null
-    void getCurrentWindow()
-      .startDragging()
-      .catch(() => undefined)
-  }
+  const windowDragging = useWindowDragging()
 
   return (
     <aside
       data-tauri-drag-region
-      onPointerDownCapture={handlePointerDown}
-      onPointerMoveCapture={handlePointerMove}
-      onPointerUpCapture={() => {
-        dragStartRef.current = null
-      }}
+      {...windowDragging}
       className="flex h-full w-12 shrink-0 flex-col"
     >
       <div data-tauri-drag-region className="h-10 shrink-0">
@@ -68,7 +46,11 @@ const SidebarArea: React.FC<SidebarAreaProps> = ({ title }) => {
  * When the Linux system frame is enabled, the content uses a flat layout
  * instead of duplicating native window chrome with an inset panel.
  */
-const LinuxMainLayout: React.FC<MainLayoutProps & SidebarAreaProps & ContentToolbarProps> = ({
+interface ContentToolbarProps {
+  toolbarHostRef: (element: HTMLDivElement | null) => void
+}
+
+const LinuxMainLayout: React.FC<MainLayoutProps & ContentToolbarProps> = ({
   children,
   toolbarHostRef,
 }) => {
@@ -95,7 +77,7 @@ const LinuxMainLayout: React.FC<MainLayoutProps & SidebarAreaProps & ContentTool
  * The app-rendered frame uses one continuous shell background around the
  * sidebar and inset content panel on every desktop platform.
  */
-const InsetMainLayout: React.FC<MainLayoutProps & SidebarAreaProps & ContentToolbarProps> = ({
+const InsetMainLayout: React.FC<MainLayoutProps & ContentToolbarProps> = ({
   children,
   sidebarTitle,
   toolbarHostRef,
@@ -118,22 +100,53 @@ const InsetMainLayout: React.FC<MainLayoutProps & SidebarAreaProps & ContentTool
   )
 }
 
+// The design (Main.dc.html) seats the traffic lights at the top of the
+// full-height Library sidebar rather than in a 40pt title bar.
+const MAC_SIDEBAR_TRAFFIC_LIGHT_OFFSET = { x: 4, y: 8 } as const
+
+/**
+ * macOS layout: no title bar row and no icon rail. Each page renders the
+ * shared Library sidebar flush with the window edge; it owns the traffic-light
+ * strip and the top-level navigation (History, Devices, Settings).
+ */
+const MacMainLayout: React.FC<MainLayoutProps> = ({ children }) => {
+  useMacTrafficLightPosition(MAC_SIDEBAR_TRAFFIC_LIGHT_OFFSET)
+  return (
+    <main className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-background text-foreground">
+      {children}
+    </main>
+  )
+}
+
+const MAC_SLOT = { contentToolbarHost: null, libraryOwnsNavigation: true } as const
+
 const MainLayout: React.FC<MainLayoutProps> = ({ children, sidebarTitle }) => {
-  const { isLinux, isTauri } = usePlatform()
+  const { isLinux, isMac, isTauri } = usePlatform()
   const { useSystemWindowFrame } = useWindowFrame()
   const [contentToolbarHost, setContentToolbarHost] = useState<HTMLDivElement | null>(null)
-  const sidebarSlot = useMemo(() => ({ contentToolbarHost }), [contentToolbarHost])
+  const railSlot = useMemo(
+    () => ({ contentToolbarHost, libraryOwnsNavigation: false }),
+    [contentToolbarHost]
+  )
+
+  if (isMac) {
+    return (
+      <SidebarSlotContext value={MAC_SLOT}>
+        <MacMainLayout>{children}</MacMainLayout>
+      </SidebarSlotContext>
+    )
+  }
 
   if (isLinux && isTauri && useSystemWindowFrame) {
     return (
-      <SidebarSlotContext value={sidebarSlot}>
+      <SidebarSlotContext value={railSlot}>
         <LinuxMainLayout toolbarHostRef={setContentToolbarHost}>{children}</LinuxMainLayout>
       </SidebarSlotContext>
     )
   }
 
   return (
-    <SidebarSlotContext value={sidebarSlot}>
+    <SidebarSlotContext value={railSlot}>
       <InsetMainLayout sidebarTitle={sidebarTitle} toolbarHostRef={setContentToolbarHost}>
         {children}
       </InsetMainLayout>

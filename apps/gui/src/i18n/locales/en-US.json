@@ -1122,7 +1122,12 @@
       },
       "noMatches": "No matches",
       "removeFilter": "Remove filter: {{filter}}",
+      "keyboardHint": "↑↓ choose · ↵ or ⇥ turn into chip · ⌫ on an empty field edits the last chip",
       "relaxTitle": "Try removing one filter",
+      "relaxTitleAll_one": "No items match the filter",
+      "relaxTitleAll_other": "No items match all {{count}} filters",
+      "relaxPrompt": "Drop one to widen the search:",
+      "relaxWithout": "Without <strong>{{filter}}</strong>",
       "moreFilters": "Show {{count}} more filters",
       "clearAll": "Clear all",
       "close": "Close search panel",
@@ -1132,6 +1137,7 @@
       "done": "Done"
     },
     "sidebar": {
+      "library": "Library",
       "allItems": "All items",
       "pinned": "Pinned",
       "recentlyDeleted": "Recently deleted",
@@ -1142,6 +1148,7 @@
       "devices": "Devices",
       "devicesOnline": "{{online}} of {{total}} online",
       "devicesEmpty": "No paired devices",
+      "manageDevices": "Manage",
       "settings": "Settings"
     }
   },

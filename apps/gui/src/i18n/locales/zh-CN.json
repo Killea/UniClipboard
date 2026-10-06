@@ -1121,7 +1121,11 @@
       },
       "noMatches": "无匹配项",
       "removeFilter": "移除筛选：{{filter}}",
+      "keyboardHint": "↑↓ 选择 · ↵ 或 ⇥ 转为筛选条件 · 输入框为空时 ⌫ 编辑上一个条件",
       "relaxTitle": "试试去掉一个筛选条件",
+      "relaxTitleAll_other": "没有同时满足 {{count}} 个筛选条件的项目",
+      "relaxPrompt": "去掉其中一个以放宽搜索：",
+      "relaxWithout": "去掉 <strong>{{filter}}</strong>",
       "moreFilters": "展开其余 {{count}} 个筛选",
       "clearAll": "清除全部",
       "close": "关闭搜索面板",
@@ -1130,6 +1134,7 @@
       "done": "完成"
     },
     "sidebar": {
+      "library": "资料库",
       "allItems": "全部项目",
       "pinned": "已置顶",
       "recentlyDeleted": "最近删除",
@@ -1140,6 +1145,7 @@
       "devices": "设备",
       "devicesOnline": "{{online}}/{{total}} 在线",
       "devicesEmpty": "暂无已配对设备",
+      "manageDevices": "管理",
       "settings": "设置"
     }
   },
