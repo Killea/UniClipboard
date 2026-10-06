@@ -1122,12 +1122,27 @@
       },
       "noMatches": "No matches",
       "removeFilter": "Remove filter: {{filter}}",
+      "relaxTitle": "Try removing one filter",
       "moreFilters": "Show {{count}} more filters",
       "clearAll": "Clear all",
       "close": "Close search panel",
       "filterCategories": "Filter categories",
-      "results": "{{count}} results",
+      "results_one": "{{count}} result",
+      "results_other": "{{count}} results",
       "done": "Done"
+    },
+    "sidebar": {
+      "allItems": "All items",
+      "pinned": "Pinned",
+      "recentlyDeleted": "Recently deleted",
+      "smartViews": "Smart Views",
+      "smartViewsEmpty": "No views yet",
+      "tags": "Tags",
+      "tagsEmpty": "No tags yet",
+      "devices": "Devices",
+      "devicesOnline": "{{online}} of {{total}} online",
+      "devicesEmpty": "No paired devices",
+      "settings": "Settings"
     }
   },
   "dashboard": {

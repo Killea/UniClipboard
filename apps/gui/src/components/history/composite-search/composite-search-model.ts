@@ -26,7 +26,13 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { Filter } from '@/api/clipboardItems'
-import type { SearchTagDto, TimeRangePreset } from '@/api/daemon/search'
+import {
+  MAX_SEARCH_COUNT_BATCH,
+  type SearchParams,
+  type SearchTagDto,
+  type TimeRangePreset,
+} from '@/api/daemon/search'
+import { buildLiveSearchModel, liveModelToSearchParams } from '@/hooks/liveSearchModel'
 import { mergeSearchTagOptions, type SearchTagOption } from '@/lib/search-tags'
 
 /** A selectable source device (P2P space member or mobile-sync device). */
@@ -41,14 +47,14 @@ export type Dimension = 'type' | 'tag' | 'source' | 'time' | 'extension'
 
 /**
  * English syntax-key prefix typed by keyboard users (decision: fixed English
- * keys, not localized). `source` reads `from:` to match common filter-bar
- * conventions; the others mirror their dimension name.
+ * keys, not localized). `source` reads `from:` and `time` reads `on:` to match
+ * common filter-bar conventions; the others mirror their dimension name.
  */
 export const SYNTAX_KEYS: Record<Dimension, string> = {
   type: 'type',
   tag: '#',
   source: 'from',
-  time: 'time',
+  time: 'on',
   extension: 'ext',
 }
 
@@ -56,14 +62,14 @@ export const SYNTAX_KEYS: Record<Dimension, string> = {
 const PREFIX_TO_DIMENSION: Record<string, Dimension> = {
   type: 'type',
   from: 'source',
-  time: 'time',
+  on: 'time',
   ext: 'extension',
 }
 
 /** Physical content-type filters offered as `type:` candidates. */
 const TYPE_FILTERS: readonly Filter[] = [Filter.Text, Filter.RichText, Filter.Image, Filter.File]
 
-/** Time presets offered as `time:` candidates (`all_time` == no filter, excluded). */
+/** Time presets offered as `on:` candidates (`all_time` == no filter, excluded). */
 const TIME_PRESETS: readonly TimeRangePreset[] = [
   'today',
   'yesterday',
@@ -117,6 +123,15 @@ export function applyDimensionValue(
   else if (dimension === 'source') h.onSourceFilterChange(value)
   else if (dimension === 'time') h.onTimeRangeChange(value as TimeRangePreset)
   else h.onExtensionFilterChange(value)
+}
+
+/**
+ * Render a dimension's current value back into typed-token syntax (e.g.
+ * `type:image`), so removing a chip via Backspace can drop the user back into
+ * editing it instead of just clearing it.
+ */
+export function buildTokenText(dimension: Dimension, value: string): string {
+  return dimension === 'tag' ? `${SYNTAX_KEYS.tag}${value}` : `${SYNTAX_KEYS[dimension]}:${value}`
 }
 
 /** Reset a dimension to its default (no filter). */
@@ -198,6 +213,58 @@ export interface FilterSnapshot {
   extension: string | null
 }
 
+// ── Count queries ───────────────────────────────────────────────
+
+function withDimension(
+  current: FilterSnapshot,
+  dimension: Dimension,
+  value: string
+): FilterSnapshot {
+  if (dimension === 'type') return { ...current, type: value as Filter }
+  if (dimension === 'time') return { ...current, time: value as TimeRangePreset }
+  return { ...current, [dimension]: value }
+}
+
+function withoutDimension(current: FilterSnapshot, dimension: Dimension): FilterSnapshot {
+  return { ...current, [dimension]: DIMENSION_DEFAULTS[dimension] }
+}
+
+function snapshotToSearchParams(snapshot: FilterSnapshot, query: string): SearchParams {
+  return liveModelToSearchParams(
+    buildLiveSearchModel({
+      query,
+      activeFilter: snapshot.type,
+      tagFilter: snapshot.tag,
+      sourceFilter: snapshot.source,
+      extensionFilter: snapshot.extension,
+      timeRange: snapshot.time,
+    })
+  )
+}
+
+/**
+ * One count query per candidate: the current filters with that candidate
+ * applied. Picking a candidate clears the text query, so the counts do too.
+ * Capped at the daemon's batch size; later candidates get no count.
+ */
+export function buildCandidateCountQueries(
+  candidates: CandidateItem[],
+  current: FilterSnapshot
+): SearchParams[] {
+  return candidates
+    .slice(0, MAX_SEARCH_COUNT_BATCH)
+    .map(c => snapshotToSearchParams(withDimension(current, c.dimension, c.value), ''))
+}
+
+/** One count query per chip: the current search with only that chip removed. */
+export function buildRelaxationQueries(
+  chips: ChipData[],
+  current: FilterSnapshot,
+  query: string
+): SearchParams[] {
+  return chips.map(chip => snapshotToSearchParams(withoutDimension(current, chip.dimension), query))
+}
+
 /** i18n keys for each dimension's group header in the suggestion panel. */
 export const DIMENSION_LABEL_KEYS: Record<Dimension, string> = {
   type: 'history.composite.dimension.type',
@@ -225,8 +292,8 @@ export interface SyntaxSuggestion {
 }
 
 /**
- * Syntax-prefix hints. Typing `t` suggests `type:` / `time:`; `f` suggests
- * `from:`. Keeps the keyboard token syntax discoverable now that the panel
+ * Syntax-prefix hints. Typing `t` suggests `type:`, `o` suggests `on:`, `f`
+ * suggests `from:`. Keeps the keyboard token syntax discoverable now that the panel
  * shows flat values instead of explicit dimension entries. Matches any
  * dimension whose syntax key starts with the typed text.
  */

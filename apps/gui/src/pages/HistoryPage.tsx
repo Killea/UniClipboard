@@ -2,6 +2,8 @@ import { m } from 'framer-motion'
 import React, { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
+import { Filter } from '@/api/clipboardItems'
+import { countSearch } from '@/api/daemon/search'
 import ClipboardActionBar from '@/components/clipboard/ClipboardActionBar'
 import ClipboardPreview from '@/components/clipboard/ClipboardPreview'
 import DeleteConfirmDialog from '@/components/clipboard/DeleteConfirmDialog'
@@ -11,11 +13,14 @@ import {
   HistorySearchPanel,
 } from '@/components/history/composite-search'
 import { useCompositeSearchBar } from '@/components/history/composite-search/useCompositeSearchBar'
+import { useZeroResultRelaxations } from '@/components/history/composite-search/useZeroResultRelaxations'
+import ZeroResultRelaxations from '@/components/history/composite-search/ZeroResultRelaxations'
 import {
   HISTORY_ENTRY_ANIMATION,
   HISTORY_PREVIEW_ENTRY_TRANSITION,
 } from '@/components/history/history-entry-animation'
 import HistoryGrid from '@/components/history/HistoryGrid'
+import HistorySidebar from '@/components/history/sidebar/HistorySidebar'
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable'
 import { useSidebarSlot } from '@/contexts/sidebar-slot-context'
 import { useHistoryController } from '@/hooks/useHistoryController'
@@ -44,8 +49,16 @@ const HistoryPage: React.FC = () => {
     tagOptions: c.searchableTags,
     totalCount: c.browseCount,
     inputRef: c.searchInputRef,
+    fetchCounts: countSearch,
   })
   const searchSuggestionsOpen = compositeSearch.expanded && compositeSearch.buffer.trim().length > 0
+  const relaxations = useZeroResultRelaxations({
+    active: c.isSearchActive && !c.searchLoading && c.items.length === 0,
+    chips: compositeSearch.chips,
+    current: compositeSearch.current,
+    query: c.filter.submittedQuery.trim(),
+    fetchCounts: countSearch,
+  })
 
   useShortcut({
     id: 'clipboard.search',
@@ -161,8 +174,14 @@ const HistoryPage: React.FC = () => {
         </div>
       )}
 
-      {/* ── List + preview master-detail ── */}
+      {/* ── Library sidebar + list + preview ── */}
       <div className="flex min-h-0 flex-1">
+        <HistorySidebar
+          context="history"
+          activeFilter={c.filter.activeFilter}
+          onSelectAllItems={() => c.filterActions.setContentFilter(Filter.All)}
+          onSelectPinned={() => c.filterActions.setContentFilter(Filter.Favorited)}
+        />
         <ResizablePanelGroup orientation="horizontal" className="min-h-0 flex-1">
           {/* List */}
           <ResizablePanel id="history-list" defaultSize="42%" minSize="20rem" maxSize="36rem">
@@ -187,6 +206,14 @@ const HistoryPage: React.FC = () => {
                 onCardClick={c.handleCardClick}
                 onHoverChange={c.handleHoverChange}
                 onScrollStateRestored={() => c.setScrollState(null)}
+                emptyStateActions={
+                  relaxations && (
+                    <ZeroResultRelaxations
+                      relaxations={relaxations}
+                      onRemove={compositeSearch.resetDimension}
+                    />
+                  )
+                }
               />
             </div>
           </ResizablePanel>

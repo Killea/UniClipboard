@@ -1123,12 +1123,28 @@
       },
       "noMatches": "Nenhum resultado",
       "removeFilter": "Remover filtro: {{filter}}",
+      "relaxTitle": "Tente remover um filtro",
       "moreFilters": "Mostrar mais {{count}} filtros",
       "clearAll": "Limpar tudo",
       "close": "Fechar painel de pesquisa",
       "filterCategories": "Categorias de filtro",
-      "results": "{{count}} resultados",
+      "results_one": "{{count}} resultado",
+      "results_many": "{{count}} resultados",
+      "results_other": "{{count}} resultados",
       "done": "Concluir"
+    },
+    "sidebar": {
+      "allItems": "Todos os itens",
+      "pinned": "Fixados",
+      "recentlyDeleted": "Excluídos recentemente",
+      "smartViews": "Visualizações inteligentes",
+      "smartViewsEmpty": "Ainda não há visualizações",
+      "tags": "Etiquetas",
+      "tagsEmpty": "Ainda não há etiquetas",
+      "devices": "Dispositivos",
+      "devicesOnline": "{{online}} de {{total}} on-line",
+      "devicesEmpty": "Nenhum dispositivo pareado",
+      "settings": "Configurações"
     }
   },
   "dashboard": {

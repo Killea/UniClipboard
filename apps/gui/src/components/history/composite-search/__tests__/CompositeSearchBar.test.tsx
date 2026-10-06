@@ -88,6 +88,18 @@ describe('CompositeSearchBar', () => {
     expect(props.onQuerySubmit).not.toHaveBeenCalled()
   })
 
+  it('applies a time range from an on: token and treats time: as plain text', async () => {
+    const user = userEvent.setup()
+    const props = renderSearchBar()
+
+    const input = screen.getByRole('combobox')
+    await user.type(input, 'on:today{Enter}')
+    expect(props.onTimeRangeChange).toHaveBeenCalledWith('today')
+
+    await user.type(input, 'time:today')
+    expect(props.onQueryChange).toHaveBeenLastCalledWith('time:today')
+  })
+
   it('clears all active dimensions from the clear button', async () => {
     const user = userEvent.setup()
     const props = renderSearchBar({
@@ -106,6 +118,37 @@ describe('CompositeSearchBar', () => {
     expect(props.onTimeRangeChange).toHaveBeenCalledWith('all_time')
     expect(props.onExtensionFilterChange).toHaveBeenCalledWith(null)
     expect(props.onQueryChange).toHaveBeenCalledWith('')
+  })
+
+  it('shows per-candidate hit counts computed with the other filters held fixed', async () => {
+    const user = userEvent.setup()
+    const fetchCounts = vi.fn().mockResolvedValue([5, 0, 1234, 7])
+    renderSearchBar({ timeRange: 'today', fetchCounts })
+
+    await user.type(screen.getByRole('combobox'), 'type:')
+
+    expect(await screen.findByText('1,234', {}, { timeout: 2000 })).toBeInTheDocument()
+    expect(fetchCounts).toHaveBeenCalledTimes(1)
+    const [queries] = fetchCounts.mock.calls[0]
+    expect(queries).toEqual([
+      { query: '', contentTypes: 'text', timePreset: 'today' },
+      { query: '', contentTypes: 'html', timePreset: 'today' },
+      { query: '', tags: 'image', timePreset: 'today' },
+      { query: '', contentTypes: 'file', timePreset: 'today' },
+    ])
+  })
+
+  it('reopens the last chip as an editable token on Backspace in an empty input', async () => {
+    const user = userEvent.setup()
+    const props = renderSearchBar({ contentFilter: Filter.Image, extensionFilter: 'md' })
+
+    const input = screen.getByRole('combobox')
+    await user.click(input)
+    await user.keyboard('{Backspace}')
+
+    expect(props.onExtensionFilterChange).toHaveBeenCalledWith(null)
+    expect(props.onContentFilterChange).not.toHaveBeenCalled()
+    expect(input).toHaveValue('ext:md')
   })
 })
 

@@ -1121,12 +1121,26 @@
       },
       "noMatches": "無匹配項",
       "removeFilter": "移除篩選：{{filter}}",
+      "relaxTitle": "試試移除一個篩選條件",
       "moreFilters": "展開其餘 {{count}} 個篩選",
       "clearAll": "清除全部",
       "close": "關閉搜尋面板",
       "filterCategories": "篩選類別",
-      "results": "{{count}} 條結果",
+      "results_other": "{{count}} 條結果",
       "done": "完成"
+    },
+    "sidebar": {
+      "allItems": "全部項目",
+      "pinned": "已置頂",
+      "recentlyDeleted": "最近刪除",
+      "smartViews": "智能視圖",
+      "smartViewsEmpty": "尚無視圖",
+      "tags": "標籤",
+      "tagsEmpty": "尚無標籤",
+      "devices": "裝置",
+      "devicesOnline": "{{online}}/{{total}} 線上",
+      "devicesEmpty": "尚無已配對裝置",
+      "settings": "設定"
     }
   },
   "dashboard": {

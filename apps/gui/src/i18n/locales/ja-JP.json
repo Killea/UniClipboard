@@ -1122,12 +1122,26 @@
       },
       "noMatches": "一致しません",
       "removeFilter": "フィルタを削除: {{filter}}",
+      "relaxTitle": "フィルタを 1 つ外してみてください",
       "moreFilters": "さらに {{count}} 個のフィルタを表示",
       "clearAll": "すべてクリア",
       "close": "検索パネルを閉じる",
       "filterCategories": "フィルタカテゴリ",
-      "results": "{{count}} 件の結果",
+      "results_other": "{{count}} 件の結果",
       "done": "完了"
+    },
+    "sidebar": {
+      "allItems": "すべてのアイテム",
+      "pinned": "ピン留め",
+      "recentlyDeleted": "最近削除した項目",
+      "smartViews": "スマートビュー",
+      "smartViewsEmpty": "ビューはまだありません",
+      "tags": "タグ",
+      "tagsEmpty": "タグはまだありません",
+      "devices": "デバイス",
+      "devicesOnline": "{{online}}/{{total}} オンライン",
+      "devicesEmpty": "ペアリング済みデバイスはありません",
+      "settings": "設定"
     }
   },
   "dashboard": {
