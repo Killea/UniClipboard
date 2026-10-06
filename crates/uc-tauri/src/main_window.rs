@@ -280,11 +280,84 @@ fn reveal_main_window(window: &tauri::WebviewWindow, generation: u64) {
             return;
         }
         crate::window_preferences::prepare_reveal(&window);
+        // Resize the webview while the window is still hidden, so the repaint at the new
+        // size is not visible as an exposed strip on the first frames after `show`.
+        sync_webview_to_window(&window);
         if let Err(error) = window.unminimize().and_then(|_| window.show()).and_then(|_| window.set_focus()) {
             warn!(error = %error, error_kind = "main_window_reveal", "Failed to reveal main window");
         }
+        sync_webview_to_window(&window);
+        activate_app_after_reveal(&window);
+        focus_webview(&window);
     }) {
         warn!(error = %error, error_kind = "main_window_reveal_dispatch", "Failed to dispatch main window reveal");
+    }
+}
+
+/// macOS: a restored maximize is applied asynchronously while the window is still hidden,
+/// and the WKWebView can keep its pre-maximize bounds, leaving window background exposed
+/// beside and below the page. Re-assert the webview size before and after the window is shown.
+fn sync_webview_to_window(window: &tauri::WebviewWindow) {
+    if !cfg!(target_os = "macos") {
+        return;
+    }
+    let webview: &tauri::Webview = window.as_ref();
+    if let Err(error) = window.inner_size().and_then(|size| webview.set_size(size)) {
+        warn!(error = %error, error_kind = "main_window_webview_sync", "Failed to sync webview size with the window");
+    }
+}
+
+/// Colour behind the page until the frontend paints, matching the static startup screen in
+/// `index.html` (default theme, light or dark by system appearance).
+///
+/// It must be passed when the window is built: on macOS wry only turns off WKWebView's default
+/// white page background for a colour given at creation, and `set_background_color` after the
+/// fact does not reach the webview layer, so the hidden-then-shown window painted white.
+fn initial_background_color() -> tauri::window::Color {
+    if system_prefers_dark() {
+        tauri::window::Color(24, 24, 27, 255)
+    } else {
+        tauri::window::Color(255, 255, 255, 255)
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn system_prefers_dark() -> bool {
+    use objc2_foundation::{ns_string, NSUserDefaults};
+
+    NSUserDefaults::standardUserDefaults()
+        .stringForKey(ns_string!("AppleInterfaceStyle"))
+        .is_some_and(|style| style.to_string().eq_ignore_ascii_case("dark"))
+}
+
+#[cfg(not(target_os = "macos"))]
+fn system_prefers_dark() -> bool {
+    false
+}
+
+/// macOS: bring the app to the front once the window is shown, so a cold start from a terminal
+/// or launcher does not leave the window behind other apps.
+#[cfg(target_os = "macos")]
+fn activate_app_after_reveal(_window: &tauri::WebviewWindow) {
+    use objc2::MainThreadMarker;
+    use objc2_app_kit::NSApplication;
+
+    let Some(mtm) = MainThreadMarker::new() else {
+        return;
+    };
+    #[allow(deprecated)]
+    NSApplication::sharedApplication(mtm).activateIgnoringOtherApps(true);
+}
+
+#[cfg(not(target_os = "macos"))]
+fn activate_app_after_reveal(_window: &tauri::WebviewWindow) {}
+
+/// `WebviewWindow::set_focus` only focuses the native window; focus the webview as well so
+/// keyboard input reaches the page as soon as the window is shown.
+fn focus_webview(window: &tauri::WebviewWindow) {
+    let webview: &tauri::Webview = window.as_ref();
+    if let Err(error) = webview.set_focus() {
+        warn!(error = %error, error_kind = "main_window_webview_focus", "Failed to focus the main webview");
     }
 }
 
@@ -350,6 +423,7 @@ fn create_main_window(
         })?;
 
     configure_main_window_config_for_platform(&mut config);
+    config.background_color = Some(initial_background_color());
 
     let window = tauri::WebviewWindowBuilder::from_config(app, &config)?
         .initialization_script(crate::window_frame_environment::initialization_script())
@@ -364,10 +438,15 @@ fn create_main_window(
         .build()?;
     crate::window_preferences::attach(&window);
     schedule_reveal_fallback(&window, generation);
-    window.on_window_event(move |event| {
-        if matches!(event, tauri::WindowEvent::Destroyed) {
-            load_state().mark_destroyed(generation);
+    let resized_window = window.clone();
+    window.on_window_event(move |event| match event {
+        tauri::WindowEvent::Destroyed => load_state().mark_destroyed(generation),
+        // A restored maximize completes asynchronously; follow it while the window is
+        // hidden so the webview already has the final size on the first visible frame.
+        tauri::WindowEvent::Resized(_) if !resized_window.is_visible().unwrap_or(true) => {
+            sync_webview_to_window(&resized_window)
         }
+        _ => {}
     });
     info!("Main window created from config");
     Ok(window)
@@ -610,33 +689,22 @@ mod tests {
     }
 }
 
-/// Only macOS uses transparency and the shared native window effects.
 fn configure_main_window_config_for_platform(config: &mut tauri::utils::config::WindowConfig) {
     // Start without native chrome; the webview applies the saved preference
     // before rendering, including on startup failure and window recreation.
     if cfg!(any(target_os = "linux", target_os = "windows")) {
         config.decorations = false;
     }
-    if !cfg!(target_os = "macos") {
-        config.transparent = false;
-        config.window_effects = None;
-    }
 }
 
 #[cfg(test)]
 mod surface_tests {
     #[test]
-    fn main_window_surface_matches_platform_support() {
-        let mut config = tauri::utils::config::WindowConfig {
-            transparent: true,
-            window_effects: Some(Default::default()),
-            ..Default::default()
-        };
+    fn main_window_drops_native_chrome_on_linux_and_windows() {
+        let mut config = tauri::utils::config::WindowConfig::default();
         super::configure_main_window_config_for_platform(&mut config);
         if cfg!(any(target_os = "linux", target_os = "windows")) {
             assert!(!config.decorations);
         }
-        assert_eq!(config.transparent, cfg!(target_os = "macos"));
-        assert_eq!(config.window_effects.is_some(), cfg!(target_os = "macos"));
     }
 }
