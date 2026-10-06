@@ -90,6 +90,8 @@ function guiProductionGraph() {
   )
 }
 
+const DEV_CLI_PACKAGE = 'uc-dev-cli'
+
 function workspacePackages(metadata) {
   const members = new Set(metadata.workspace_members)
   return metadata.packages.filter(candidate => members.has(candidate.id))
@@ -207,13 +209,23 @@ function checkPublicSurface(metadata) {
         `${packageMetadata.name} directly depends on ${forbidden.join(', ')}`
       )
     }
+    // The Rust development CLI is a leaf binary for development and E2E
+    // diagnostics. Anything that depends on it, in any dependency kind, could
+    // pull it (and its dev-tools features) into a production build.
+    if (packageMetadata.dependencies.some(item => item.name === DEV_CLI_PACKAGE)) {
+      addProblem(
+        problems,
+        'development tool boundary',
+        `${packageMetadata.name} depends on ${DEV_CLI_PACKAGE}; it must stay a leaf binary`
+      )
+    }
   }
 
   const requiredDependencies = [
     ['uc-daemon', 'uc-engine'],
     ['uc-bootstrap', 'uc-engine'],
     ['uc-webserver', 'uc-engine'],
-    ['uc-cli', 'uc-engine'],
+    ['uc-dev-cli', 'uc-engine'],
     ['uc-observability', 'uc-engine'],
   ]
   for (const [packageName, dependencyName] of requiredDependencies) {
@@ -247,20 +259,20 @@ function checkLanIsolation(metadata, sources) {
     }
   }
 
-  const cli = workspacePackageByName(metadata, 'uc-cli')
+  const cli = workspacePackageByName(metadata, 'uc-dev-cli')
   const cliEngine = dependency(cli, 'uc-engine')
   if (!cliEngine?.optional || !cliEngine.features.includes('dev-tools')) {
     addProblem(
       problems,
       'compatibility gate',
-      'uc-cli must keep uc-engine optional and restricted to dev-tools'
+      'uc-dev-cli must keep uc-engine optional and restricted to dev-tools'
     )
   }
   if (!(cli.features['dev-tools'] ?? []).includes('uc-engine/lan-compat')) {
     addProblem(
       problems,
       'compatibility gate',
-      'uc-cli dev-tools must enable LAN compatibility explicitly'
+      'uc-dev-cli dev-tools must enable LAN compatibility explicitly'
     )
   }
 
@@ -360,6 +372,15 @@ function runNegativeFixtures(metadata, sources) {
     changed => {
       const engine = dependency(workspacePackageByName(changed, 'uc-observability'), 'uc-engine')
       engine.source = `git+${ENGINE_REPOSITORY}?tag=v0.20.0-rc.5`
+    },
+    metadata,
+    sources
+  )
+  expectRejected(
+    'production package depending on the development CLI',
+    changed => {
+      const daemon = workspacePackageByName(changed, 'uc-daemon')
+      daemon.dependencies.push({ name: DEV_CLI_PACKAGE, kind: null, optional: false, features: [] })
     },
     metadata,
     sources

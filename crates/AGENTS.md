@@ -1,6 +1,6 @@
 # PROJECT KNOWLEDGE BASE
 
-**最后刷新：** 2026-10-04（自动；18 个工作区 crate）
+**最后刷新：** 2026-10-05（自动；18 个工作区 crate）
 
 ## OVERVIEW
 
@@ -11,10 +11,11 @@
 ```text
 .                        # repo root = cargo workspace
 |- apps/                 # Runnable binaries
-|  |- cli/                 # `uniclip` CLI (daemon client; heavy deps feature-gated)
 |  |- daemon/              # GUI-agnostic daemon runtime; hosts the `uniclipd` binary
 |  |- quick-panel/         # GPUI quick panel app (`uniclip-quick-panel`, macOS default)
 |  |- gui/src-tauri/       # Desktop GUI bin: Tauri packaging shell of apps/gui (frontend: apps/gui/src); hands off to uc-tauri
+|- tools/                # Development-only crates (never in production builds)
+|  |- uc-dev-cli/          # `uc-dev-cli` development and diagnostics CLI (user-facing `uniclip` is apps/cli-go)
 |- crates/               # Library crates (14)
 |  # -- Desktop host adapters --
 |  |- uc-platform/      # OS adapters: clipboard, secure storage, autostart
@@ -29,7 +30,7 @@
 |  |- uc-daemon-client/ # Daemon HTTP + WS client (used by GUI + CLI)
 |  # -- Shells / entrypoints --
 |  |- uc-desktop/       # Desktop host: runtime, daemon probe, background tasks (GUI-framework-agnostic)
-|  |- uc-cli-macros/    # Proc-macros for uc-cli (internal)
+|  |- uc-cli-macros/    # Proc-macros for uc-dev-cli (internal)
 |  |- p2p-bench/        # Throwaway perf-spike bins (not shipped; publish = false)
 |  |- uc-tauri/         # Tauri adapter: commands (via tauri-specta), tray, quick panel, run loop
 |  # -- Other --
@@ -106,7 +107,7 @@ make check
 make build
 
 # E2E tests (from the repo root; requires pre-built binaries)
-cargo build -p uc-daemon -p uc-cli
+cargo build -p uc-daemon -p uc-dev-cli
 cargo test --manifest-path tests/e2e/Cargo.toml -- --ignored
 
 # Coverage wrapper (from repo root)
