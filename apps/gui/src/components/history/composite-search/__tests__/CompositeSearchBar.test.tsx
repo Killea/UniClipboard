@@ -76,7 +76,7 @@ describe('CompositeSearchBar', () => {
     const user = userEvent.setup()
     const props = renderSearchBar()
 
-    await user.type(screen.getByRole('combobox'), 'type:image{Enter}')
+    await user.type(screen.getByRole('combobox'), '/image{Enter}')
 
     expect(props.onContentFilterChange).toHaveBeenCalledWith(Filter.Image)
     expect(props.onQuerySubmit).not.toHaveBeenCalled()
@@ -92,6 +92,62 @@ describe('CompositeSearchBar', () => {
 
     await user.type(input, 'time:today')
     expect(props.onQueryChange).toHaveBeenLastCalledWith('time:today')
+  })
+
+  it('picks a source device from an @ token', async () => {
+    const user = userEvent.setup()
+    const props = renderSearchBar()
+
+    await user.type(screen.getByRole('combobox'), '@mac{Enter}')
+
+    expect(props.onSourceFilterChange).toHaveBeenCalledWith('device-1')
+  })
+
+  it('searches a path starting with / as text', async () => {
+    const user = userEvent.setup()
+    const props = renderSearchBar()
+
+    await user.type(screen.getByRole('combobox'), '/tmp/build.log{Enter}')
+
+    expect(props.onQueryChange).toHaveBeenLastCalledWith('/tmp/build.log')
+    expect(props.onQuerySubmit).toHaveBeenCalledWith('/tmp/build.log')
+    expect(props.onContentFilterChange).not.toHaveBeenCalled()
+  })
+
+  it('adds a typed tag to the existing tag selection', async () => {
+    const user = userEvent.setup()
+    const props = renderSearchBar({
+      tagFilter: 'link',
+      tagOptions: [
+        { id: 'link', count: 3, isBuiltin: true },
+        { id: 'code', count: 2, isBuiltin: true },
+      ],
+    })
+
+    await user.type(screen.getByRole('combobox'), '#code ')
+
+    expect(props.onTagFilterChange).toHaveBeenCalledWith('link,code')
+  })
+
+  it('keeps an already-selected tag when it is typed again', async () => {
+    const user = userEvent.setup()
+    const props = renderSearchBar({ tagFilter: 'link,code' })
+
+    await user.type(screen.getByRole('combobox'), '#code ')
+
+    expect(props.onTagFilterChange).not.toHaveBeenCalled()
+  })
+
+  it('pops only the last tag back into the field on Backspace', async () => {
+    const user = userEvent.setup()
+    const props = renderSearchBar({ tagFilter: 'link,code' })
+
+    const input = screen.getByRole('combobox')
+    await user.click(input)
+    await user.keyboard('{Backspace}')
+
+    expect(props.onTagFilterChange).toHaveBeenCalledWith('link')
+    expect(input).toHaveValue('#code')
   })
 
   it('clears all active dimensions from the clear button', async () => {
@@ -119,7 +175,7 @@ describe('CompositeSearchBar', () => {
     const fetchCounts = vi.fn().mockResolvedValue([5, 0, 1234, 7])
     renderSearchBar({ timeRange: 'today', fetchCounts })
 
-    await user.type(screen.getByRole('combobox'), 'type:')
+    await user.type(screen.getByRole('combobox'), '/')
 
     expect(await screen.findByText('1,234', {}, { timeout: 2000 })).toBeInTheDocument()
     expect(fetchCounts).toHaveBeenCalledTimes(1)
@@ -130,6 +186,34 @@ describe('CompositeSearchBar', () => {
       { query: '', tags: 'image', timePreset: 'today' },
       { query: '', contentTypes: 'file', timePreset: 'today' },
     ])
+  })
+
+  it('qualifies a typed token by the other filters in the list variant', async () => {
+    const user = userEvent.setup()
+    // In-filter counts, then the candidate's total on its own.
+    const fetchCounts = vi
+      .fn()
+      .mockImplementation(async (queries: { sourceDevices?: string }[]) =>
+        queries.map(query => (query.sourceDevices ? 0 : 2))
+      )
+    renderSearchBar({ variant: 'list', sourceFilter: 'device-1', fetchCounts })
+
+    // The chip names its dimension's syntax key; the list field has no ✕.
+    expect(screen.getByText('from')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'history.composite.clearAll' })).toBeNull()
+
+    await user.type(screen.getByRole('combobox'), '#c')
+    expect(
+      screen.getByText('history.composite.header.startingWith · from MacBook')
+    ).toBeInTheDocument()
+    expect(screen.getByText('#code')).toBeInTheDocument()
+    expect(
+      await screen.findByText(
+        'history.subtitle · history.composite.noneInContext',
+        {},
+        { timeout: 2000 }
+      )
+    ).toBeInTheDocument()
   })
 
   it('reopens the last chip as an editable token on Backspace in an empty input', async () => {
@@ -189,6 +273,25 @@ describe('HistoryFilterPanel', () => {
     expect(props.onSourceFilterChange).toHaveBeenCalledWith(null)
     expect(props.onTimeRangeChange).toHaveBeenCalledWith('all_time')
     expect(props.onExtensionFilterChange).toHaveBeenCalledWith(null)
+  })
+
+  it('toggles tags in and out of a multi-tag selection', async () => {
+    const user = userEvent.setup()
+    const props = renderFilterPanel({
+      contentFilter: Filter.All,
+      tagFilter: 'link,code',
+      tagOptions: [
+        { id: 'link', count: 3, isBuiltin: true },
+        { id: 'code', count: 2, isBuiltin: true },
+        { id: 'image', count: 1, isBuiltin: true },
+      ],
+    })
+
+    await user.click(screen.getByRole('button', { name: 'code', pressed: true }))
+    await user.click(screen.getByRole('button', { name: 'image', pressed: false }))
+
+    expect(props.onTagFilterChange).toHaveBeenNthCalledWith(1, 'link')
+    expect(props.onTagFilterChange).toHaveBeenNthCalledWith(2, 'link,code,image')
   })
 
   it('keeps the all icon when no filter is active', () => {

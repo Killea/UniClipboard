@@ -1,11 +1,17 @@
 import { Folder } from 'lucide-react'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { Filter } from '@/api/clipboardItems'
 import {
+  applyDimensionValue,
+  buildCandidateCountQueries,
+  buildCandidateTotalQueries,
   buildCandidates,
   buildChips,
   buildRelaxationQueries,
+  buildSyntaxSuggestions,
+  buildTokenText,
   parseBuffer,
+  resolveBuffer,
   searchableTagsToOptions,
   type FilterSnapshot,
 } from '../composite-search-model'
@@ -20,6 +26,25 @@ const current: FilterSnapshot = {
 }
 
 describe('composite search model', () => {
+  it('drops substring matches when only prefixes may match', () => {
+    const context = { t, sourceOptions: [], current, tagOptions: searchableTagsToOptions([]) }
+    // `directory` contains "re" but does not start with it.
+    expect(buildCandidates('tag', 're', context).map(c => c.value)).toContain('directory')
+    expect(
+      buildCandidates('tag', 're', { ...context, prefixOnly: true }).map(c => c.value)
+    ).not.toContain('directory')
+  })
+
+  it('counts each candidate on its own, ignoring the other filters', () => {
+    const candidates = buildCandidates('type', 'image', {
+      t,
+      sourceOptions: [],
+      current: { ...current, source: 'device-1' },
+      tagOptions: [],
+    })
+    expect(buildCandidateTotalQueries(candidates)).toEqual([{ query: '', tags: 'image' }])
+  })
+
   it('represents every selected tag in the chip and suggestions', () => {
     const context = {
       t,
@@ -32,6 +57,35 @@ describe('composite search model', () => {
     expect(candidates.find(item => item.value === 'link')?.isActive).toBe(true)
     expect(candidates.find(item => item.value === 'code')?.isActive).toBe(true)
     expect(candidates.find(item => item.value === 'directory')?.isActive).toBe(false)
+  })
+
+  it('toggles a tag in and out of a multi-tag selection', () => {
+    const onTagFilterChange = vi.fn()
+    const handlers = {
+      onContentFilterChange: vi.fn(),
+      onTagFilterChange,
+      onSourceFilterChange: vi.fn(),
+      onTimeRangeChange: vi.fn(),
+      onExtensionFilterChange: vi.fn(),
+    }
+    applyDimensionValue('tag', 'code', handlers, { ...current, tag: 'link' })
+    applyDimensionValue('tag', 'link', handlers, { ...current, tag: 'link,code' })
+    applyDimensionValue('tag', 'link', handlers, { ...current, tag: 'link' })
+    expect(onTagFilterChange.mock.calls).toEqual([['link,code'], ['code'], [null]])
+  })
+
+  it('counts a tag candidate as the selection that clicking it would produce', () => {
+    const snapshot = { ...current, tag: 'link' }
+    const candidates = buildCandidates('tag', '', {
+      t,
+      sourceOptions: [],
+      current: snapshot,
+      tagOptions: searchableTagsToOptions([]),
+    }).filter(c => c.value === 'link' || c.value === 'code')
+    expect(buildCandidateCountQueries(candidates, snapshot)).toEqual([
+      { query: '' },
+      { query: '', tags: 'link,code' },
+    ])
   })
 
   it('parses # as a tag token', () => {
@@ -47,6 +101,45 @@ describe('composite search model', () => {
       partial: 'lin',
       committed: false,
     })
+  })
+
+  it('reads the quick panel sigils and leaves the old keywords and URLs as text', () => {
+    const token = (value: string) => {
+      const parsed = parseBuffer(value)
+      return parsed.kind === 'token' ? [parsed.dimension, parsed.partial] : null
+    }
+    expect(token('@iPhone')).toEqual(['source', 'iPhone'])
+    expect(token('  /image')).toEqual(['type', 'image'])
+    expect(token('/')).toEqual(['type', ''])
+    expect(token('on:today')).toEqual(['time', 'today'])
+    for (const text of ['type:image', 'from:phone', 'a@b.com', 'https://example.com']) {
+      expect(parseBuffer(text)).toEqual({ kind: 'query', text })
+    }
+  })
+
+  it('keeps a sigil word that names nothing as text search', () => {
+    const context = { t, sourceOptions: [], current, tagOptions: searchableTagsToOptions([]) }
+    expect(resolveBuffer('/tmp/build.log', context)).toEqual({
+      kind: 'query',
+      text: '/tmp/build.log',
+    })
+    expect(resolveBuffer('@home', context)).toEqual({ kind: 'query', text: '@home' })
+    expect(resolveBuffer('/im', context)).toMatchObject({ kind: 'token', dimension: 'type' })
+    expect(resolveBuffer('@', context)).toMatchObject({ kind: 'token', dimension: 'source' })
+    // Keyword tokens keep their candidates panel even when nothing matches.
+    expect(resolveBuffer('on:xyz', context)).toMatchObject({ kind: 'token', dimension: 'time' })
+  })
+
+  it('renders chips back into their typed prefix', () => {
+    expect(buildTokenText('type', 'image')).toBe('/image')
+    expect(buildTokenText('source', 'iPhone')).toBe('@iPhone')
+    expect(buildTokenText('tag', 'code')).toBe('#code')
+    expect(buildTokenText('extension', 'md')).toBe('ext:md')
+  })
+
+  it('hints only the keyword prefixes', () => {
+    expect(buildSyntaxSuggestions('o', t).map(s => s.hint)).toEqual(['on:'])
+    expect(buildSyntaxSuggestions('t', t)).toEqual([])
   })
 
   it('parses ext as a shared extension token', () => {

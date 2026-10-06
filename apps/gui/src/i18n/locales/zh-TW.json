@@ -1067,7 +1067,7 @@
     "title": "歷程記錄",
     "subtitle_other": "{{count}} 項",
     "searchPlaceholder": "搜尋剪貼簿…",
-    "listSearchPlaceholder": "搜尋，或輸入 # from: type: on:",
+    "listSearchPlaceholder": "搜尋，或輸入 # @ / on:",
     "listSearchPlaceholderMore": "繼續輸入關鍵詞或加入篩選…",
     "list": {
       "selectItem": "選取 {{title}}",
@@ -1134,11 +1134,24 @@
       "dimension": {
         "type": "類型",
         "tag": "標籤",
-        "source": "來源",
+        "source": "裝置",
         "time": "時間",
         "extension": "擴展名"
       },
       "noMatches": "無匹配項",
+      "header": {
+        "startingWith": "以「{{partial}}」開頭的{{dimension}}",
+        "all": "{{dimension}}",
+        "dimension": {
+          "type": "類型",
+          "tag": "標籤",
+          "source": "裝置",
+          "time": "時間",
+          "extension": "擴展名"
+        }
+      },
+      "inContext_other": "{{context}} {{count}} 項",
+      "noneInContext": "{{context}} 無",
       "removeFilter": "移除篩選：{{filter}}",
       "keyboardHint": "↑↓ 選擇 · ↵ 或 ⇥ 轉為篩選條件 · 輸入框為空時 ⌫ 編輯上一個條件",
       "relaxTitle": "試試移除一個篩選條件",

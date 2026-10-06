@@ -3,24 +3,26 @@ import { useTranslation } from 'react-i18next'
 import { Filter } from '@/api/clipboardItems'
 import type { TimeRangePreset } from '@/api/daemon/search'
 import { readHistorySessionSnapshot } from '@/hooks/historySessionSnapshot'
-import type { SearchTagOption } from '@/lib/search-tags'
+import { splitSearchTags, type SearchTagOption } from '@/lib/search-tags'
 import {
   applyDimensionValue,
   buildAllCandidates,
   buildCandidateCountQueries,
+  buildCandidateTotalQueries,
   buildCandidates,
   buildChips,
   buildSyntaxSuggestions,
   buildTokenText,
   DIMENSION_LABEL_KEYS,
-  parseBuffer,
   resetDimensionValue,
+  resolveBuffer,
   SYNTAX_KEYS,
   type CandidateItem,
   type Dimension,
   type DimensionHandlers,
   type SourceOption,
 } from './composite-search-model'
+import { DIMENSION_CHIP_KEY } from './dimension-style'
 import type { PanelOption } from './SuggestionPanel'
 import { type FetchSearchCounts, useSearchCounts } from './useSearchCounts'
 
@@ -93,13 +95,16 @@ export function useCompositeSearchBar({
     extension: extensionFilter,
   }
   const chips = buildChips({ t, sourceOptions, tagOptions, current })
-  const parsed = parseBuffer(buffer)
+  // The list variant's typed token suggests values *starting with* it.
+  const tokenContext = { t, sourceOptions, tagOptions, current, prefixOnly: variant === 'list' }
+  const parsed = resolveBuffer(buffer, tokenContext)
   const inToken = parsed.kind === 'token'
+  const tokenDimension = parsed.kind === 'token' ? parsed.dimension : undefined
+  const listToken = variant === 'list' && parsed.kind === 'token'
   const candidates: CandidateItem[] = inToken
-    ? buildCandidates(parsed.dimension, parsed.partial, { t, sourceOptions, tagOptions, current })
+    ? buildCandidates(parsed.dimension, parsed.partial, tokenContext)
     : buildAllCandidates(buffer, { t, sourceOptions, tagOptions, current })
-  const syntaxSuggestions =
-    inToken || buffer.trimStart().startsWith('#') ? [] : buildSyntaxSuggestions(buffer, t)
+  const syntaxSuggestions = inToken ? [] : buildSyntaxSuggestions(buffer, t)
   const expanded = open && syntaxSuggestions.length + candidates.length > 0
   // Only a single typed dimension stays within one count batch; the flat
   // all-dimension panel would not.
@@ -107,6 +112,51 @@ export function useCompositeSearchBar({
     expanded && inToken ? buildCandidateCountQueries(candidates, current) : null,
     fetchCounts
   )
+  // List variant (HList.dc.html B1): the other active filters qualify the
+  // typed dimension — the header reads "Tags starting with "re" · from
+  // arch-desktop" and each value counts "12 items · 4 from arch-desktop".
+  const contextChips = listToken ? chips.filter(chip => chip.dimension !== tokenDimension) : []
+  const context = contextChips
+    .map(chip => `${DIMENSION_CHIP_KEY[chip.dimension]} ${chip.label}`)
+    .join(' · ')
+  const candidateTotals = useSearchCounts(
+    expanded && contextChips.length > 0 ? buildCandidateTotalQueries(candidates) : null,
+    fetchCounts
+  )
+  const listHeader =
+    parsed.kind === 'token'
+      ? [
+          t(
+            parsed.partial
+              ? 'history.composite.header.startingWith'
+              : 'history.composite.header.all',
+            {
+              dimension: t(`history.composite.header.dimension.${parsed.dimension}`),
+              partial: parsed.partial,
+            }
+          ),
+          context,
+        ]
+          .filter(Boolean)
+          .join(' · ')
+      : undefined
+  const listHint = (i: number): { countLabel?: string; muted?: boolean } => {
+    const inFilters = candidateCounts?.[i]
+    if (inFilters === undefined) return {}
+    if (!context) return { countLabel: t('history.subtitle', { count: inFilters }) }
+    const total = candidateTotals?.[i]
+    const qualified =
+      inFilters > 0
+        ? t('history.composite.inContext', { count: inFilters, context })
+        : t('history.composite.noneInContext', { context })
+    return {
+      countLabel:
+        total === undefined
+          ? qualified
+          : `${t('history.subtitle', { count: total })} · ${qualified}`,
+      muted: inFilters === 0,
+    }
+  }
   const options: PanelOption[] = [
     ...syntaxSuggestions.map(s => ({
       id: `seed-${s.dimension}`,
@@ -116,20 +166,27 @@ export function useCompositeSearchBar({
     })),
     ...candidates.map((c, i) => ({
       id: c.id,
+      dimension: c.dimension,
       label: c.label,
       icon: c.icon,
       isActive: c.isActive,
       // The list-column field also names the dimension being typed (HList B1).
-      header:
-        (!inToken && (i === 0 || candidates[i - 1].dimension !== c.dimension)) ||
-        (inToken && variant === 'list' && i === 0)
+      header: listToken
+        ? i === 0
+          ? listHeader
+          : undefined
+        : !inToken && (i === 0 || candidates[i - 1].dimension !== c.dimension)
           ? t(DIMENSION_LABEL_KEYS[c.dimension])
           : undefined,
       hint: candidateCounts?.[i]?.toLocaleString(),
-      countLabel:
-        candidateCounts?.[i] === undefined
-          ? undefined
-          : t('history.subtitle', { count: candidateCounts[i] }),
+      ...(variant === 'list'
+        ? listHint(i)
+        : {
+            countLabel:
+              candidateCounts?.[i] === undefined
+                ? undefined
+                : t('history.subtitle', { count: candidateCounts[i] }),
+          }),
     })),
   ]
   const clampedHighlight =
@@ -145,7 +202,11 @@ export function useCompositeSearchBar({
   const resetDimension = (dimension: Dimension) => resetDimensionValue(dimension, handlers)
 
   const applyCandidate = (c: CandidateItem) => {
-    applyDimensionValue(c.dimension, c.value, handlers)
+    applyDimensionValue(c.dimension, c.value, handlers, current)
+    resetBuffer()
+  }
+
+  const resetBuffer = () => {
     setBuffer('')
     onQueryChange('')
     setHighlight(-1)
@@ -154,10 +215,7 @@ export function useCompositeSearchBar({
   }
 
   const seedDimension = (dimension: Dimension) => {
-    // The tag dimension's syntax key (`#`) is the whole prefix; the others take a
-    // trailing colon (`type:`). Seeding `#:` would make `parseBuffer` treat `:`
-    // as the partial tag text and surface no useful matches.
-    setBuffer(dimension === 'tag' ? SYNTAX_KEYS.tag : `${SYNTAX_KEYS[dimension]}:`)
+    setBuffer(SYNTAX_KEYS[dimension])
     setHighlight(0)
     onQueryChange('')
     inputRef.current?.focus()
@@ -169,12 +227,15 @@ export function useCompositeSearchBar({
     const exact =
       cands.find(c => c.value.toLowerCase() === partial.toLowerCase()) ??
       (cands.length === 1 ? cands[0] : undefined)
-    if (exact) applyCandidate(exact)
+    // Typing an already-selected tag keeps it; only clicking its checked row
+    // toggles it off.
+    if (exact?.dimension === 'tag' && exact.isActive) resetBuffer()
+    else if (exact) applyCandidate(exact)
   }
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const next = e.target.value
-    const p = parseBuffer(next)
+    const p = resolveBuffer(next, tokenContext)
     setBuffer(next)
     setHighlight(p.kind === 'token' ? 0 : -1)
     setOpen(suggestionActivation === 'focus' || p.kind === 'token')
@@ -219,11 +280,13 @@ export function useCompositeSearchBar({
     if (e.key === 'Backspace' && buffer === '' && chips.length > 0) {
       e.preventDefault()
       const lastChip = chips[chips.length - 1]
-      const value = String(current[lastChip.dimension])
-      resetDimension(lastChip.dimension)
-      // A multi-tag chip (set from the filter panel) has no single-token form:
-      // committing a typed tag replaces the whole selection.
-      if (lastChip.dimension === 'tag' && value.includes(',')) return
+      // The tag chip holds the whole selection: pop only its last tag back
+      // into the buffer and keep the rest selected.
+      const tags = splitSearchTags(current.tag)
+      const value =
+        lastChip.dimension === 'tag' ? tags[tags.length - 1] : String(current[lastChip.dimension])
+      if (lastChip.dimension === 'tag') applyDimensionValue('tag', value, handlers, current)
+      else resetDimension(lastChip.dimension)
       // Source ids are internal (`mobile_sync:did_…`); candidates also match by
       // name, so reopen with the name the user recognises.
       const editable =
@@ -280,6 +343,7 @@ export function useCompositeSearchBar({
     panelId,
     current,
     inToken,
+    tokenDimension,
     chips,
     options,
     visibleChips: open ? chips : chips.slice(0, 2),

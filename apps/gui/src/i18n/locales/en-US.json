@@ -1068,7 +1068,7 @@
     "subtitle_one": "{{count}} item",
     "subtitle_other": "{{count}} items",
     "searchPlaceholder": "Search clipboard…",
-    "listSearchPlaceholder": "Search, or type # from: type: on:",
+    "listSearchPlaceholder": "Search, or type # @ / on:",
     "listSearchPlaceholderMore": "Add words or another filter…",
     "list": {
       "selectItem": "Select {{title}}",
@@ -1135,11 +1135,25 @@
       "dimension": {
         "type": "Type",
         "tag": "Tag",
-        "source": "Source",
+        "source": "Device",
         "time": "Time",
         "extension": "Extension"
       },
       "noMatches": "No matches",
+      "header": {
+        "startingWith": "{{dimension}} starting with “{{partial}}”",
+        "all": "{{dimension}}",
+        "dimension": {
+          "type": "Types",
+          "tag": "Tags",
+          "source": "Devices",
+          "time": "Times",
+          "extension": "Extensions"
+        }
+      },
+      "inContext_one": "{{count}} {{context}}",
+      "inContext_other": "{{count}} {{context}}",
+      "noneInContext": "none {{context}}",
       "removeFilter": "Remove filter: {{filter}}",
       "keyboardHint": "↑↓ choose · ↵ or ⇥ turn into chip · ⌫ on an empty field edits the last chip",
       "relaxTitle": "Try removing one filter",

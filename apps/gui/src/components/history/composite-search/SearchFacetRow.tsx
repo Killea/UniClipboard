@@ -5,6 +5,11 @@ import { type ChipData, DIMENSION_LABEL_KEYS, type Dimension } from './composite
 
 const FACETS: readonly Dimension[] = ['type', 'source', 'tag', 'time']
 
+/** A fixed 2px focus ring: the row scrolls horizontally, which also clips it
+ * vertically, so the parent reserves exactly this much room above the buttons
+ * (`pt-0.5` in HistoryPage) instead of the browser's own, larger outline. */
+const FOCUS_RING = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50'
+
 interface SearchFacetRowProps {
   chips: ChipData[]
   onSeedDimension: (dimension: Dimension) => void
@@ -12,14 +17,16 @@ interface SearchFacetRowProps {
 }
 
 /** HList.dc.html facet row: one button per filter dimension, badged with how
- * many chips it holds; a button seeds the search field with that dimension. */
+ * many values it holds; a button seeds the search field with that dimension. */
 function SearchFacetRow({ chips, onSeedDimension, onClearAll }: SearchFacetRowProps) {
   const { t } = useTranslation()
 
   return (
     <div className="flex flex-1 items-center gap-2">
       {FACETS.map(dimension => {
-        const count = chips.filter(chip => chip.dimension === dimension).length
+        const count = chips
+          .filter(chip => chip.dimension === dimension)
+          .reduce((sum, chip) => sum + chip.valueCount, 0)
         return (
           <button
             key={dimension}
@@ -28,14 +35,15 @@ function SearchFacetRow({ chips, onSeedDimension, onClearAll }: SearchFacetRowPr
             onClick={() => onSeedDimension(dimension)}
             className={cn(
               'inline-flex h-7.5 shrink-0 items-center gap-1.5 rounded-full border px-2.5 text-ui-body font-medium transition-colors',
+              FOCUS_RING,
               count > 0
-                ? 'border-primary/40 bg-primary/5 text-foreground'
+                ? 'border-history-accent-line bg-history-accent-soft text-foreground'
                 : 'border-border bg-background text-foreground hover:bg-muted/60'
             )}
           >
             {t(DIMENSION_LABEL_KEYS[dimension])}
             {count > 0 && (
-              <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-ui-caption text-primary-foreground">
+              <span className="inline-flex h-4.25 min-w-4.25 items-center justify-center rounded-full bg-history-accent px-1.25 text-ui-caption text-history-accent-foreground">
                 {count}
               </span>
             )}
@@ -49,7 +57,10 @@ function SearchFacetRow({ chips, onSeedDimension, onClearAll }: SearchFacetRowPr
           type="button"
           onMouseDown={event => event.preventDefault()}
           onClick={onClearAll}
-          className="shrink-0 whitespace-nowrap text-ui-body font-medium text-primary hover:underline"
+          className={cn(
+            'shrink-0 rounded-sm whitespace-nowrap text-ui-body font-medium text-history-accent hover:underline',
+            FOCUS_RING
+          )}
         >
           {t('history.composite.clearAll')}
         </button>
