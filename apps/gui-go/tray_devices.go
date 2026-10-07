@@ -46,6 +46,9 @@ type deviceMenu struct {
 	pending     map[string]bool
 
 	refresh chan struct{}
+
+	// publish makes a structural change visible to the platform tray; it is set once the tray exists.
+	publish func()
 }
 
 func newDeviceMenu(h *HostService, root *application.Menu, language string) *deviceMenu {
@@ -77,7 +80,17 @@ func (d *deviceMenu) setLanguage(language string) {
 	if d.placeholder != nil {
 		d.placeholder.SetLabel(d.placeholderText())
 	}
-	d.root.Update()
+	d.publishMenu()
+}
+
+// publishMenu runs with d.mu held, so no goroutine of this file edits the menu while the platform reads it (on
+// Linux that read happens on the main thread). Nothing on the main thread takes d.mu: Wails runs menu callbacks
+// on their own goroutines, so waiting for the main thread here cannot deadlock. The lock order is d.mu, then the
+// tray's mu (inside publish); trayMenu.setLanguage releases its mu before it calls in here.
+func (d *deviceMenu) publishMenu() {
+	if d.publish != nil {
+		d.publish()
+	}
 }
 
 func (d *deviceMenu) placeholderText() string {
@@ -190,7 +203,7 @@ func (d *deviceMenu) render(rows []deviceRow, completed ...string) {
 		}
 	}
 	d.rows = rows
-	d.root.Update()
+	d.publishMenu()
 }
 
 // click handles a device item. The platform flips the check mark itself, so it is put back to the stored
