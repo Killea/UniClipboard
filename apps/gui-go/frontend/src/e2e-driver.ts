@@ -808,8 +808,26 @@ async function runAutostartScenario(phase: string) {
 // lightweight-mode exit.
 async function runTrayDevicesScenario() {
   await waitFor('app root content', () => document.getElementById('root')?.children.length)
-  // The app sets the tray language from its UI language at startup; pin English before reading labels.
-  const english = await commands.setTrayLanguage('en', null)
+  // The app sets the tray language from its UI language at startup (once or more, and later on a host whose language is not English);
+  // wait until those calls went quiet, otherwise the English pin below is overwritten (17c15 base1: the menu read Chinese on a zh-Hans host).
+  // JS heartbeat, not awaited: it shows whether this page's timers and its host calls keep running while the scenario waits.
+  let beat = 0
+  setInterval(() => {
+    void record('tray-driver-heartbeat', true, {
+      n: ++beat,
+      t: Math.round(performance.now()),
+      visibility: document.visibilityState,
+      focus: document.hasFocus(),
+    })
+  }, 1000)
+  await record('tray-driver-progress', true, 'before-quiet')
+  await control('tray-language-quiet:5000')
+  await record('tray-driver-progress', true, 'after-quiet')
+  await record('tray-driver-progress', true, 'call-start')
+  const pending = commands.setTrayLanguage('en', null)
+  void sleep(3000).then(() => record('tray-driver-progress', true, 'call-pending-after-3s'))
+  const english = await pending
+  await record('tray-driver-progress', true, 'call-returned')
   await record('tray-language-en', english.status === 'ok')
   await control('tray-menu:initial')
   await control('tray-devices-wait:tray-peer-b')

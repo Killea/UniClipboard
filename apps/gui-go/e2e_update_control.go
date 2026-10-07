@@ -84,6 +84,27 @@ func (s *EvidenceService) runControlCommand(line string) {
 	case "tray-check":
 		h.checkUpdateFromTray()
 		_ = s.write(Step{Window: "update", Step: "control-tray-check", OK: true})
+	case "tray-open-menu":
+		// tray-open-menu <label>: SystemTray.OpenMenu, Wails' own path into native NSMenu tracking (a synthesized mouse-down on the status item
+		// button; it blocks the main thread inside the tracking loop until the menu is dismissed). No menu callback or snapshot is involved.
+		filled := trayEnableOpenMenu(h.tray.tray, h.tray.menu)
+		before := trayNativeState(h.tray.tray)
+		start := time.Now().UnixNano()
+		h.tray.tray.OpenMenu()
+		_ = s.write(Step{Window: "tray", Step: "tray-open-menu-" + arg, OK: h.tray.menu != nil, Detail: map[string]any{"startNs": start, "returnNs": time.Now().UnixNano(), "menuFieldFilledByE2E": filled, "nativeStateBefore": before, "nativeStateAfter": trayNativeState(h.tray.tray)}})
+	case "show-main":
+		// show-main <label>: Show the main window WITHOUT Focus, for the 17c15 visibility control (the window starts hidden in the e2e build).
+		w, ok := h.app.Window.GetByName("main")
+		if ok {
+			w.Show()
+		}
+		time.Sleep(500 * time.Millisecond)
+		_ = s.write(Step{Window: "main", Step: "show-main-" + arg, OK: ok && w.IsVisible(), Detail: map[string]any{"mainExists": ok, "visible": ok && w.IsVisible(), "focused": ok && w.IsFocused()}})
+	case "tray-language-quiet":
+		// tray-language-quiet <label> <ms>: wait until no tray language call arrived for ms (the frontend's startup calls come in a burst).
+		label, ms, _ := strings.Cut(arg, " ")
+		quiet, _ := strconv.Atoi(ms)
+		_ = s.write(Step{Window: "tray", Step: "tray-language-quiet-" + label, OK: waitTrayLanguageQuiet(quiet), Detail: map[string]any{"quietMs": quiet}})
 	case "tray-language-race":
 		// tray-language-race <label> <n>: n concurrent tray language changes released together, alternating zh-CN and en. The
 		// menu (root labels and the device submenu title) must end in one language, the one the tray recorded last.
