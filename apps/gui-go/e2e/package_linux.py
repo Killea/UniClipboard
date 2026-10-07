@@ -71,10 +71,29 @@ HOST_ONLY_LIBS = ('libwayland-client.so', 'libEGL.so', 'libGL.so', 'libGLX.so', 
                 'libGLESv1_CM.so', 'libGLESv2.so', 'libOpenGL.so',
                 # 17c7: the host's dbus-launch/daemon helpers load libdbus through AppRun's LD_LIBRARY_PATH (found on Fedora)
                 'libdbus-1.so')
-# The GIO modules the AppImage carries: the TLS backend of GLib (libsoup 3 and so WebKitGTK reach HTTPS through it). Nothing else: gvfs, dconf,
-# libproxy and gnome-proxy are host-ABI or out of scope (docs/architecture/gui-go-linux-appimage-runtime-deps.md).
-GIO_MODULES = ('libgiognutls.so',)
-GIO_MODULE_PACKAGE = 'glib-networking'
+# The GIO modules the AppImage carries, each with the distribution package that owns it. They are copied from the build image, i.e. built against the SAME
+# GLib as the bundled one (the 17c4 crash was a HOST module against the bundled GLib). gvfs stays out (docs/architecture/gui-go-linux-appimage-runtime-deps.md).
+#  libgiognutls.so      the TLS backend of GLib (libsoup 3 and so WebKitGTK reach HTTPS through it)                       (17c7)
+#  libgiognomeproxy.so  GProxyResolver reading the GNOME proxy settings (org.gnome.system.proxy: manual, ignore-hosts)    (17c12)
+#  libdconfsettings.so  the GSettings backend that reads the user's and the system's dconf databases                      (17c12)
+#  libgiolibproxy.so    GProxyResolver over libproxy: environment variables (http_proxy ...), PAC, KDE/sysconfig configuration                     (17c12)
+GIO_MODULES = {'libgiognutls.so': 'glib-networking', 'libgiognomeproxy.so': 'glib-networking', 'libdconfsettings.so': 'dconf-gsettings-backend',
+               'libgiolibproxy.so': 'glib-networking'}
+# Built from source in the build image, not copied from a distribution package: GProxyResolver that answers direct:// for loopback and delegates everything else to the
+# resolver GLib would have picked (docs/architecture/gui-go-linux-appimage-system-proxy.md, "Loopback guard"). Priority 100 puts it in front of "gnome" (80) and "libproxy" (10).
+GUARD_SOURCE = ROOT / 'apps/gui-go/packaging/linux/gio-loopback-guard/uc_loopback_guard.c'
+GUARD_MODULE = 'libgiouniclipboardloopback.so'
+# The PAC helper glib-networking's GNOME resolver talks to over the session bus (org.gtk.GLib.PACRunner). The Go host starts this copy only when no service can be activated on the bus
+# (pacrunner_linux.go), so a package without it would depend on a host component for PAC.
+PACRUNNER = ('/usr/libexec/glib-pacrunner', 'glib-networking-services', 'usr/libexec/glib-pacrunner')
+# The libraries libgiolibproxy.so needs that the AppImage does not already carry (computed from the build image's own dependency closure, then frozen here: a new
+# entry is a decision, not an accident). libproxy 0.5's backend hard-links the PAC runtime (duktape) and the PAC downloader (libcurl-gnutls), whose own closure
+# (libssh, libldap/liblber, libsasl2, librtmp, OpenSSL's libcrypto) comes with it; this is the distribution's own dependency set for libproxy, not a choice of ours.
+GIO_SUPPORT_LIBS = {'libproxy.so.1': 'libproxy1v5', 'libpxbackend-1.0.so': 'libproxy1v5', 'libduktape.so.207': 'libduktape207', 'libcurl-gnutls.so.4': 'libcurl3t64-gnutls',
+                    'libssh.so.4': 'libssh-4', 'libldap.so.2': 'libldap2', 'liblber.so.2': 'libldap2', 'libsasl2.so.2': 'libsasl2-2', 'librtmp.so.1': 'librtmp1',
+                    'libcrypto.so.3': 'libssl3t64'}
+# Libraries every Linux host has and that the 17c7 classification (linux_appimage_tls_run.HOST_OK) already leaves to the host.
+GIO_SUPPORT_HOST_OK = ('libz.so.1', 'libgmp.so.10', 'libcom_err.so.2', 'libresolv.so.2')
 WEBKIT_HELPERS = ('WebKitWebProcess', 'WebKitNetworkProcess', 'WebKitGPUProcess')
 APPRUN = GUI / 'e2e/linux/appimage/AppRun'
 ICONS = {'32x32': '32x32.png', '128x128': '128x128.png', '256x256': '128x128@2x.png'}
@@ -296,29 +315,82 @@ def inspect_appdir(appdir, helper_dir):
 
 
 def deploy_gio_modules(appdir):
-    """Copy the GIO modules in GIO_MODULES into usr/lib/gio/modules and prove each one's provenance and that every library it needs is either in the
-    AppDir or a libc-family library: a module whose dependency is missing would only fail at run time, on a host that happens to lack it."""
+    """Copy the GIO modules in GIO_MODULES into usr/lib/gio/modules and the libraries in GIO_SUPPORT_LIBS into usr/lib, prove each one's provenance (the owning
+    distribution package, SHA-256) and that every library it needs is in the AppDir, libc-family or one of GIO_SUPPORT_HOST_OK: a missing dependency would only fail
+    at run time, on a host that happens to lack it."""
     moddir = Path(run(['pkg-config', '--variable=giomoduledir', 'gio-2.0'], capture=True))
-    shipped = {p.name for p in (appdir / 'usr/lib').rglob('*.so*') if p.is_file() or p.is_symlink()}
     libc_family = re.compile(r'^(libc|libm|libdl|libpthread|librt|ld-linux.*)\.so(\.\d+)*$')
+    loader = run(['ldconfig', '-p'], capture=True)
+    libdir_of = {}
+    for line in loader.splitlines():
+        m = re.match(r'\s*(\S+) \(.*\) => (\S+)', line)
+        if m:
+            libdir_of.setdefault(m.group(1), m.group(2))
+    support_rows = []
+    for name, package in GIO_SUPPORT_LIBS.items():
+        src = Path(libdir_of.get(name) or (moddir.parent.parent / 'libproxy' / name))
+        if name == 'libpxbackend-1.0.so':
+            src = moddir.parent.parent / 'libproxy' / name
+        if not src.is_file():
+            sys.exit(f'{name} is missing in the build image: install {package}')
+        real = src.resolve()
+        owner = run(['dpkg', '-S', str(real)], capture=True)
+        if not owner.startswith(package):
+            sys.exit(f'{real} is not owned by {package}: {owner}')
+        dest = appdir / 'usr/lib' / name
+        shutil.copy2(real, dest)
+        support_rows.append({'library': name, 'source': str(real), 'package': package, 'packageVersion': run(['dpkg-query', '-W', '-f', '${Version}', package], capture=True),
+                             'sha256': sha256(dest)})
+    shipped = {p.name for p in (appdir / 'usr/lib').rglob('*.so*') if p.is_file() or p.is_symlink()}
+    for row in support_rows:  # the closure of the support libraries themselves
+        needed = re.findall(r'\(NEEDED\)\s+Shared library: \[(.+?)\]', run(['readelf', '-d', str(appdir / 'usr/lib' / row['library'])], capture=True))
+        missing = sorted(n for n in needed if n not in shipped and not libc_family.match(n) and n not in GIO_SUPPORT_HOST_OK)
+        if missing:
+            sys.exit(f"{row['library']} needs libraries that are neither in the AppDir, libc-family nor host-provided: {missing}")
+        row['needed'] = needed
     rows = []
-    for name in GIO_MODULES:
+    for name, package in GIO_MODULES.items():
         src = moddir / name
         if not src.is_file():
-            sys.exit(f'{src} is missing in the build image: install {GIO_MODULE_PACKAGE} (the GIO TLS backend)')
+            sys.exit(f'{src} is missing in the build image: install {package}')
         owner = run(['dpkg', '-S', str(src)], capture=True)
-        if not owner.startswith(GIO_MODULE_PACKAGE):
-            sys.exit(f'{src} is not owned by {GIO_MODULE_PACKAGE}: {owner}')
-        version = run(['dpkg-query', '-W', '-f', '${Version}', GIO_MODULE_PACKAGE], capture=True)
+        if not owner.startswith(package):
+            sys.exit(f'{src} is not owned by {package}: {owner}')
+        version = run(['dpkg-query', '-W', '-f', '${Version}', package], capture=True)
         dest = appdir / 'usr/lib/gio/modules' / name
         shutil.copy2(src, dest)
         needed = re.findall(r'\(NEEDED\)\s+Shared library: \[(.+?)\]', run(['readelf', '-d', str(dest)], capture=True))
         missing = sorted(n for n in needed if n not in shipped and not libc_family.match(n))
         if missing:
             sys.exit(f'{name} needs libraries that are neither in the AppDir nor libc-family: {missing}')
-        rows.append({'module': name, 'source': str(src), 'package': GIO_MODULE_PACKAGE, 'packageVersion': version, 'sha256': sha256(dest), 'needed': needed})
+        rows.append({'module': name, 'source': str(src), 'package': package, 'packageVersion': version, 'sha256': sha256(dest), 'needed': needed})
+    cflags = run(['pkg-config', '--cflags', 'gio-2.0'], capture=True).split()
+    libs = run(['pkg-config', '--libs', 'gio-2.0'], capture=True).split()
+    dest = appdir / 'usr/lib/gio/modules' / GUARD_MODULE
+    command = ['gcc', '-Wall', '-Wextra', '-Werror', '-O2', '-shared', '-fPIC', *cflags, str(GUARD_SOURCE), '-o', str(dest), *libs]
+    run(command)
+    needed = re.findall(r'\(NEEDED\)\s+Shared library: \[(.+?)\]', run(['readelf', '-d', str(dest)], capture=True))
+    missing = sorted(n for n in needed if n not in shipped and not libc_family.match(n))
+    if missing:
+        sys.exit(f'{GUARD_MODULE} needs libraries that are neither in the AppDir nor libc-family: {missing}')
+    rows.append({'module': GUARD_MODULE, 'package': 'uniclipboard (built from source in the build image)', 'source': str(GUARD_SOURCE.relative_to(ROOT)), 'sourceSha256': sha256(GUARD_SOURCE),
+                 'compiler': run(['gcc', '--version'], capture=True).splitlines()[0], 'compileCommand': ' '.join(command), 'sha256': sha256(dest), 'needed': needed})
+    src, package, rel = Path(PACRUNNER[0]), PACRUNNER[1], PACRUNNER[2]
+    if not src.is_file():
+        sys.exit(f'{src} is missing in the build image: install {package}')
+    owner = run(['dpkg', '-S', str(src)], capture=True)
+    if not owner.startswith(package):
+        sys.exit(f'{src} is not owned by {package}: {owner}')
+    pac_dest = appdir / rel
+    pac_dest.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(src, pac_dest)
+    pac_needed = re.findall(r'\(NEEDED\)\s+Shared library: \[(.+?)\]', run(['readelf', '-d', str(pac_dest)], capture=True))
+    pac_missing = sorted(n for n in pac_needed if n not in shipped and not libc_family.match(n))
+    if pac_missing:
+        sys.exit(f'glib-pacrunner needs libraries that are neither in the AppDir nor libc-family: {pac_missing}')
+    pac_row = {'path': rel, 'source': str(src), 'package': package, 'packageVersion': run(['dpkg-query', '-W', '-f', '${Version}', package], capture=True), 'sha256': sha256(pac_dest), 'needed': pac_needed}
     glib_version = run(['dpkg-query', '-W', '-f', '${Version}', 'libglib2.0-0t64'], capture=True)
-    return {'modules': rows, 'bundledGLibPackageVersion': glib_version}
+    return {'pacRunner': pac_row, 'modules': rows, 'supportLibraries': support_rows, 'bundledGLibPackageVersion': glib_version}
 
 
 def build_appimage(stage, out, arch, name, tools, daemon, relocate=True, marker=None, tls_module=True):
@@ -414,8 +486,9 @@ def build_appimage(stage, out, arch, name, tools, daemon, relocate=True, marker=
         problems.append(f"host driver libraries bundled: {ins['hostOnlyLibrariesFound']}")
     if not ins['gioModuleDirs']:
         problems.append('no bundled GIO module directory for GIO_MODULE_DIR')
-    if ins['gioModules'] != (sorted(GIO_MODULES) if tls_module else []):
-        problems.append(f"bundled GIO modules are {ins['gioModules']}, expected exactly {sorted(GIO_MODULES) if tls_module else []}")
+    expected_modules = sorted([*GIO_MODULES, GUARD_MODULE]) if tls_module else []
+    if ins['gioModules'] != expected_modules:
+        problems.append(f"bundled GIO modules are {ins['gioModules']}, expected exactly {expected_modules}")
     if problems:
         sys.exit('AppDir inspection failed: ' + '; '.join(problems))
     image = out / name
