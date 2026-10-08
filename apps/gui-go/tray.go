@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	_ "embed"
 	"net/http"
 	"slices"
 	"sync"
@@ -11,9 +10,6 @@ import (
 	"github.com/UniClipboard/UniClipboard/packages/desktop-host-go/daemonclient"
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
-
-//go:embed assets/tray-icon@2x.png
-var trayIcon []byte
 
 const (
 	settingsChangedEvent     = "settings://changed"
@@ -36,6 +32,7 @@ type trayMenu struct {
 	tray                                                    *application.SystemTray
 	menu                                                    *application.Menu
 	devices                                                 *deviceMenu
+	icon                                                    *trayIcon
 	sync, open, settings, checkUpdate, restart, lightweight *application.MenuItem
 	quit                                                    *application.MenuItem
 }
@@ -58,7 +55,9 @@ func (h *HostService) initTray() {
 	t.menu = menu
 
 	t.tray = h.app.SystemTray.New()
-	t.tray.SetTemplateIcon(trayIcon)
+	t.icon = newTrayIcon(t.tray)
+	t.icon.show()
+	watchSystemTheme(h.app, func() { go t.icon.show() }) // an event handler may run on the main thread, which the icon call waits for
 	t.tray.SetTooltip("UniClipboard")
 	t.tray.SetMenu(menu)
 	// Set before the refresh goroutine and the event handlers below exist, so every render sees it. t.mu keeps the

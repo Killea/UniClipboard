@@ -34,6 +34,7 @@ import (
 //	modifier-script <label> <ms:sel:other ...>  drive the scripted keyboard of the modifier double-tap monitor
 //	modifier-state <label>  the monitor's selected modifier, trigger count and panel state
 //	autostart-state <label>  the stored auto-start preference next to the OS login item registration (entry path)
+//	tray-icon-compare:<dir> | tray-icon-export:<dir>  the tray icon against the design rasters / the platform's own image (e2e_tray_icon.go)
 //	exit                quit, stopping the daemon (UC_GUI_GO_EXIT_MODE=full) or leaving it
 func (s *EvidenceService) watchControlFile(path string) {
 	done := 0
@@ -257,6 +258,9 @@ func (s *EvidenceService) runControlCommand(line string) {
 		_ = s.write(Step{Window: "update", Step: "control-exit", OK: true})
 		go func() { time.Sleep(300 * time.Millisecond); h.quit(os.Getenv("UC_GUI_GO_EXIT_MODE") != "full") }()
 	default:
+		if handled, _ := s.controlTrayIcon(line); handled { // tray-icon-*: the tray icon checks
+			return
+		}
 		_ = s.write(Step{Window: "update", Step: "control-unknown", OK: false, Detail: line})
 	}
 }

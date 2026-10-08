@@ -1,0 +1,430 @@
+package main
+
+import (
+	"fmt"
+	"image"
+	"image/color"
+	"image/draw"
+	"math"
+	"strconv"
+	"strings"
+
+	"golang.org/x/image/vector"
+)
+
+// The tray glyph is drawn from the design's own SVG path data, so the artwork has one source (tray_icon_design.go) and every
+// platform receives pixels from the same renderer. Only what the design uses is implemented: M L H V A Z (absolute and
+// relative), round-capped strokes.
+
+// point is a position in design units (the 24 x 24 grid).
+type point struct{ x, y float64 }
+
+// subpath is one flattened sub-path in design units.
+type subpath struct {
+	pts    []point
+	closed bool
+}
+
+// parsePath flattens SVG path data. Curves become short line segments (the icon is at most a few dozen pixels, so a fixed
+// subdivision is enough).
+func parsePath(d string) ([]subpath, error) {
+	p := &pathParser{s: d}
+	var out []subpath
+	var cur *subpath
+	var pos, start point
+	finish := func() {
+		if cur != nil && len(cur.pts) > 1 {
+			out = append(out, *cur)
+		}
+		cur = nil
+	}
+	begin := func(pt point) {
+		finish()
+		cur = &subpath{pts: []point{pt}}
+		pos, start = pt, pt
+	}
+	for {
+		cmd, ok := p.command()
+		if !ok {
+			break
+		}
+		rel := cmd >= 'a' && cmd <= 'z'
+		abs := func(x, y float64) point {
+			if rel {
+				return point{pos.x + x, pos.y + y}
+			}
+			return point{x, y}
+		}
+		upper := cmd &^ 0x20
+		if upper == 'Z' {
+			if cur != nil {
+				cur.closed = true
+				pos = start
+				finish()
+				cur = &subpath{pts: []point{start}}
+			}
+			continue
+		}
+		first := true
+		for first || p.moreNumbers() {
+			first = false
+			switch upper {
+			case 'M':
+				n, err := p.nums(2)
+				if err != nil {
+					return nil, err
+				}
+				begin(abs(n[0], n[1]))
+				// Further coordinate pairs after M are implicit line-tos.
+				if rel {
+					cmd = 'l'
+				} else {
+					cmd = 'L'
+				}
+				upper = 'L'
+			case 'L':
+				n, err := p.nums(2)
+				if err != nil {
+					return nil, err
+				}
+				pos = abs(n[0], n[1])
+				cur.pts = append(cur.pts, pos)
+			case 'H':
+				n, err := p.nums(1)
+				if err != nil {
+					return nil, err
+				}
+				if rel {
+					pos.x += n[0]
+				} else {
+					pos.x = n[0]
+				}
+				cur.pts = append(cur.pts, pos)
+			case 'V':
+				n, err := p.nums(1)
+				if err != nil {
+					return nil, err
+				}
+				if rel {
+					pos.y += n[0]
+				} else {
+					pos.y = n[0]
+				}
+				cur.pts = append(cur.pts, pos)
+			case 'A':
+				n, err := p.nums(3)
+				if err != nil {
+					return nil, err
+				}
+				large, err := p.flag()
+				if err != nil {
+					return nil, err
+				}
+				sweep, err := p.flag()
+				if err != nil {
+					return nil, err
+				}
+				xy, err := p.nums(2)
+				if err != nil {
+					return nil, err
+				}
+				e := abs(xy[0], xy[1])
+				cur.pts = appendArc(cur.pts, pos, n[0], n[1], n[2], large, sweep, e)
+				pos = e
+			default:
+				return nil, fmt.Errorf("unsupported path command %q", cmd)
+			}
+		}
+	}
+	finish()
+	return out, nil
+}
+
+type pathParser struct {
+	s string
+	i int
+}
+
+func (p *pathParser) skip() {
+	for p.i < len(p.s) && (p.s[p.i] == ' ' || p.s[p.i] == ',' || p.s[p.i] == '\n' || p.s[p.i] == '\t') {
+		p.i++
+	}
+}
+
+func (p *pathParser) command() (byte, bool) {
+	p.skip()
+	if p.i >= len(p.s) {
+		return 0, false
+	}
+	c := p.s[p.i]
+	if (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') {
+		p.i++
+		return c, true
+	}
+	return 0, false
+}
+
+func (p *pathParser) moreNumbers() bool {
+	p.skip()
+	if p.i >= len(p.s) {
+		return false
+	}
+	c := p.s[p.i]
+	return c == '-' || c == '+' || c == '.' || (c >= '0' && c <= '9')
+}
+
+func (p *pathParser) num() (float64, error) {
+	p.skip()
+	start := p.i
+	if p.i < len(p.s) && (p.s[p.i] == '-' || p.s[p.i] == '+') {
+		p.i++
+	}
+	seenDot := false
+	for p.i < len(p.s) {
+		c := p.s[p.i]
+		if c >= '0' && c <= '9' {
+			p.i++
+		} else if c == '.' && !seenDot {
+			seenDot = true
+			p.i++
+		} else {
+			break
+		}
+	}
+	v, err := strconv.ParseFloat(p.s[start:p.i], 64)
+	if err != nil {
+		return 0, fmt.Errorf("bad number at %d in %q", start, p.s)
+	}
+	return v, nil
+}
+
+func (p *pathParser) nums(n int) ([]float64, error) {
+	out := make([]float64, n)
+	for i := range out {
+		v, err := p.num()
+		if err != nil {
+			return nil, err
+		}
+		out[i] = v
+	}
+	return out, nil
+}
+
+// flag reads an arc flag, which may be written without a separator ("a2 2 0 0 14 0").
+func (p *pathParser) flag() (bool, error) {
+	p.skip()
+	if p.i >= len(p.s) || (p.s[p.i] != '0' && p.s[p.i] != '1') {
+		return false, fmt.Errorf("bad arc flag at %d in %q", p.i, p.s)
+	}
+	v := p.s[p.i] == '1'
+	p.i++
+	return v, nil
+}
+
+const curveSteps = 24
+
+// appendArc implements the SVG endpoint-to-centre arc conversion (SVG 1.1 appendix F.6).
+func appendArc(pts []point, from point, rx, ry, rotDeg float64, large, sweep bool, to point) []point {
+	if from == to {
+		return pts
+	}
+	rx, ry = math.Abs(rx), math.Abs(ry)
+	if rx == 0 || ry == 0 {
+		return append(pts, to)
+	}
+	phi := rotDeg * math.Pi / 180
+	cosP, sinP := math.Cos(phi), math.Sin(phi)
+	dx, dy := (from.x-to.x)/2, (from.y-to.y)/2
+	x1 := cosP*dx + sinP*dy
+	y1 := -sinP*dx + cosP*dy
+	if lambda := x1*x1/(rx*rx) + y1*y1/(ry*ry); lambda > 1 {
+		s := math.Sqrt(lambda)
+		rx, ry = rx*s, ry*s
+	}
+	num := rx*rx*ry*ry - rx*rx*y1*y1 - ry*ry*x1*x1
+	den := rx*rx*y1*y1 + ry*ry*x1*x1
+	coef := 0.0
+	if den != 0 && num > 0 {
+		coef = math.Sqrt(num / den)
+	}
+	if large == sweep {
+		coef = -coef
+	}
+	cxp, cyp := coef*rx*y1/ry, -coef*ry*x1/rx
+	cx := cosP*cxp - sinP*cyp + (from.x+to.x)/2
+	cy := sinP*cxp + cosP*cyp + (from.y+to.y)/2
+	angle := func(ux, uy, vx, vy float64) float64 {
+		a := math.Atan2(ux*vy-uy*vx, ux*vx+uy*vy)
+		return a
+	}
+	th1 := angle(1, 0, (x1-cxp)/rx, (y1-cyp)/ry)
+	dth := angle((x1-cxp)/rx, (y1-cyp)/ry, (-x1-cxp)/rx, (-y1-cyp)/ry)
+	if !sweep && dth > 0 {
+		dth -= 2 * math.Pi
+	} else if sweep && dth < 0 {
+		dth += 2 * math.Pi
+	}
+	steps := int(math.Ceil(math.Abs(dth) / (math.Pi / 2) * 12))
+	if steps < 1 {
+		steps = 1
+	}
+	for i := 1; i <= steps; i++ {
+		th := th1 + dth*float64(i)/float64(steps)
+		x, y := rx*math.Cos(th), ry*math.Sin(th)
+		pts = append(pts, point{cosP*x - sinP*y + cx, sinP*x + cosP*y + cy})
+	}
+	pts[len(pts)-1] = to
+	return pts
+}
+
+// canvas is a premultiplied float RGBA surface; painting blends over.
+type canvas struct {
+	w, h int
+	pix  []float32 // r, g, b, a premultiplied, 4 per pixel
+	// scale maps design units to pixels; (ox, oy) is where design unit (0,0) lands.
+	scale, ox, oy float64
+}
+
+func newCanvas(size int, artPx float64) *canvas {
+	return &canvas{w: size, h: size, pix: make([]float32, size*size*4), scale: artPx / 24, ox: (float64(size) - artPx) / 2, oy: (float64(size) - artPx) / 2}
+}
+
+func (c *canvas) toPx(p point) (float32, float32) {
+	return float32(p.x*c.scale + c.ox), float32(p.y*c.scale + c.oy)
+}
+
+// coverage rasterizes the polygons into a w x h coverage mask.
+func (c *canvas) coverage(polys [][]point) []uint8 {
+	z := vector.NewRasterizer(c.w, c.h)
+	z.DrawOp = draw.Src
+	for _, poly := range polys {
+		if len(poly) < 3 {
+			continue
+		}
+		x, y := c.toPx(poly[0])
+		z.MoveTo(x, y)
+		for _, pt := range poly[1:] {
+			x, y = c.toPx(pt)
+			z.LineTo(x, y)
+		}
+		z.ClosePath()
+	}
+	mask := image.NewAlpha(image.Rect(0, 0, c.w, c.h))
+	z.Draw(mask, mask.Bounds(), image.Opaque, image.Point{})
+	return mask.Pix
+}
+
+// strokePolys turns each segment of the paths into a rectangle and every vertex into a disc (round caps and joins, as the design strokes
+// are). All pieces wind the same way, so their coverage adds instead of cancelling.
+func strokePolys(paths []subpath, width float64) [][]point {
+	half := width / 2
+	var polys [][]point
+	for _, sp := range paths {
+		pts := sp.pts
+		if sp.closed && len(pts) > 1 && pts[0] != pts[len(pts)-1] {
+			pts = append(append([]point{}, pts...), pts[0])
+		}
+		for i := 0; i+1 < len(pts); i++ {
+			a, b := pts[i], pts[i+1]
+			dx, dy := b.x-a.x, b.y-a.y
+			l := math.Hypot(dx, dy)
+			if l == 0 {
+				continue
+			}
+			nx, ny := -dy/l*half, dx/l*half
+			polys = append(polys, []point{{a.x + nx, a.y + ny}, {b.x + nx, b.y + ny}, {b.x - nx, b.y - ny}, {a.x - nx, a.y - ny}})
+		}
+		for _, c := range pts {
+			const n = 20
+			poly := make([]point, n)
+			for i := range poly {
+				a := -2 * math.Pi * float64(i) / n // the same winding as the segment rectangles
+				poly[i] = point{c.x + half*math.Cos(a), c.y + half*math.Sin(a)}
+			}
+			polys = append(polys, poly)
+		}
+	}
+	return polys
+}
+
+// supersample is the factor strokes are rasterized at before being averaged down. A stroke is the union of many overlapping pieces, and a
+// single-pass rasterizer adds the partial coverage of overlapping pieces on an edge pixel; at this factor the over-count is confined to
+// sub-pixels that are then averaged.
+const supersample = 4
+
+// strokeCoverage rasterizes the polygons at supersample times the resolution and averages each block down to one pixel.
+func (c *canvas) strokeCoverage(polys [][]point) []uint8 {
+	big := &canvas{w: c.w * supersample, h: c.h * supersample, scale: c.scale * supersample, ox: c.ox * supersample, oy: c.oy * supersample}
+	hi := big.coverage(polys)
+	out := make([]uint8, c.w*c.h)
+	for y := 0; y < c.h; y++ {
+		for x := 0; x < c.w; x++ {
+			sum := 0
+			for dy := 0; dy < supersample; dy++ {
+				for dx := 0; dx < supersample; dx++ {
+					sum += int(hi[(y*supersample+dy)*big.w+x*supersample+dx])
+				}
+			}
+			out[y*c.w+x] = uint8(sum / (supersample * supersample))
+		}
+	}
+	return out
+}
+
+// paintStroke paints polygons that came from strokePolys.
+func (c *canvas) paintStroke(polys [][]point, col color.NRGBA) {
+	c.paintMask(c.strokeCoverage(polys), col)
+}
+
+func (c *canvas) paintMask(mask []uint8, col color.NRGBA) {
+	r, g, b := float32(col.R)/255, float32(col.G)/255, float32(col.B)/255
+	for i, m := range mask {
+		if m == 0 {
+			continue
+		}
+		a := float32(m) / 255 * float32(col.A) / 255
+		px := c.pix[i*4 : i*4+4]
+		inv := 1 - a
+		px[0] = r*a + px[0]*inv
+		px[1] = g*a + px[1]*inv
+		px[2] = b*a + px[2]*inv
+		px[3] = a + px[3]*inv
+	}
+}
+
+// image converts the surface to a straight-alpha image.
+func (c *canvas) image() *image.NRGBA {
+	img := image.NewNRGBA(image.Rect(0, 0, c.w, c.h))
+	for i := 0; i < c.w*c.h; i++ {
+		px := c.pix[i*4 : i*4+4]
+		a := px[3]
+		if a <= 0 {
+			continue
+		}
+		img.Pix[i*4+0] = clamp8(px[0] / a)
+		img.Pix[i*4+1] = clamp8(px[1] / a)
+		img.Pix[i*4+2] = clamp8(px[2] / a)
+		img.Pix[i*4+3] = clamp8(a)
+	}
+	return img
+}
+
+func clamp8(v float32) uint8 {
+	v = v*255 + 0.5
+	if v < 0 {
+		return 0
+	}
+	if v > 255 {
+		return 255
+	}
+	return uint8(v)
+}
+
+func roundRectPath(x, y, w, h, r float64) string {
+	f := func(v float64) string { return strconv.FormatFloat(v, 'f', -1, 64) }
+	return strings.Join([]string{
+		"M", f(x + r), " ", f(y), "h", f(w - 2*r), "a", f(r), " ", f(r), " 0 0 1 ", f(r), " ", f(r),
+		"v", f(h - 2*r), "a", f(r), " ", f(r), " 0 0 1 ", f(-r), " ", f(r),
+		"h", f(-(w - 2*r)), "a", f(r), " ", f(r), " 0 0 1 ", f(-r), " ", f(-r),
+		"v", f(-(h - 2*r)), "a", f(r), " ", f(r), " 0 0 1 ", f(r), " ", f(-r), "z"}, "")
+}
