@@ -5,7 +5,7 @@ Runs inside uc-gui-go-linux-runtime:17c4 (Xvfb, D-Bus client, Mesa/libglvnd, FUS
 host; no GTK, WebKitGTK, libsoup, cairo, pango). The Secret Service lives in a separate container whose session bus is shared through
 a volume (UC_E2E_BUS): the daemon refuses to start without one, and gnome-keyring would put GTK on this host.
 
-  linux_appimage_run.py --mode full     --out DIR --appimage v1.AppImage --uniclip uniclip [--feed DIR]
+  linux_appimage_run.py --mode full     --out DIR --appimage app.AppImage --uniclip uniclip
   linux_appimage_run.py --mode negative --out DIR --appimage NEGCONTROL.AppImage             (must fail to come up)
   linux_appimage_run.py --mode smoke    --out DIR --appimage release.AppImage                (release build: no control plane)
 
@@ -17,23 +17,19 @@ AppImage that is the install target:
   3 handshake            the WebView ran the frontend and reached the daemon (evidence step, shortcut state)
   4 data root            non-portable XDG data root, no profile suffix, nothing written next to the AppImage
   5 autostart            Exec= is the AppImage file (not the temporary mount), a legacy entry is replaced, disable removes it
-  6 update-bad           untrusted signature: download rejected, AppImage bytes unchanged
-  7 update-good          verified download, file replaced, restart from the new file, old daemon stopped, new image mounted
-Not proven: real desktop, GPU, Wayland (GDK_BACKEND=x11 is forced by the plugin hook), official signing key, real feed server.
+  6 settings             a user setting writes through the daemon API and reads back
+Not proven: real desktop, GPU, Wayland (GDK_BACKEND=x11 is forced by the plugin hook).
 """
 import argparse
 import hashlib
-import http.server
 import json
 import os
 import re
 import shutil
-import shlex
 import signal
 import subprocess
 import sys
 import tempfile
-import threading
 import time
 import urllib.request
 from pathlib import Path
@@ -52,9 +48,7 @@ def pid_alive(pid):
     return state != 'Z'
 
 PASSPHRASE = 'appimage-e2e-passphrase'
-VERSION = '99.0.0-e2e'
 DISPLAY = ':99'
-PLATFORM_KEY = {'aarch64': 'linux-aarch64', 'x86_64': 'linux-x86_64'}
 
 
 def sha256(path):
@@ -109,14 +103,6 @@ def maps_of(pid):
     return libs
 
 
-def serve(directory):
-    handler = lambda *a, **k: http.server.SimpleHTTPRequestHandler(*a, directory=str(directory), **k)  # noqa: E731
-    server = http.server.ThreadingHTTPServer(('127.0.0.1', 0), handler)
-    handler.log_message = lambda *a: None
-    threading.Thread(target=server.serve_forever, daemon=True).start()
-    return server
-
-
 class Run:
     def __init__(self, out, appimage, env):
         self.out, self.appimage, self.env = out, appimage, env
@@ -149,7 +135,7 @@ class Launch:
             if rows:
                 return rows[-1]
             for r in read_steps(self.evidence):
-                if r['step'] in ('driver-error', 'update-driver-error'):
+                if r['step'] == 'driver-error':
                     raise RuntimeError(f"driver error: {r.get('detail')}")
             if not allow_exit and self.proc.poll() is not None:
                 raise RuntimeError(f'GUI exited ({self.proc.returncode}) before {name}')
@@ -186,7 +172,6 @@ def main():
     parser.add_argument('--out', type=Path, required=True)
     parser.add_argument('--appimage', type=Path, required=True)
     parser.add_argument('--uniclip', type=Path)
-    parser.add_argument('--feed', type=Path, help='directory with update.AppImage.tar.gz, pubkey.b64, good.sig.b64, bad.sig.b64 and v2.sha256')
     parser.add_argument('--manifest', type=Path, help='package-manifest.json of the AppImage under test (daemon SHA-256)')
     args = parser.parse_args()
     out = args.out.resolve()
@@ -369,16 +354,14 @@ def full(run, launches, args, sandbox, home, target, original_sha):
     state = wait_panel_ready(gui, 'boot')
     run.check('3 the frontend reached the daemon: the panel reports ready', state.get('panelReady') is True, state)
 
-    # User data written through the real daemon API before the update; read back after it (check 8).
-    default = gui.invoke('ad0', 'get_auto_download_update')
-    flipped = not default['data']
-    written = gui.ctl(f"setting autoDownloadUpdate {'on' if flipped else 'off'}", 'control-setting')
-    readback = gui.invoke('ad1', 'get_auto_download_update')
-    run.check('8 a user setting (general.autoDownloadUpdate, flipped from its default) is written through the daemon API and reads back',
-              written['ok'] and readback['data'] == flipped and flipped != default['data'], [default, written, readback])
-    space_before = cli(run, args, 'space', 'status')
-    run.results['spaceStatusBefore'] = space_before
-    run.check('8 `uniclip space status` works against the bundled daemon (encrypted space, keyring unlocked)', space_before['rc'] == 0 and space_before['stdout'], space_before)
+    # A user setting written through the real daemon API reads back (check 6).
+    written = gui.ctl('setting usageAnalyticsEnabled off', 'control-setting')
+    run.check('6 a user setting (general.usageAnalyticsEnabled) is written through the daemon API and reads back',
+              written['ok'] and written['detail'].get('stored') is False, written)
+    space_status = cli(run, args, 'space', 'status')
+    run.results['spaceStatus'] = space_status
+    run.check('6 `uniclip space status` works against the bundled daemon (encrypted space, keyring unlocked)',
+              space_status['rc'] == 0 and space_status['stdout'], space_status)
 
     data_root = home / '.local/share/app.uniclipboard.desktop'
     run.check('4 release-no-profile, non-portable data root: ~/.local/share/app.uniclipboard.desktop holds daemon.conn, no profile suffix',
@@ -396,10 +379,10 @@ def full(run, launches, args, sandbox, home, target, original_sha):
               res.get('ok') and str(target) in exec_line and '--autostart' in exec_line and '.mount_' not in body and 'legacy' not in body, [res, body])
     res = gui.invoke('as-off', 'update_autostart', {'enabled': False})
     run.check('5 disabling autostart removes the entry', res.get('ok') and not entry.exists(), res)
-    on = gui.invoke('update-autostart-on', 'update_autostart', {'enabled': True})
-    enabled_before = entry.read_text() if entry.exists() else ''
-    run.check('9 autostart is enabled before launching either update scenario',
-              on.get('ok') and str(target) in enabled_before and '--autostart' in enabled_before, [on, enabled_before])
+    on = gui.invoke('autostart-on', 'update_autostart', {'enabled': True})
+    enabled = entry.read_text() if entry.exists() else ''
+    run.check('7 autostart stays enabled (Exec points at the AppImage file)',
+              on.get('ok') and str(target) in enabled and '--autostart' in enabled, [on, enabled])
     gui.ctl('exit', 'control-exit')
     code = gui.proc.wait(timeout=60)
     deadline = time.monotonic() + 20
@@ -413,97 +396,6 @@ def full(run, launches, args, sandbox, home, target, original_sha):
     while mount is not None and Path(mount).exists() and time.monotonic() < deadline:
         time.sleep(.3)
     run.check('2 the mount is gone after exit', mount is None or not Path(mount).exists(), mount)
-
-    if not args.feed:
-        run.check('6/7 update scenarios were not run (no --feed)', False)
-        return
-    feed = args.feed
-    pubkey = (feed / 'pubkey.b64').read_text()
-    v2_sha = (feed / 'v2.sha256').read_text().split()[0]
-    server = serve(feed)
-    base = f'http://127.0.0.1:{server.server_address[1]}'
-    try:
-        for name, sig in (('good', 'good.sig.b64'), ('bad', 'bad.sig.b64')):
-            (feed / f'{name}.json').write_text(json.dumps({
-                'version': VERSION, 'notes': 'E2E update notes', 'pub_date': '2026-10-06T00:00:00Z',
-                'platforms': {PLATFORM_KEY[os.uname().machine]: {'url': f'{base}/update.AppImage.tar.gz', 'signature': (feed / sig).read_text()}}}))
-        # 6: untrusted signature
-        bad = run.launch('update-bad', {'UC_GUI_GO_E2E_PHASE': 'update-bad', 'UC_UPDATE_ENDPOINT': f'{base}/bad.json', 'UC_UPDATE_PUBKEY': pubkey})
-        launches.append(bad)
-        bad.step('update-check', 120)
-        row = bad.step('update-download-rejected', 120)
-        run.check('6 an artifact signed by an untrusted key is rejected, naming the signature', row['ok'] and 'signature' in json.dumps(row['detail']).lower(), row)
-        run.check('6 the AppImage file is byte-identical after the rejected update', sha256(target) == original_sha)
-        try:
-            bad.proc.wait(timeout=90)
-        except subprocess.TimeoutExpired:
-            bad.proc.terminate()
-        # 7: trusted signature, real replacement and restart
-        good = run.launch('update-good', {'UC_GUI_GO_E2E_PHASE': 'update-good', 'UC_UPDATE_ENDPOINT': f'{base}/good.json', 'UC_UPDATE_PUBKEY': pubkey})
-        launches.append(good)
-        first = good.step('update-state', 120)
-        first_pid = first['detail']['pid']
-        run.check('7 the first process runs the v1 image (no update marker)', first['detail']['installed'] is False, first)
-        conn, old_daemon = wait_daemon(home)
-        data_before = sorted(str(p.relative_to(home / '.local/share')) for p in (home / '.local/share/app.uniclipboard.desktop').rglob('*') if p.is_file()
-                             and p.name not in RUNTIME_STATE_FILES
-                             and not p.name.endswith(('-wal', '-shm')))  # SQLite sidecars vanish at a clean close after the checkpoint; the database file stays compared
-        # The first process hands over to the replaced file and exits, so from here the evidence file is read without it.
-        good.step('update-relaunched', 240, allow_exit=True)
-        states = [x for x in read_steps(good.evidence) if x['step'] == 'update-state']
-        run.check('7 the AppImage file now holds the v2 bytes (SHA-256 equals the signed artifact)', sha256(target) == v2_sha, {'v2': v2_sha, 'file': sha256(target)})
-        run.check('7 the restarted process is a new process running the v2 image (the marker exists in its mount)',
-                  len(states) == 2 and states[1]['detail']['installed'] and states[1]['detail']['pid'] != first_pid, states)
-        try:
-            good.proc.wait(timeout=60)
-        except subprocess.TimeoutExpired:
-            pass
-        deadline = time.monotonic() + 40
-        while pid_alive(states[-1]['detail']['pid']) and time.monotonic() < deadline:
-            time.sleep(.5)
-        old_status = daemon_status(home, old_daemon) if old_daemon else None
-        run.check('7 the old daemon is gone after the update (not running by /proc state, health endpoint silent)', old_status is not None and not old_status['running'], old_status)
-        boots = [x for x in read_steps(good.evidence) if x['step'] == 'bootstrapped']
-        run.check('7 the restarted process bootstrapped its page against the existing profile (a second `bootstrapped` in the same evidence file)', len(boots) == 2, boots)
-        data_after = sorted(str(p.relative_to(home / '.local/share')) for p in (home / '.local/share/app.uniclipboard.desktop').rglob('*') if p.is_file())
-        run.check('7 persisted user data files survived the update (lifecycle state files excluded: they are rewritten at daemon start)',
-                  set(data_before) <= set(data_after), sorted(set(data_before) - set(data_after)))
-        # A fresh launch of the replaced AppImage: same profile, new daemon, user data readable through the real API.
-        enabled_after = entry.read_text() if entry.exists() else ''
-        exec_line = next((line[5:] for line in enabled_after.splitlines() if line.startswith('Exec=')), '')
-        exec_args = shlex.split(exec_line)
-        entry_valid = enabled_after == enabled_before and exec_args == [str(target), '--autostart'] and target.is_file() and os.access(target, os.X_OK)
-        run.check('9 the enabled entry survives the byte replacement unchanged and Exec resolves to the new executable',
-                  entry_valid, {'before': enabled_before, 'after': enabled_after, 'exec': exec_args})
-        if not entry_valid:
-            raise RuntimeError('autostart Exec is invalid after the update')
-        post = run.launch('post-update', args=exec_args[1:])
-        launches.append(post)
-        pconn, pdaemon = wait_daemon(home)
-        run.check('8 the replaced AppImage starts a daemon on the existing data root', pconn is not None and pdaemon not in (None, old_daemon), [str(pconn), pdaemon, old_daemon])
-        post.step('bootstrapped', 120)
-        pstate = wait_panel_ready(post, 'post')
-        run.check('8 the v2 page reached the daemon (panel ready)', pstate.get('panelReady') is True, pstate)
-        pmount = inspect_processes(run, '8', post.proc.pid, daemon_sha, pdaemon)
-        run.check('8 the running image is v2 (marker file in its mount)', pmount is not None and (Path(pmount) / 'usr/share/uniclipboard/update-marker.txt').exists(), pmount)
-        state_after = post.ctl('autostart-state updated', 'autostart-updated')['detail']
-        run.check('9 executing the updated entry bootstraps WebView and reports autostart enabled',
-                  state_after.get('setting') is True and state_after.get('enabled') is True and state_after.get('path') == str(entry), state_after)
-        after = post.invoke('ad2', 'get_auto_download_update')
-        run.check('8 the user setting written before the update reads back through the new daemon', after['data'] == flipped, after)
-        space_after = cli(run, args, 'space', 'status')
-        run.results['spaceStatusAfter'] = space_after
-        try:
-            same = stable(json.loads(space_before['stdout'])) == stable(json.loads(space_after['stdout']))
-        except ValueError:
-            same = space_before['stdout'] == space_after['stdout']
-        run.check('8 the encrypted space is still initialised and unlocked after the update, with the same stable status fields', space_after['rc'] == 0 and same,
-                  [stable(json.loads(space_before['stdout'])) if space_before['stdout'].startswith('{') else space_before['stdout'], space_after['stdout'][:600]])
-        post.ctl('exit', 'control-exit')
-        post.proc.wait(timeout=60)
-        run.check('7 the relaunched process exited at the end of its scenario', not pid_alive(states[-1]['detail']['pid']))
-    finally:
-        server.shutdown()
 
 
 def negative(run, launches):

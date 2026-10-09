@@ -6,7 +6,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/UniClipboard/UniClipboard/apps/gui-go/internal/update"
 	"os"
 	"strconv"
 	"sync"
@@ -78,18 +77,6 @@ func (s *EvidenceService) Control(action string) error {
 		main.Focus()
 		time.Sleep(500 * time.Millisecond)
 		return s.write(Step{Window: "main", Step: "native-main-reopened", OK: main.IsVisible(), Detail: map[string]bool{"visible": main.IsVisible()}})
-	case "open-updater":
-		h.openUpdater(true)
-		return s.write(Step{Window: updaterWindowName, Step: "native-updater-opened", OK: s.waitVisible(updaterWindowName, true)})
-	case "close-updater":
-		w, ok := h.app.Window.GetByName(updaterWindowName)
-		if !ok {
-			return fmt.Errorf("updater window absent")
-		}
-		w.Close()
-		time.Sleep(500 * time.Millisecond)
-		_, still := h.app.Window.GetByName(updaterWindowName)
-		return s.write(Step{Window: updaterWindowName, Step: "native-updater-closed", OK: !still})
 	case "show-quick-panel":
 		h.showQuickPanel()
 		return s.write(Step{Window: quickPanelWindowName, Step: "native-quick-panel-visible", OK: s.waitVisible(quickPanelWindowName, true), Detail: map[string]bool{"ready": h.panel.toggle.isReady()}})
@@ -119,61 +106,6 @@ func (s *EvidenceService) Control(action string) error {
 		h.tray.setLanguage("en")
 		return s.write(Step{Window: "tray", Step: "tray-sync-toggle", OK: ok && err == nil, Detail: map[string]any{
 			"before": before, "after": after, "labelBefore": beforeLabel, "labelAfter": afterLabel, "zhLabel": zh, "iconCreated": h.tray.tray != nil}})
-	case "update-check":
-		// Same sequence as the tray's manual check: look up the release, then show the updater window.
-		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-		defer cancel()
-		meta, err := h.checkForUpdate(ctx, nil)
-		detail := map[string]any{"meta": meta}
-		if err != nil {
-			detail["error"] = err.Error()
-		}
-		if meta != nil {
-			h.openUpdater(false)
-		}
-		return s.write(Step{Window: "update", Step: "update-check", OK: err == nil && meta != nil, Detail: detail})
-	case "update-verify":
-		// Check and download against the configured feed, then report which key was trusted and what happened.
-		// A feed signed by another key must fail the download; an unconfigured key must refuse to check at all.
-		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
-		defer cancel()
-		detail := map[string]any{"bakedKeyConfigured": updaterPublicKey != ""}
-		if pub, err := update.ParsePublicKey(updaterPublicKey); err == nil {
-			detail["bakedKeyID"] = fmt.Sprintf("%016X", pub.ID())
-		}
-		meta, err := h.checkForUpdate(ctx, nil)
-		detail["meta"] = meta
-		if err != nil {
-			detail["checkError"] = err.Error()
-		} else if meta != nil {
-			if err = h.downloadUpdate(ctx); err != nil {
-				detail["downloadError"] = err.Error()
-			} else {
-				detail["downloaded"] = true
-			}
-		}
-		return s.write(Step{Window: "update", Step: "update-verify", OK: true, Detail: detail})
-	case "update-state":
-		// Reports whether this process runs from a bundle that already carries the update marker.
-		marker, installed := updateMarker()
-		return s.write(Step{Window: "update", Step: "update-state", OK: true, Detail: map[string]any{"installed": installed, "pid": os.Getpid(), "bundle": marker}})
-	case "scheduler-wait-updater":
-		// Nothing asked for a check: the background scheduler alone must surface the update.
-		detail := map[string]any{}
-		ok := false
-		for deadline := time.Now().Add(60 * time.Second); time.Now().Before(deadline) && !ok; time.Sleep(200 * time.Millisecond) {
-			if w, found := h.app.Window.GetByName(updaterWindowName); found {
-				detail["exists"], detail["visible"], detail["minimised"] = true, w.IsVisible(), w.IsMinimised()
-				ok = w.IsVisible()
-			}
-		}
-		return s.write(Step{Window: updaterWindowName, Step: "scheduler-updater-opened", OK: ok, Detail: detail})
-	case "scheduler-quiet":
-		// Several scheduler iterations must pass without re-prompting a version already announced.
-		timing := schedulerTimingOverride(defaultSchedulerTiming)
-		time.Sleep(4 * timing.success)
-		_, reopened := h.app.Window.GetByName(updaterWindowName)
-		return s.write(Step{Window: updaterWindowName, Step: "scheduler-no-reprompt", OK: !reopened})
 	case "exit":
 		// Lightweight exit leaves the daemon for the next launch; a full quit stops it.
 		keep := os.Getenv("UC_GUI_GO_EXIT_MODE") != "full"
@@ -218,12 +150,6 @@ func (s *EvidenceService) ServiceStartup(context.Context, application.ServiceOpt
 
 // Secret hands the driver the throwaway passphrase of the e2e profile, which the orchestrator chose.
 func (s *EvidenceService) Secret() string { return os.Getenv("UC_GUI_GO_E2E_SECRET") }
-
-// Installed reports whether the running bundle carries the update marker.
-func (s *EvidenceService) Installed() bool {
-	_, installed := updateMarker()
-	return installed
-}
 
 // waitVisible polls a window's visibility; window show/hide completes asynchronously.
 func (s *EvidenceService) waitVisible(name string, want bool) bool {

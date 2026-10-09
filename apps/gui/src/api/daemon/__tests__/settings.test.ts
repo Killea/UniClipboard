@@ -142,8 +142,6 @@ describe('settings api — toSettingsPatchRequest network mirror', () => {
         autoStart: true,
         startupMode: 'normal',
         restoreLastEntryOnStartup: false,
-        autoCheckUpdate: true,
-        autoDownloadUpdate: false,
         theme: 'system',
         themeColor: null,
         themeColorLight: null,

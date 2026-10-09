@@ -75,14 +75,14 @@ def main():
         sys.exit(f"host is {platform.machine()}, not {a['uname']}: the package set is verified on a host of its own architecture")
     version = json.loads((ROOT / 'apps/gui-go/app.json').read_text())['version']
     expected = {f'UniClipboard_{version}_{a["deb"]}.deb', f'UniClipboard-{version}-1.{a["rpm"]}.rpm',
-                f'UniClipboard_{version}_{a["appimage"]}.AppImage', f'UniClipboard_{version}_{a["appimage"]}.AppImage.tar.gz'}
+                f'UniClipboard_{version}_{a["appimage"]}.AppImage'}
 
     # C1/C2: the collector decides what is a named distributable.
     if args.upload_dir.exists():
         sys.exit(f'{args.upload_dir} exists: the upload directory is created by this command')
     collected = sorted(load_collector().collect(args.packages, args.upload_dir))
     report['collected'] = collected
-    if set(collected) != expected or len(collected) != 4:
+    if set(collected) != expected or len(collected) != 3:
         problems.append(f'the release collector picks {collected}, expected exactly {sorted(expected)}')
     for stray in sorted(p.name for p in args.upload_dir.iterdir() if p.name not in expected):
         problems.append(f'unexpected file in the upload set: {stray}')
@@ -111,7 +111,6 @@ def main():
     deb = args.upload_dir / f'UniClipboard_{version}_{a["deb"]}.deb'
     rpm = args.upload_dir / f'UniClipboard-{version}-1.{a["rpm"]}.rpm'
     image = args.upload_dir / f'UniClipboard_{version}_{a["appimage"]}.AppImage'
-    archive = args.upload_dir / f'{image.name}.tar.gz'
     if deb.is_file():
         control = sh(['dpkg-deb', '-f', str(deb), 'Package', 'Version', 'Architecture'])
         report['debControl'] = control
@@ -142,13 +141,6 @@ def main():
             problems.append('AppImage daemon is not the evidence daemon')
         if e_machine(work / 'squashfs-root/usr/bin/uniclipboard') != a['machine']:
             problems.append(f'AppImage GUI executable is not an ELF for {args.arch}')
-    if archive.is_file() and image.is_file():
-        with tarfile.open(archive) as tar:
-            names = tar.getnames()
-            inner = tar.extractfile(names[0]).read() if len(names) == 1 else b''
-        if names != [image.name] or hashlib.sha256(inner).hexdigest() != sha256(image):
-            problems.append(f'the updater archive must hold exactly {image.name} with the same bytes, holds {names}')
-
     # C5: glibc floor of what the packages ship.
     floors = {}
     for label, tree in (('deb', work / 'deb'), ('appimage', work / 'squashfs-root')):

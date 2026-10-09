@@ -3,22 +3,9 @@
 package main
 
 import (
-	"github.com/UniClipboard/UniClipboard/apps/gui-go/internal/update"
 	"github.com/UniClipboard/UniClipboard/packages/desktop-host-go/quickpanelhelper"
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
-
-type devUpdate struct {
-	endpoints func(update.Channel) []string
-	publicKey string
-}
-
-// devUpdateOverrides is empty in normal builds: the feed and the trusted key
-// cannot be redirected by the environment.
-func devUpdateOverrides() (devUpdate, bool) { return devUpdate{}, false }
-
-// schedulerTimingOverride keeps the production cadence in normal builds.
-func schedulerTimingOverride(t schedulerTiming) schedulerTiming { return t }
 
 // helperExecutable is the quick panel helper next to this executable; normal builds cannot
 // redirect it through the environment.
@@ -41,7 +28,7 @@ func keyringUnlockDenied() bool { return false }
 func forceMainWindow() bool { return false }
 
 // Window seams. Normal builds place, focus and activate windows directly; the e2e build keeps them out of
-// the tester's way (see updater_dev_e2e.go).
+// the tester's way (see dev_seams_e2e.go).
 // quiet is only ever true in the e2e build.
 func quiet() bool                                                                      { return false }
 func quietOptions(o application.WebviewWindowOptions) application.WebviewWindowOptions { return o }

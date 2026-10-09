@@ -29,12 +29,10 @@
     "export": "Exportar logs",
     "exporting": "Exportando…",
     "contact": "Contatar o autor",
-    "update": "Abrir atualização",
     "details": "Detalhes do erro",
     "exported": "Logs salvos em: {{path}}",
     "exportFailed": "Não foi possível exportar os logs. Verifique o local de destino e o espaço disponível e tente novamente.",
     "contactFailed": "Não foi possível abrir a página de suporte. Endereço de contato:",
-    "updateFailed": "Não foi possível verificar atualizações. Tente novamente mais tarde.",
     "contactOpened": "A página de suporte foi aberta no navegador."
   },
   "appearanceLayout": {
@@ -185,11 +183,6 @@
     "history": "Histórico",
     "devices": "Dispositivos",
     "settings": "Configurações",
-    "updateAvailable": "Atualização disponível",
-    "updateDownloading": "Baixando atualização...",
-    "updateDownloadingWithProgress": "Baixando atualização... {{percent}}%",
-    "updateInstalling": "Instalando atualização...",
-    "updateReady": "Atualização pronta para instalar",
     "back": "Voltar",
     "feedback": "Feedback",
     "collapseSidebar": "Recolher barra lateral",
@@ -202,54 +195,6 @@
     "disable": "Desativar o modo de depuração",
     "disabledToast": "Modo de depuração desativado. Reinicie para voltar totalmente ao registro de logs normal.",
     "disableFailed": "Falha ao desativar o modo de depuração"
-  },
-  "update": {
-    "title": "Atualização disponível",
-    "currentVersion": "Versão atual",
-    "latestVersion": "Versão mais recente",
-    "releaseNotes": "Notas da versão",
-    "noNotes": "Nenhuma nota de versão disponível.",
-    "updateNow": "Atualizar agora",
-    "installNow": "Instalar agora",
-    "downloadInBackground": "Baixar em segundo plano",
-    "cancelDownload": "Cancelar download",
-    "cancelling": "Cancelando...",
-    "readyHint": "Atualização baixada. Clique em Instalar agora para aplicar e reiniciar.",
-    "later": "Depois",
-    "noUpdate": "Você já está na versão mais recente.",
-    "checkFailed": "Falha ao verificar atualizações.",
-    "installFailed": "Falha na atualização. Tente novamente.",
-    "downloadFailed": "Falha no download em segundo plano. Tente novamente.",
-    "downloading": "Baixando...",
-    "installing": "Instalando...",
-    "packageManager": {
-      "title": "Atualize pelo seu gerenciador de pacotes",
-      "portableTitle": "Baixe a nova versão portátil",
-      "debHint": "O UniClipboard foi instalado via apt (Debian/Ubuntu). Execute isto em um terminal para atualizar:",
-      "rpmHint": "O UniClipboard foi instalado via dnf/yum (Fedora/RHEL). Execute isto em um terminal para atualizar:",
-      "portableHint": "Você está usando a versão portátil. Ela não se atualiza sozinha — baixe o novo zip portátil na página da versão e substitua o executável (sua pasta de dados permanece intacta).",
-      "debCommand": "sudo apt update && sudo apt install --only-upgrade uniclipboard",
-      "rpmCommand": "sudo dnf upgrade uniclipboard",
-      "copyCommand": "Copiar comando",
-      "copied": "Copiado",
-      "openReleasePage": "Abrir página da versão",
-      "ok": "Entendi"
-    }
-  },
-  "updater": {
-    "window": {
-      "title": "Uma nova versão do UniClipboard está disponível!",
-      "subtitle": "O {{app}} {{version}} já está disponível — você tem a {{currentVersion}}. Deseja baixá-la agora?",
-      "readySubtitle": "O {{app}} {{version}} foi baixado e está pronto para instalar.",
-      "skipThisVersion": "Ignorar esta versão",
-      "remindMeLater": "Lembrar mais tarde",
-      "downloadUpdate": "Baixar atualização",
-      "checking": "Procurando a versão mais recente…",
-      "autoUpdate": "Baixar atualizações automaticamente no futuro",
-      "upToDateTitle": "Tudo atualizado!",
-      "upToDateBody": "Você já está usando a versão mais recente do UniClipboard.",
-      "close": "Fechar"
-    }
   },
   "rePairingNotice": {
     "dontShowAgain": "Não mostrar novamente",
@@ -580,10 +525,6 @@
             "pkarr": {
               "title": "Resolução de NodeId pela DHT pkarr",
               "description": "Conexões entre sub-redes diferentes resolvem os NodeIds dos pares pela DHT pública pkarr, algo parecido com o DNS. Desativá-la derrubaria a taxa de conexão entre sub-redes de cerca de 90% para quase zero."
-            },
-            "autoUpdate": {
-              "title": "Verificação de atualizações no GitHub",
-              "description": "Controlada de forma independente em Geral → Atualização automática, que consulta a API de Releases do GitHub em busca de novas versões."
             }
           }
         },
@@ -915,34 +856,6 @@
         "title": "Sobre",
         "appName": "UniClipboard",
         "version": "Versão {{version}}",
-        "checkUpdate": "Verificar atualizações",
-        "checkingUpdate": "Verificando...",
-        "updatesTitle": "Atualizações",
-        "updatesSelfMaintained": "Esta compilação é distribuída pelo mantenedor — as atualizações automáticas não estão disponíveis.",
-        "autoCheckUpdate": {
-          "label": "Verificar atualizações automaticamente",
-          "description": "Verificar automaticamente se há novas versões quando o app iniciar"
-        },
-        "autoDownloadUpdate": {
-          "label": "Baixar atualizações em segundo plano",
-          "description": "Baixa o instalador assim que uma nova versão é detectada, deixando a instalação instantânea.",
-          "disabledHint": "Ative primeiro \"Verificar atualizações automaticamente\""
-        },
-        "updateChannel": {
-          "label": "Canal de atualização",
-          "description": "Escolha de qual canal de lançamento receber as atualizações",
-          "auto": "Detectar automaticamente",
-          "stable": "Estável",
-          "beta": "Beta",
-          "alpha": "Alpha",
-          "rc": "Release Candidate",
-          "alphaWarning": {
-            "title": "Mudar para o canal Alpha?",
-            "description": "As versões alpha podem trazer recursos e regressões que ainda não foram totalmente validados. O UniClipboard vai verificar o canal alpha logo após a mudança.",
-            "cancel": "Cancelar",
-            "confirm": "Mudar"
-          }
-        },
         "sponsors": {
           "title": "Patrocinadores",
           "thanks": "Obrigado a estas pessoas incríveis, cujo patrocínio mantém o UniClipboard avançando.",
@@ -952,10 +865,9 @@
         },
         "copyright": "© 2025 UniClipboard. Todos os direitos reservados.",
         "links": {
-          "privacyPolicy": "Política de Privacidade",
-          "termsOfService": "Termos de Serviço",
-          "aboutMaintainers": "Sobre e mantenedores"
-        }
+          "repository": "Repositório"
+        },
+        "selfMaintained": "Fork mantido de forma independente. Atualizações somente por reinstalação manual."
       }
     }
   },

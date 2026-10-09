@@ -1,9 +1,8 @@
-import { ArrowUpCircle, Download, Loader2, MessageCircle, RotateCw } from 'lucide-react'
+import { Download, Loader2, MessageCircle, RotateCw } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { STARTUP_SUPPORT_URL } from '@/api/startup-support-url'
 import { Button } from '@/components/ui/button'
-import { useUpdateSupported } from '@/hooks/useUpdateSupported'
 import type { StartupSnapshot } from '@/lib/startup-progress'
 
 type Props = {
@@ -18,10 +17,6 @@ export function StartupActions({ failed, onExport, onRetry, required, snapshot }
   const { t } = useTranslation()
   const [exportState, setExportState] = useState<'idle' | 'working' | 'failed' | 'done'>('idle')
   const [contactState, setContactState] = useState<'idle' | 'working' | 'failed' | 'done'>('idle')
-  const [updateState, setUpdateState] = useState<'idle' | 'working' | 'failed'>('idle')
-  // Self-maintained builds ship no update feed — hide the action entirely
-  // rather than letting it fail against the gated backend commands.
-  const updateSupported = useUpdateSupported()
 
   async function exportLogs() {
     if (exportState === 'working') return
@@ -48,19 +43,6 @@ export function StartupActions({ failed, onExport, onRetry, required, snapshot }
     }
   }
 
-  async function checkUpdate() {
-    if (updateState === 'working') return
-    setUpdateState('working')
-    try {
-      const { checkForUpdate, openUpdaterWindow } = await import('@/api/updater')
-      await openUpdaterWindow()
-      await checkForUpdate(null)
-      setUpdateState('idle')
-    } catch {
-      setUpdateState('failed')
-    }
-  }
-
   return (
     <>
       <div className="mt-8 flex flex-wrap gap-2">
@@ -68,20 +50,6 @@ export function StartupActions({ failed, onExport, onRetry, required, snapshot }
           <Button onClick={onRetry}>
             <RotateCw className="size-4" />
             {t(required ? 'upgradeProgress.retry' : 'startupFailure.retry')}
-          </Button>
-        )}
-        {failed && updateSupported && (
-          <Button
-            variant="outline"
-            disabled={updateState === 'working'}
-            onClick={() => void checkUpdate()}
-          >
-            {updateState === 'working' ? (
-              <Loader2 className="size-4 animate-spin" />
-            ) : (
-              <ArrowUpCircle className="size-4" />
-            )}
-            {t('settings.sections.about.checkUpdate')}
           </Button>
         )}
         {snapshot.allowed_actions.export_diagnostics && (
@@ -131,11 +99,6 @@ export function StartupActions({ failed, onExport, onRetry, required, snapshot }
       {contactState === 'done' && (
         <p role="status" className="mt-3 text-ui-body text-muted-foreground">
           {t('startupFailure.contactOpened')}
-        </p>
-      )}
-      {updateState === 'failed' && (
-        <p role="alert" className="mt-3 text-ui-body text-destructive">
-          {t('startupFailure.updateFailed')}
         </p>
       )}
     </>

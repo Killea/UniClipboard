@@ -113,7 +113,7 @@ curl -fsSLI \
   "https://github.com/UniClipboard/UniClipboard/releases/download/v0.7.0-alpha.7/UniClipboard-0.7.0-alpha.7-1.x86_64.rpm"
 ```
 
-返回 200 才说明文件存在。如果 404，回头检查 `release.yml` 是否真的产出并上传了 RPM（参考 `assemble-update-manifest.js` 收集逻辑）。
+返回 200 才说明文件存在。如果 404，回头检查 `release.yml` 是否真的产出并上传了 RPM（参考 `release.yml` 的产物收集步骤）。
 
 ### COPR build 失败：`error: cpio: lsetfilecon failed`
 

@@ -2,7 +2,6 @@
 //   - the Hyprland IPC client (paste-to-previous-app) against a scripted compositor socket, including the failure
 //     modes of the Tauri implementation (reused window address, hostile address, rejected dispatch, silent
 //     compositor, oversized reply, focus never confirmed);
-//   - the AppImage update payload (tar.gz and bare ELF), the in-place replacement and its refusals.
 //
 // The scripted socket stands in for Hyprland: it proves what the client sends and how it reacts, NOT that a real
 // Hyprland accepts the `hl.dsp.*` dispatch syntax or that a key reaches an application. It writes
@@ -10,11 +9,8 @@
 package main
 
 import (
-	"archive/tar"
 	"bytes"
-	"compress/gzip"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -25,7 +21,6 @@ import (
 	"time"
 
 	"github.com/UniClipboard/UniClipboard/apps/gui-go/internal/hyprland"
-	"github.com/UniClipboard/UniClipboard/apps/gui-go/internal/update"
 )
 
 type assertion struct {
@@ -111,7 +106,6 @@ func main() {
 	}
 	defer os.RemoveAll(dir)
 	hyprlandChecks(dir)
-	appImageChecks(dir)
 
 	failed := 0
 	for _, r := range results {
@@ -238,63 +232,4 @@ func hyprlandChecks(dir string) {
 	check("a signature with path characters is rejected", hyprland.Current() == nil, "")
 	os.Setenv("HYPRLAND_INSTANCE_SIGNATURE", "abc_123-x")
 	check("a plain signature selects the per-instance socket", hyprland.Current() != nil, "")
-}
-
-func tarGz(files map[string][]byte) []byte {
-	var buf bytes.Buffer
-	gz := gzip.NewWriter(&buf)
-	tw := tar.NewWriter(gz)
-	for name, data := range files {
-		_ = tw.WriteHeader(&tar.Header{Name: name, Mode: 0o755, Size: int64(len(data)), Typeflag: tar.TypeReg})
-		_, _ = tw.Write(data)
-	}
-	_ = tw.Close()
-	_ = gz.Close()
-	return buf.Bytes()
-}
-
-func appImageChecks(dir string) {
-	elf := append([]byte{0x7f, 'E', 'L', 'F'}, bytes.Repeat([]byte{1}, 64)...)
-	got, err := update.ExtractAppImage(elf)
-	check("a bare ELF AppImage is accepted as is", err == nil && bytes.Equal(got, elf), fmt.Sprint(err))
-	got, err = update.ExtractAppImage(tarGz(map[string][]byte{"UniClipboard_1.2.0_amd64.AppImage": elf}))
-	check("an AppImage.tar.gz yields its AppImage", err == nil && bytes.Equal(got, elf), fmt.Sprint(err))
-	_, err = update.ExtractAppImage(tarGz(map[string][]byte{"readme.txt": []byte("hi")}))
-	check("a tar.gz without an AppImage is refused", errors.Is(err, update.ErrNoAppImage), fmt.Sprint(err))
-	_, err = update.ExtractAppImage(tarGz(map[string][]byte{"fake.AppImage": []byte("not elf")}))
-	check("a tar.gz whose AppImage is not an ELF image is refused", errors.Is(err, update.ErrNoAppImage), fmt.Sprint(err))
-	_, err = update.ExtractAppImage([]byte("a macOS tarball, say"))
-	check("a payload that is neither is refused", errors.Is(err, update.ErrNoAppImage), fmt.Sprint(err))
-	_, err = update.ExtractAppImage(nil)
-	check("an empty payload is refused", errors.Is(err, update.ErrNoAppImage), fmt.Sprint(err))
-
-	target := filepath.Join(dir, "UniClipboard.AppImage")
-	_ = os.WriteFile(target, []byte("old"), 0o700)
-	err = update.InstallAppImage(tarGz(map[string][]byte{"x.AppImage": elf}), target)
-	data, _ := os.ReadFile(target)
-	info, _ := os.Stat(target)
-	check("install replaces the file with the new image", err == nil && bytes.Equal(data, elf), fmt.Sprint(err))
-	check("the replacement stays executable", err == nil && info.Mode().Perm()&0o100 != 0, fmt.Sprint(info.Mode()))
-	leftovers, _ := filepath.Glob(filepath.Join(dir, ".uc-update-*"))
-	check("no staging file is left behind", len(leftovers) == 0, fmt.Sprint(leftovers))
-
-	err = update.InstallAppImage([]byte("garbage"), target)
-	data, _ = os.ReadFile(target)
-	check("a refused payload leaves the installed AppImage untouched", err != nil && bytes.Equal(data, elf), fmt.Sprint(err))
-	err = update.InstallAppImage(elf, filepath.Join(dir, "missing.AppImage"))
-	check("a missing target is refused", err != nil, fmt.Sprint(err))
-
-	ro := filepath.Join(dir, "ro")
-	_ = os.Mkdir(ro, 0o755)
-	roTarget := filepath.Join(ro, "UniClipboard.AppImage")
-	_ = os.WriteFile(roTarget, []byte("old"), 0o700)
-	_ = os.Chmod(ro, 0o500)
-	err = update.InstallAppImage(elf, roTarget)
-	_ = os.Chmod(ro, 0o700)
-	data, _ = os.ReadFile(roTarget)
-	if os.Geteuid() == 0 {
-		check("a read-only directory is refused (skipped: running as root)", true, "")
-	} else {
-		check("a read-only install directory is refused before anything changes", err != nil && string(data) == "old", fmt.Sprint(err))
-	}
 }

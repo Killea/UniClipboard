@@ -12,10 +12,9 @@
 #                           distribution and a newer one; every image runs every scenario
 #   UC_KEYRING_IMAGE        Secret Service image (Dockerfile.17c4-keyring)
 #
-# Builds the test-control-plane GUI (tags gtk3,production,release,e2e) and packages it as E2E-prefixed AppImages (v1, v2 with an update
-# marker, and the no-relocation negative control), signs v2's updater archive with the isolated fixture key (e2e/updatetool), then per host
-# image runs: full (launch with daemon and WebView, HTTPS, in-place update, refusal of an untrusted signature, autostart, data root),
-# negative (the control must fail) and, when given, smoke on the release AppImage (no control plane by design).
+# Builds the test-control-plane GUI (tags gtk3,production,release,e2e) and packages it as E2E-prefixed AppImages (v1 and the
+# no-relocation negative control), then per host image runs: full (launch with daemon and WebView, HTTPS, settings round-trip,
+# autostart, data root), negative (the control must fail) and, when given, smoke on the release AppImage (no control plane by design).
 # Nothing here is a release artifact and nothing is uploaded.
 set -uo pipefail
 ROOT="$(cd "$(dirname "$0")/../../../.." && pwd)"
@@ -43,14 +42,12 @@ must step frontend-e2e bash -c "cd '$ROOT' && VITE_GUI_GO_E2E=1 bun --bun run --
 must step build-cli env SKIP_DAEMON=1 "$R" build
 must step build-gui "$R" release-e2e-build
 must step package-v1 "$R" package-appimage "$out/v1"
-must step package-v2 "$R" package-appimage "$out/v2" --update-marker v2-installed
 must step package-negative "$R" package-appimage "$out/negative" --negative-control-no-relocation
-v1="$(ls "$out"/v1/pkg/E2E-UniClipboard_*.AppImage)"; v2="$(ls "$out"/v2/pkg/E2E-UniClipboard_*.AppImage.tar.gz)"
+v1="$(ls "$out"/v1/pkg/E2E-UniClipboard_*.AppImage)"
 neg="$(ls "$out"/negative/pkg/NEGCONTROL-UniClipboard_*.AppImage)"
-must step feed "$R" appimage-feed "$out/feed" "$v2"
 for host in $UC_RUNTIME_IMAGES; do
   tag="$(echo "$host" | tr ':/' '--')"
-  step "e2e-full-$tag" env UC_RUNTIME_IMAGE="$host" "$R" appimage-e2e "$out/e2e-full-$tag" full "$v1" "$out/feed" "$out/v1/pkg/package-manifest.json" || fail=1
+  step "e2e-full-$tag" env UC_RUNTIME_IMAGE="$host" "$R" appimage-e2e "$out/e2e-full-$tag" full "$v1" "" "$out/v1/pkg/package-manifest.json" || fail=1
   step "e2e-negative-$tag" env UC_RUNTIME_IMAGE="$host" "$R" appimage-e2e "$out/e2e-negative-$tag" negative "$neg" || fail=1
   if [ -n "$release_image" ]; then
     step "e2e-smoke-$tag" env UC_RUNTIME_IMAGE="$host" "$R" appimage-e2e "$out/e2e-smoke-$tag" smoke "$release_image" "" "$release_manifest" || fail=1

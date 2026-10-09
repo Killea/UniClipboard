@@ -307,12 +307,11 @@ CI 会在每个改动到 lockfile 的 PR/push 上运行自动化依赖审计（`
   cargo audit
   ```
 
-- **JS/TS** —— `bun audit --production` 会分别对根项目、`docs-site/`、`workers/update-server/` 运行（三者各自有独立的 `package.json`/`bun.lock`）。审计范围限定在生产依赖——devDependencies（构建工具、测试运行器等）不会出现在构建产物里，如果对它们也做门禁，CI 会因为无关的工具链噪音而失败，而不是因为真正会随发布产物一起出货的依赖。本地运行方式：
+- **JS/TS** —— `bun audit --production` 会分别对根项目、`docs-site/` 运行（两者各自有独立的 `package.json`/`bun.lock`）。审计范围限定在生产依赖——devDependencies（构建工具、测试运行器等）不会出现在构建产物里，如果对它们也做门禁，CI 会因为无关的工具链噪音而失败，而不是因为真正会随发布产物一起出货的依赖。本地运行方式：
 
   ```bash
   bun audit --production
   (cd docs-site && bun audit --production)
-  (cd workers/update-server && bun audit --production)
   ```
 
 如果某个漏洞公告上游没有修复版本，且你已确认本项目从未走到那条易受攻击的代码路径，可以在 `.cargo/audit.toml` 的 `[advisories].ignore` 里加一条忽略项，并写清楚理由（可参考已有的 `RUSTSEC-2023-0071` 条目的详细程度）。不要仅仅为了让 CI 变绿就随手加忽略项——这个审计门禁存在的意义，正是防止已知有漏洞的依赖悄悄地随发布版本一起出货。

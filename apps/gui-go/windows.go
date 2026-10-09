@@ -14,11 +14,8 @@ import (
 )
 
 const (
-	updaterWindowName     = "updater"
 	quickPanelWindowName  = "quick-panel"
 	quickPanelPrepareShow = "quick-panel://prepare-show"
-
-	updaterWidth, updaterHeight = 520, 420
 
 	// Geometry of the quick panel in logical pixels (non-Linux layout).
 	panelBaseWidth, panelBaseHeight = 360.0, 420.0
@@ -101,25 +98,6 @@ func setPanelSize(w application.Window, width, height int) {
 	w.SetMaxSize(width, height)
 	w.SetSize(width, height)
 	w.SetMinSize(width, height)
-}
-
-// openUpdater creates the decorated updater window, or focuses the existing one.
-func (h *HostService) openUpdater(dev bool) {
-	if w, ok := h.app.Window.GetByName(updaterWindowName); ok {
-		w.UnMinimise()
-		w.Show()
-		focusWindow(w)
-		return
-	}
-	url := "/updater.html"
-	if dev {
-		url += "?dev=1"
-	}
-	w := h.app.Window.NewWithOptions(quietOptions(application.WebviewWindowOptions{
-		Name: updaterWindowName, Title: "Software Update", URL: url,
-		Width: updaterWidth, Height: updaterHeight, DisableResize: true,
-	}))
-	centerWindow(w)
 }
 
 // preCreateQuickPanel builds the hidden, frameless quick panel at startup so
@@ -251,14 +229,6 @@ func (h *HostService) pasteIntoPreviousApp(send func() error) error {
 
 func init() {
 	register(map[string]commandFunc{
-		"open_updater_window": func(_ context.Context, h *HostService, _ commandArgs) (any, error) {
-			h.openUpdater(false)
-			return nil, nil
-		},
-		"dev_open_updater_window": func(_ context.Context, h *HostService, _ commandArgs) (any, error) {
-			h.openUpdater(true)
-			return nil, nil
-		},
 		"show_content_unlock": func(_ context.Context, h *HostService, _ commandArgs) (any, error) {
 			h.showMainWindow()
 			return nil, nil

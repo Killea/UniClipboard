@@ -15,8 +15,6 @@ on:
       - 'bun.lock'
       - 'docs-site/package.json'
       - 'docs-site/bun.lock'
-      - 'workers/update-server/package.json'
-      - 'workers/update-server/bun.lock'
       - '.github/workflows/security-audit.yml'
   pull_request:
     branches: [main]
@@ -32,8 +30,6 @@ on:
       - 'bun.lock'
       - 'docs-site/package.json'
       - 'docs-site/bun.lock'
-      - 'workers/update-server/package.json'
-      - 'workers/update-server/bun.lock'
       - '.github/workflows/security-audit.yml'
   schedule:
     # Catches newly-published RustSec/npm advisories against an unchanged
@@ -118,8 +114,6 @@ jobs:
               --ignore=GHSA-q8wf-6r8g-63ch
               --ignore=GHSA-955p-x3mx-jcvp
               --ignore=GHSA-52cp-r559-cp3m
-          - directory: 'workers/update-server'
-            name: update-server
             ignore: ''
 
     defaults:

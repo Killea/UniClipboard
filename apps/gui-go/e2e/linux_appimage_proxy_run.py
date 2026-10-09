@@ -39,7 +39,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 from linux_appimage_portable_run import UserRun, USER, as_user, environ_of, stop, wait_daemon  # noqa: E402
-from linux_appimage_run import DISPLAY, PASSPHRASE, PLATFORM_KEY, VERSION, maps_of, pid_alive, procs, sha256, start_xvfb, wait_panel_ready  # noqa: E402
+from linux_appimage_run import DISPLAY, PASSPHRASE, maps_of, pid_alive, procs, sha256, start_xvfb, wait_panel_ready  # noqa: E402
 from linux_appimage_tls_run import Reports, StopScenario, install_trust, run_cmd, wait_new_daemon  # noqa: E402
 
 TARGET_NAME = 'target.test'
@@ -47,11 +47,7 @@ WV_HOST, CURL_HOST = 'webview-probe.test', 'curl-probe.test'  # one hostname per
 RENDEZVOUS_HOST = 'rendezvous.uniclipboard.app'  # Engine d4dd324a (uc-engine 1.1.0-rc.22, the packaged daemon's lock entry): uc-infra-p2p RENDEZVOUS_BASE_URL
 # In this INTERNAL network the rendezvous name is pointed (/etc/hosts, additional control) at the controlled target: a direct connection of the daemon is then visible there.
 LOOKALIKE_HOST = 'localhost.webview-probe.test'  # a NON-loopback name that starts like one: the loopback guard must not treat it as loopback
-UPDATE_HOST = 'update-feed.test'  # P5: the Go updater's own hostname (its feed), distinct from the WebView's and curl's
-UPDATE_PATH = '/feed-p5.json'
-FEED_INPUTS = Path('/out/feed-inputs')  # pubkey.b64 + good.sig.b64 of the 17c5 update feed, copied next to the output before the run (the E2E build ships an EMPTY updater key: -X main.updaterPublicKey=)
-FEED_SIGNATURE = (FEED_INPUTS / 'good.sig.b64').read_text().strip() if (FEED_INPUTS / 'good.sig.b64').exists() else 'missing-feed-inputs'
-HOSTS = (TARGET_NAME, WV_HOST, CURL_HOST, RENDEZVOUS_HOST, UPDATE_HOST, LOOKALIKE_HOST)
+HOSTS = (TARGET_NAME, WV_HOST, CURL_HOST, RENDEZVOUS_HOST, LOOKALIKE_HOST)
 LOOPBACK = re.compile(r'(127\.\d+\.\d+\.\d+|localhost|\[?::1\]?)')
 REQ = re.compile(r'Request \(file descriptor \d+\): (\w+) (\S+)')
 BUS_DIR = Path('/bus')
@@ -87,12 +83,7 @@ class Target:
 
         class Handler(http.server.BaseHTTPRequestHandler):
             def do_GET(self):
-                if self.path == UPDATE_PATH:  # a Tauri-format feed that announces a newer version; a check never downloads (the download is the P9 isolated flow)
-                    feed = {'version': '9999.0.0', 'notes': 'P5 feed probe', 'pub_date': '2026-10-06T00:00:00Z',
-                            'platforms': {PLATFORM_KEY[os.uname().machine]: {'url': f'https://{UPDATE_HOST}/never-downloaded.tar.gz', 'signature': FEED_SIGNATURE}}}
-                    self.answer(200, json.dumps(feed).encode())
-                else:
-                    self.answer(200, b'target-ok')
+                self.answer(200, b'target-ok')
 
             def do_POST(self):
                 self.rfile.read(int(self.headers.get('Content-Length') or 0))
@@ -332,41 +323,27 @@ P8_VARIANTS = {  # name -> (proxy mode, kind); the environment is built by varia
     'env-recover': ('allow', 'env-recover'),        # P7: proxied, then the proxy goes away (must FAIL, never go direct), then comes back on the same port (proxied again), same GUI process
     'env-auth-ok': ('allow', 'env-auth-ok'),        # credentials inside the proxy URL: proxied
     'env-auth-bad': ('allow', 'env-auth-bad'),      # wrong credentials: rejected by the proxy (407), never direct
-    'up-auth': ('allow', 'up-auth'),                # the Go updater with credentials in the proxy URL
-    'up-auth-bad': ('allow', 'up-auth-bad'),        # the Go updater with wrong credentials: the check fails, never direct
     'rv-none': (None, 'rv-none'),                   # P6: Engine rendezvous redeem, no proxy variables: the proxy never sees it (control)
     'rv-deny': ('deny', 'rv-deny'),                 # P6: deny-only proxy: the redeem's rendezvous CONNECT must reach the proxy and be refused (never forwarded)
     'rv-bypass': ('deny', 'rv-bypass'),             # P6: NO_PROXY names the rendezvous host: the proxy must not see that CONNECT
-    'up-none': (None, 'up-none'),                   # P5: the REAL Go updater check (control command `check`), no proxy variables: direct
-    'up-allow': ('allow', 'up-allow'),              # env proxy, allowing: the updater's request goes through it
-    'up-deny': ('deny', 'up-deny'),                 # env proxy, refusing: the check fails, the feed target never sees it
-    'up-reset': ('reset', 'up-reset'),              # env proxy that accepts and closes every connection: the check fails AND the attempt is proven (a dead port proves nothing by itself)
-    'up-dead': ('dead', 'up-dead'),                 # env proxy that nothing listens on: the check fails, no escape
-    'up-bypass': ('allow', 'up-bypass'),            # NO_PROXY names the feed host: direct although a proxy is set
     'env-bypass-other': ('allow', 'env-bypass-other'),  # NO_PROXY names an unrelated host: the WebView is still proxied
 }
 AUTH_USER, AUTH_PASS, AUTH_WRONG = 'uc', 's3cret', 'wrong'  # synthetic fixture credentials
-AUTH_PROXY = {n: (AUTH_USER, AUTH_PASS) for n in ('env-auth-ok', 'env-auth-bad', 'up-auth', 'up-auth-bad', 'gs-sys-auth', 'gs-sys-auth-bad', 'gs-sys-auth-https')}
+AUTH_PROXY = {n: (AUTH_USER, AUTH_PASS) for n in ('env-auth-ok', 'env-auth-bad', 'gs-sys-auth', 'gs-sys-auth-bad', 'gs-sys-auth-https')}
 # glib-networking 2.80 (proxy/gnome/gproxyresolvergnome.c) puts the credentials only into the HTTP proxy URI; an https proxy host that is set explicitly gets a URI WITHOUT them, the https URIs reuse the http one only when the https host is empty
 HTTPS_UNSET = {'gs-sys-auth', 'gs-sys-auth-bad'}
-AUTH_BAD = {'env-auth-bad', 'up-auth-bad', 'gs-sys-auth-bad'}
-REQUIRED_VARIANTS = {'env-auth-ok': 'proxied', 'env-auth-bad': 'authfail', 'up-auth': 'proxied', 'up-auth-bad': 'authfail', 'gs-sys-auth': 'proxied', 'gs-sys-auth-bad': 'authfail', 'gs-sys-auth-https': 'authfail', 'up-reset': 'failed', 'up-none': 'direct', 'up-allow': 'proxied', 'up-deny': 'refused', 'up-dead': 'failed', 'up-bypass': 'proxied', 'rv-none': 'direct', 'rv-deny': 'refused', 'rv-bypass': 'refused', 'env-recover': 'proxied', 'env-bypass': 'direct', 'env-bypass-other': 'proxied'}  # the others are recorded observations (precedence is the resolver library's)
+AUTH_BAD = {'env-auth-bad', 'gs-sys-auth-bad'}
+REQUIRED_VARIANTS = {'env-auth-ok': 'proxied', 'env-auth-bad': 'authfail', 'gs-sys-auth': 'proxied', 'gs-sys-auth-bad': 'authfail', 'gs-sys-auth-https': 'authfail', 'rv-none': 'direct', 'rv-deny': 'refused', 'rv-bypass': 'refused', 'env-recover': 'proxied', 'env-bypass': 'direct', 'env-bypass-other': 'proxied'}  # the others are recorded observations (precedence is the resolver library's)
 
 
 def variant_env(kind, port):
     url = f'http://127.0.0.1:{port}'
     dead = f'http://127.0.0.1:{free_port()}'
-    if kind in ('env-auth-ok', 'env-auth-bad', 'up-auth', 'up-auth-bad'):
+    if kind in ('env-auth-ok', 'env-auth-bad'):
         pw = AUTH_WRONG if kind.endswith('bad') else AUTH_PASS
         url = f'http://{AUTH_USER}:{pw}@127.0.0.1:{port}'
         env = {'http_proxy': url, 'https_proxy': url, 'all_proxy': url, 'HTTP_PROXY': url, 'HTTPS_PROXY': url, 'ALL_PROXY': url}
-        return dict(env, UC_UPDATE_ENDPOINT=f'https://{UPDATE_HOST}{UPDATE_PATH}', UC_UPDATE_PUBKEY=(FEED_INPUTS / 'pubkey.b64').read_text().strip()) if kind.startswith('up-') else env
-    if kind.startswith('up-'):
-        pub = (FEED_INPUTS / 'pubkey.b64').read_text().strip() if (FEED_INPUTS / 'pubkey.b64').exists() else ''
-        feed = {'UC_UPDATE_ENDPOINT': f'https://{UPDATE_HOST}{UPDATE_PATH}', 'UC_UPDATE_PUBKEY': pub}
-        if kind == 'up-none':
-            return feed
-        return dict(proxy_env(port), **feed, **({'no_proxy': UPDATE_HOST, 'NO_PROXY': UPDATE_HOST} if kind == 'up-bypass' else {}))
+        return env
     if kind == 'rv-none':
         return {}
     if kind == 'rv-deny':
@@ -515,30 +492,6 @@ class PacServer:
         self.server.shutdown()
 
 
-class ResetProxy:
-    """A 'proxy' that accepts every TCP connection and closes it at once, counting them: unlike a port nobody listens on it PROVES a client tried to use the proxy (up-reset)."""
-
-    def __init__(self):
-        self.port, self.connections = free_port(), []
-        self.sock = socket.socket()
-        self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.sock.bind(('127.0.0.1', self.port))
-        self.sock.listen(64)
-        threading.Thread(target=self.serve, daemon=True).start()
-
-    def serve(self):
-        while True:
-            try:
-                c, addr = self.sock.accept()
-            except OSError:
-                return
-            self.connections.append({'t': time.time(), 'peer': addr[1]})
-            c.close()
-
-    def stop(self):
-        self.sock.close()
-
-
 class LoopbackListener:
     """A plain HTTP listener on one loopback address (IPv4 127.0.0.0/8 member, ::1, or localhost's address) that records every request: whether a WebView request to it arrived there directly is the
     proof of the loopback boundary (the proxy log is the other half)."""
@@ -626,7 +579,7 @@ def main():
         print(('REQ-PASS ' if ok else 'REQ-FAIL ') + name, flush=True)
 
     xvfb = start_xvfb(out)
-    launches, proxies, servers, bus, resets, pacs = [], [], [], None, [], []
+    launches, proxies, servers, bus, pacs = [], [], [], None, []
     root = home if args.nonportable else sandbox  # where daemon.conn appears
     try:
         route = subprocess.run('ip route show default; [ -n "$(ip route show default)" ] || ip route add default dev eth0; ip route show default', shell=True, capture_output=True, text=True)
@@ -660,11 +613,6 @@ def main():
             made = as_user([str(target_app), '--appimage-portable-home'], run.env, timeout=60)
             run.check('T1 portable home created by the AppImage runtime', made.returncode == 0 and Path(str(target_app) + '.home').is_dir(), {'rc': made.returncode, 'err': made.stderr[-300:]})
         r['scenarios'] = {}
-        if any(n.startswith('up-') for n in chosen):  # the E2E build ships an empty updater key: without the feed inputs the updater is disabled before any HTTP and every up-* result would be an artifact
-            have = (FEED_INPUTS / 'pubkey.b64').is_file() and (FEED_INPUTS / 'good.sig.b64').is_file()
-            run.check('T0 fixture: <out>/feed-inputs/{pubkey.b64,good.sig.b64} exist (needed by the up-* scenarios)', have, str(FEED_INPUTS))
-            if not have:
-                raise StopScenario()
         old_pid = None
         for name in chosen:
             mode, kind = table[name]
@@ -697,10 +645,6 @@ def main():
                 proxy = Proxy(name, mode, AUTH_PROXY.get(name))
                 proxies.append(proxy)
                 port = proxy.port
-            elif mode == 'reset':
-                reset_proxy = ResetProxy()
-                resets.append(reset_proxy)
-                port = reset_proxy.port
             else:
                 port = free_port() if mode == 'dead' else None  # dead: nothing listens
             if kind == 'env':
@@ -855,7 +799,7 @@ def main():
                           any(f':{reports.port}/loopctl' in t for t in loop_reqs), {'curl': loop, 'targets': loop_reqs})
                 leaked = [t for t in loop_reqs if f':{daemon_port}' in t or (f':{reports.port}' in t and '/loopctl' not in t)]
                 chk(f'[{name}] P1 the proxy log names no loopback target of the product (not the daemon port, not the page\'s report channel)', not leaked, leaked)
-            elif mode in ('dead', 'reset'):
+            elif mode == 'dead':
                 run.check(f'[{name}] control: curl honours the dead proxy configuration (fails to connect, the target saw nothing)', ctl['rc'] != 0 and sc['curlControl']['targetSaw'] == 0, sc['curlControl'])
             else:
                 run.check(f'[{name}] control: curl reaches the target directly without a proxy', sc['curlControl']['targetSaw'] == 1, sc['curlControl'])
@@ -939,40 +883,6 @@ def main():
                 sc['lookalike'] = classify(LOOKALIKE_HOST, nonce_l, proxy.lines()[n_l:], target)
                 if args.require:
                     req(f'[{name}] REQUIRE a non-loopback name that starts like a loopback one ({LOOKALIKE_HOST}) is NOT treated as loopback: proxied', sc['lookalike']['route'] == 'proxied', sc['lookalike'])
-            if name.startswith('up-'):
-                # P5: the Go updater (update.NewHTTPClient: ProxyFromEnvironment, environment only) through the REAL control command `check` (the manual check's code path), own hostname, own log window.
-                class _Saw:
-                    def __init__(self, rows):
-                        self.rows = rows
-
-                    def saw(self, _):
-                        return self.rows
-                t0, n_before = time.time(), (len(proxy.lines()) if proxy else 0)
-                row = gui.ctl('check', 'control-check', 90)
-                time.sleep(2)
-                win = proxy.lines()[n_before:] if proxy else []
-                at_feed = [x for x in target.requests if x['t'] >= t0 and (x.get('host') or '').split(':')[0] == UPDATE_HOST and x['path'] == UPDATE_PATH]
-                cls = classify(UPDATE_HOST, '', win, _Saw(at_feed))
-                sc['p5'] = {'checkRow': row, 'window': win, **cls, 'feedRequestsAtTarget': at_feed}
-                run.check(f'[{name}] P5 the updater check ran through the real control command (a step was reported)', row is not None, sc['p5'])
-                if args.require and args.require_env:
-                    genv = environ_of(gui.proc.pid)
-                    sc['updaterEnabled'] = {'endpoint': genv.get('UC_UPDATE_ENDPOINT'), 'publicKeyPresent': bool(genv.get('UC_UPDATE_PUBKEY')), 'publicKeyLength': len(genv.get('UC_UPDATE_PUBKEY', ''))}
-                    req(f'[{name}] REQUIRE the updater is enabled in this launch (endpoint and a non-empty trusted key are in its environment; its validity is proven by the up-none/up-allow positive controls of the same package, whose check parses the key before any HTTP)',
-                        bool(genv.get('UC_UPDATE_ENDPOINT')) and bool(genv.get('UC_UPDATE_PUBKEY')), sc['updaterEnabled'])
-                    want = {'up-none': 'direct', 'up-allow': 'proxied', 'up-deny': 'refused', 'up-dead': 'failed', 'up-reset': 'failed', 'up-bypass': 'direct', 'up-auth': 'proxied', 'up-auth-bad': 'authfail'}[name]  # the UPDATER's route (the WebView's is REQUIRED_VARIANTS)
-                    req(f'[{name}] REQUIRE the Go updater request is {want} (route observed: {cls["route"]}); its own hostname, its own proxy-log window',
-                        cls['route'] == want or (want == 'authfail' and cls['route'] in ('proxied-no-delivery', 'refused')), sc['p5'])
-                    if want in ('proxied', 'direct'):
-                        req(f'[{name}] REQUIRE the check succeeded and found the announced version', row['ok'] is True and (row.get('detail') or {}).get('found') is True, row)
-                    else:
-                        req(f'[{name}] REQUIRE the check failed and the feed target never saw the request (no silent direct escape)', row['ok'] is not True and not at_feed, row)
-                    if name == 'up-deny':
-                        req(f'[{name}] REQUIRE the attempt is proven: the proxy named {UPDATE_HOST} and refused it', bool(cls['proxyLinesNamingHost']) and bool(cls['proxyRefusals']), cls)
-                    if name == 'up-reset':
-                        tries = [c_ for c_ in reset_proxy.connections if c_['t'] >= t0]
-                        sc['p5']['resetProxyConnections'] = len(tries)
-                        req(f'[{name}] REQUIRE the attempt is proven: the updater connected to the configured proxy (which closed it) and nothing reached the feed', len(tries) >= 1 and not at_feed, sc['p5'])
             if name.startswith('rv-'):
                 # P6: ONE real redeem of a synthetic invalid invitation against the isolated throwaway daemon (its temp profile). The deny-only proxy records the CONNECT and refuses it.
                 import urllib.request, urllib.error
@@ -1208,7 +1118,7 @@ def main():
         svc_off = HOST_PACSERVICE.with_name(HOST_PACSERVICE.name + '.off')
         if svc_off.exists():
             svc_off.rename(HOST_PACSERVICE)
-        for rp in resets + pacs:
+        for rp in pacs:
             rp.stop()
         for p in proxies:
             p.stop()

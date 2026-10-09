@@ -16,16 +16,12 @@ import (
 	"github.com/UniClipboard/UniClipboard/packages/desktop-host-go/daemonproc"
 )
 
-// watchControlFile is the command channel of the wake/analytics scenarios: the orchestrator appends one command
+// watchControlFile is the command channel of the e2e scenarios: the orchestrator appends one command
 // per line to UC_GUI_GO_E2E_CONTROL_FILE and each is answered with an evidence step, so it can interleave
-// system-wake injections, manual checks and consent changes with its own observations of the feed. Commands:
+// native actions and consent changes with its own observations. Commands:
 //
-//	wake <n>            post n system wake notifications back to back
-//	check               the check_for_update command (a manual check)
-//	tray-check          the tray menu's manual check
-//	setting <key> on|off  set a general.* flag (usageAnalyticsEnabled, autoCheckUpdate, autoDownloadUpdate)
+//	setting <key> on|off  set a general.* flag (usageAnalyticsEnabled)
 //	                      through the daemon settings API, the way the settings page does
-//	close-updater       close the updater window the scheduler opened (its page makes a check of its own)
 //	invoke <label> <command> [<json>]  a host command through Invoke, the path the WebView takes
 //	shortcut-press <label> single|leader <a> <b>|second <b>  injected presses (no keyboard event)
 //	panel-js <label> <js>   run a script in the quick panel page
@@ -72,19 +68,6 @@ func (s *EvidenceService) runControlCommand(line string) {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 	switch verb {
-	case "wake":
-		n, _ := strconv.Atoi(arg)
-		var postErr error
-		for i := 0; i < n && postErr == nil; i++ {
-			postErr = postSystemWake()
-		}
-		_ = s.write(Step{Window: "update", Step: "control-wake", OK: postErr == nil, Detail: map[string]any{"posted": n}})
-	case "check":
-		meta, err := h.checkForUpdate(ctx, nil)
-		_ = s.write(Step{Window: "update", Step: "control-check", OK: err == nil, Detail: map[string]any{"found": meta != nil}})
-	case "tray-check":
-		h.checkUpdateFromTray()
-		_ = s.write(Step{Window: "update", Step: "control-tray-check", OK: true})
 	case "tray-open-menu":
 		// tray-open-menu <label>: SystemTray.OpenMenu, Wails' own path into native NSMenu tracking (a synthesized mouse-down on the status item
 		// button; it blocks the main thread inside the tracking loop until the menu is dismissed). No menu callback or snapshot is involved.
@@ -155,19 +138,24 @@ func (s *EvidenceService) runControlCommand(line string) {
 		_ = s.write(Step{Window: "tray", Step: "tray-language-gap-" + label, OK: consumed, Detail: map[string]any{"gapMs": gap, "final": final, "gapConsumed": consumed}})
 	case "setting":
 		key, value, _ := strings.Cut(arg, " ")
-		allowed := key == "usageAnalyticsEnabled" || key == "autoCheckUpdate" || key == "autoDownloadUpdate"
+		allowed := key == "usageAnalyticsEnabled"
 		var err error
+		var stored any
 		if allowed {
 			patch := map[string]any{"general": map[string]any{key: value == "on"}}
 			err = h.client.Enveloped(ctx, daemonclient.Request{Method: http.MethodPut, Path: "/settings", JSON: patch}, nil)
+			// Read back through the daemon API so the runner can check a real
+			// write->read round trip, not just a 200 on the PATCH.
+			var body struct {
+				Data struct {
+					General map[string]any `json:"general"`
+				} `json:"data"`
+			}
+			if err == nil && h.client.Get(ctx, "/settings", &body) == nil {
+				stored = body.Data.General[key]
+			}
 		}
-		_ = s.write(Step{Window: "update", Step: "control-setting", OK: allowed && err == nil, Detail: map[string]any{"key": key, "enabled": value == "on"}})
-	case "close-updater":
-		w, ok := h.app.Window.GetByName(updaterWindowName)
-		if ok {
-			w.Close()
-		}
-		_ = s.write(Step{Window: "update", Step: "control-close-updater", OK: ok})
+		_ = s.write(Step{Window: "control", Step: "control-setting", OK: allowed && err == nil, Detail: map[string]any{"key": key, "enabled": value == "on", "stored": stored}})
 	case "state":
 		// A snapshot of the process the launch scenarios compare across second launches.
 		_, mainExists := h.app.Window.GetByName("main")
@@ -255,12 +243,12 @@ func (s *EvidenceService) runControlCommand(line string) {
 		// The stored preference next to the login item registration (path included), as the settings page would show it.
 		_, _ = s.controlQuickPanel("autostart-state:" + arg)
 	case "exit":
-		_ = s.write(Step{Window: "update", Step: "control-exit", OK: true})
+		_ = s.write(Step{Window: "control", Step: "control-exit", OK: true})
 		go func() { time.Sleep(300 * time.Millisecond); h.quit(os.Getenv("UC_GUI_GO_EXIT_MODE") != "full") }()
 	default:
 		if handled, _ := s.controlTrayIcon(line); handled { // tray-icon-*: the tray icon checks
 			return
 		}
-		_ = s.write(Step{Window: "update", Step: "control-unknown", OK: false, Detail: line})
+		_ = s.write(Step{Window: "control", Step: "control-unknown", OK: false, Detail: line})
 	}
 }

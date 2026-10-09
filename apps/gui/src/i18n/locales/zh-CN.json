@@ -29,12 +29,10 @@
     "export": "导出日志",
     "exporting": "正在导出…",
     "contact": "联系作者",
-    "update": "打开更新",
     "details": "错误详情",
     "exported": "日志已保存至：{{path}}",
     "exportFailed": "日志导出失败，请检查保存位置和剩余空间后重试。",
     "contactFailed": "无法打开求助页面，联系地址：",
-    "updateFailed": "无法完成更新检查，请稍后重试。",
     "contactOpened": "已在浏览器中打开求助页面。"
   },
   "appearanceLayout": {
@@ -185,11 +183,6 @@
     "history": "历史记录",
     "devices": "设备管理",
     "settings": "设置",
-    "updateAvailable": "有新版本",
-    "updateDownloading": "正在下载更新...",
-    "updateDownloadingWithProgress": "正在下载更新... {{percent}}%",
-    "updateInstalling": "正在安装更新...",
-    "updateReady": "更新已就绪，可安装",
     "back": "返回",
     "feedback": "反馈",
     "collapseSidebar": "收起侧栏",
@@ -202,54 +195,6 @@
     "disable": "关闭 Debug 模式",
     "disabledToast": "Debug 模式已关闭。请重启以完全恢复普通日志级别。",
     "disableFailed": "关闭 Debug 模式失败"
-  },
-  "update": {
-    "title": "发现新版本",
-    "currentVersion": "当前版本",
-    "latestVersion": "最新版本",
-    "releaseNotes": "更新日志",
-    "noNotes": "暂无更新日志",
-    "updateNow": "立即更新",
-    "installNow": "立即安装",
-    "downloadInBackground": "后台下载",
-    "cancelDownload": "取消下载",
-    "cancelling": "正在取消...",
-    "readyHint": "更新已下载完成，点击立即安装以应用并重启。",
-    "later": "稍后",
-    "noUpdate": "当前已是最新版本。",
-    "checkFailed": "检查更新失败",
-    "installFailed": "更新失败，请稍后重试",
-    "downloadFailed": "后台下载失败，请稍后重试",
-    "downloading": "正在下载...",
-    "installing": "正在安装...",
-    "packageManager": {
-      "title": "请通过系统包管理器升级",
-      "portableTitle": "请下载新的便携版",
-      "debHint": "你当前通过 apt（Debian/Ubuntu）安装了 UniClipboard，请在终端执行以下命令升级：",
-      "rpmHint": "你当前通过 dnf/yum（Fedora/RHEL）安装了 UniClipboard，请在终端执行以下命令升级：",
-      "portableHint": "你正在运行便携版，它不会原地自更新——请从发布页下载新的便携版 zip 并替换可执行文件（你的数据目录不受影响）。",
-      "debCommand": "sudo apt update && sudo apt install --only-upgrade uniclipboard",
-      "rpmCommand": "sudo dnf upgrade uniclipboard",
-      "copyCommand": "复制命令",
-      "copied": "已复制",
-      "openReleasePage": "打开发布页",
-      "ok": "知道了"
-    }
-  },
-  "updater": {
-    "window": {
-      "title": "UniClipboard 有新版本可用！",
-      "subtitle": "{{app}} {{version}} 现已可用——你当前使用的是 {{currentVersion}}。是否要立即下载？",
-      "readySubtitle": "{{app}} {{version}} 已下载完成，随时可以安装。",
-      "skipThisVersion": "跳过此版本",
-      "remindMeLater": "稍后提醒",
-      "downloadUpdate": "下载更新",
-      "checking": "正在检查最新版本…",
-      "autoUpdate": "今后自动下载更新",
-      "upToDateTitle": "已是最新版本！",
-      "upToDateBody": "你已经在使用最新的 UniClipboard。",
-      "close": "关闭"
-    }
   },
   "rePairingNotice": {
     "title": "请重新配对设备",
@@ -580,10 +525,6 @@
             "pkarr": {
               "title": "pkarr DHT NodeId 解析",
               "description": "跨网段连接通过 pkarr 公网 DHT 解析对端 NodeId，性质类似 DNS。关闭会导致跨网段连接率从约 90% 跌至接近 0。"
-            },
-            "autoUpdate": {
-              "title": "自动更新 GitHub 检查",
-              "description": "由「通用 → 自动更新」开关独立控制，访问 GitHub Release API 检查新版本。"
             }
           }
         },
@@ -915,34 +856,6 @@
         "title": "关于",
         "appName": "UniClipboard",
         "version": "版本 {{version}}",
-        "checkUpdate": "检查更新",
-        "checkingUpdate": "正在检查...",
-        "updatesTitle": "更新",
-        "updatesSelfMaintained": "此版本由维护方自行分发，自动更新不可用。",
-        "autoCheckUpdate": {
-          "label": "自动检查更新",
-          "description": "应用启动时自动检查是否有新版本"
-        },
-        "autoDownloadUpdate": {
-          "label": "后台下载更新",
-          "description": "检测到新版本时静默下载安装包，点击安装时无需等待。",
-          "disabledHint": "请先开启「自动检查更新」"
-        },
-        "updateChannel": {
-          "label": "更新渠道",
-          "description": "选择接收更新的发布渠道",
-          "auto": "自动检测",
-          "stable": "稳定版",
-          "beta": "测试版",
-          "alpha": "内测版",
-          "rc": "候选版",
-          "alphaWarning": {
-            "title": "切换到内测版？",
-            "description": "内测版可能包含未充分验证的功能和回归问题。切换后会立即检查内测版更新。",
-            "cancel": "取消",
-            "confirm": "继续切换"
-          }
-        },
         "sponsors": {
           "title": "赞助者",
           "thanks": "感谢以下朋友的赞助支持，让 UniClipboard 持续向前。",
@@ -952,10 +865,9 @@
         },
         "copyright": "© 2025 UniClipboard. All rights reserved.",
         "links": {
-          "privacyPolicy": "隐私政策",
-          "termsOfService": "使用条款",
-          "aboutMaintainers": "关于与维护者"
-        }
+          "repository": "代码仓库"
+        },
+        "selfMaintained": "自维护分支版本，仅通过手动重新安装获得更新。"
       }
     }
   },

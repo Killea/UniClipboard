@@ -29,12 +29,11 @@ type trayMenu struct {
 	syncBusy    bool
 	published   []menuEntry // what the platform menu last showed, so an unchanged menu is not republished
 
-	tray                                                    *application.SystemTray
-	menu                                                    *application.Menu
-	devices                                                 *deviceMenu
-	icon                                                    *trayIcon
-	sync, open, settings, checkUpdate, restart, lightweight *application.MenuItem
-	quit                                                    *application.MenuItem
+	tray                                             *application.SystemTray
+	menu                                             *application.Menu
+	devices                                          *deviceMenu
+	icon                                             *trayIcon
+	sync, open, settings, restart, lightweight, quit *application.MenuItem
 }
 
 func (h *HostService) initTray() {
@@ -47,7 +46,6 @@ func (h *HostService) initTray() {
 	menu.AddSeparator()
 	t.open = menu.Add(labels.open).OnClick(func(*application.Context) { h.showMainWindow() })
 	t.settings = menu.Add(labels.settings).OnClick(func(*application.Context) { h.showSettings() })
-	t.checkUpdate = menu.Add(labels.checkUpdate).OnClick(func(*application.Context) { go h.checkUpdateFromTray() })
 	menu.AddSeparator()
 	t.restart = menu.Add(labels.restart).OnClick(func(*application.Context) { go h.fullRestart() })
 	t.lightweight = menu.Add(labels.lightweight).OnClick(func(*application.Context) { go h.enterLightweightMode() })
@@ -102,7 +100,7 @@ func entryOf(id string, item *application.MenuItem) menuEntry {
 // view lists every visible item of the root and device menus; it runs with t.mu and the device menu's mu held.
 func (t *trayMenu) view() []menuEntry {
 	view := make([]menuEntry, 0, 16)
-	for _, item := range []*application.MenuItem{t.sync, t.devices.subItem, t.open, t.settings, t.checkUpdate, t.restart, t.lightweight, t.quit} {
+	for _, item := range []*application.MenuItem{t.sync, t.devices.subItem, t.open, t.settings, t.restart, t.lightweight, t.quit} {
 		if item != nil {
 			view = append(view, entryOf("", item))
 		}
@@ -135,7 +133,6 @@ func (t *trayMenu) applyLabels() {
 	labels := trayLabelTable[t.language]
 	t.open.SetLabel(labels.open)
 	t.settings.SetLabel(labels.settings)
-	t.checkUpdate.SetLabel(labels.checkUpdate)
 	t.restart.SetLabel(labels.restart)
 	t.lightweight.SetLabel(labels.lightweight)
 	t.quit.SetLabel(labels.quit)

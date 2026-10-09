@@ -5,7 +5,6 @@ import { MemoryRouter } from 'react-router'
 import VisualEffectsProvider from '@/components/motion/VisualEffectsProvider'
 import { SettingContext } from '@/contexts/setting-context'
 import { ShortcutContext, type ShortcutContextType } from '@/contexts/shortcut-context'
-import { UpdateContext, type UpdateContextType } from '@/contexts/update-context'
 import SettingsPage from '@/pages/SettingsPage'
 import { makeBaseSettings } from '@/test/fixtures/settings'
 import type { SettingContextType } from '@/types/setting'
@@ -23,20 +22,6 @@ const shortcutContext: ShortcutContextType = {
   activePriority: 0,
   pushLayer: () => 'fixture',
   popLayer: () => {},
-}
-
-const updateContext: UpdateContextType = {
-  state: { phase: 'idle', info: null, downloaded: 0, total: null },
-  isCheckingUpdate: false,
-  checkForUpdates: async () => null,
-  downloadUpdate: async () => {},
-  cancelDownload: async () => {},
-  installUpdate: async () => {},
-  updateInfo: null,
-  downloadProgress: { phase: 'idle', downloaded: 0, total: null },
-  installKind: null,
-  isSystemManaged: false,
-  isManualUpdate: false,
 }
 
 export default function SettingsPageFixture() {
@@ -89,17 +74,15 @@ export default function SettingsPageFixture() {
   return (
     <SettingContext.Provider value={context}>
       <ShortcutContext value={shortcutContext}>
-        <UpdateContext value={updateContext}>
-          <LazyMotion features={domMax} strict>
-            <VisualEffectsProvider>
-              <MemoryRouter initialEntries={['/settings']}>
-                <div className="h-screen min-h-0">
-                  <SettingsPage />
-                </div>
-              </MemoryRouter>
-            </VisualEffectsProvider>
-          </LazyMotion>
-        </UpdateContext>
+        <LazyMotion features={domMax} strict>
+          <VisualEffectsProvider>
+            <MemoryRouter initialEntries={['/settings']}>
+              <div className="h-screen min-h-0">
+                <SettingsPage />
+              </div>
+            </MemoryRouter>
+          </VisualEffectsProvider>
+        </LazyMotion>
       </ShortcutContext>
     </SettingContext.Provider>
   )

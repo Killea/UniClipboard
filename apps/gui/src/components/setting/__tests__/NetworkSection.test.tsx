@@ -941,7 +941,7 @@ describe('Phase 95 ROADMAP fence — 4 验收 + 3 Pitfall 防御', () => {
     expect(document.querySelector('[data-animated-toast-stack]')).toBeNull()
   })
 
-  it('Pitfall 5 — 4 类外网请求清单存在（Popover 展开后）', async () => {
+  it('Pitfall 5 — 外网请求清单存在（Popover 展开后）', async () => {
     const user = userEvent.setup()
     renderWithOverrides({ allowRelayFallback: true })
     await user.click(
@@ -954,7 +954,6 @@ describe('Phase 95 ROADMAP fence — 4 验收 + 3 Pitfall 防御', () => {
     expect(
       screen.getByText(/pkarr DHT NodeId 解析|pkarr DHT NodeId resolution/)
     ).toBeInTheDocument()
-    expect(screen.getByText(/自动更新 GitHub 检查|Auto-update GitHub check/)).toBeInTheDocument()
   })
 
   it('反向命名 — 唯一取反点是 NetworkSection.tsx（静态约束，由 acceptance grep 保护）', () => {

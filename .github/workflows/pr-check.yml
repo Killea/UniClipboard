@@ -383,8 +383,7 @@ jobs:
       # evidence artifact.
       - name: Run E2E tests
         env:
-          # Tests that support it write redacted evidence here (see
-          # tests/e2e/tests/update_analytics_capture.rs).
+          # Tests that support it write redacted evidence here.
           UC_E2E_EVIDENCE_DIR: ${{ runner.temp }}/e2e-evidence
           UC_E2E_DEV_CLI: ${{ github.workspace }}/target/e2e-dev/debug/uc-dev-cli
         # See above: `shell: bash` keeps the step failing when a test fails.
@@ -417,7 +416,6 @@ jobs:
             echo "rerun: cargo build -p uc-daemon --features uc-daemon/e2e-rendezvous"
             echo "rerun: scripts/e2e/build-cli.sh"
             echo "rerun: cargo test -p uc-daemon --features uc-daemon/e2e-rendezvous --test engine_log_file_name_contract"
-            echo "rerun: UC_E2E_EVIDENCE_DIR=<dir> cargo test --manifest-path tests/e2e/Cargo.toml --test update_analytics_capture -- --ignored"
           } > "$UC_E2E_EVIDENCE_DIR/source.txt"
           # Per-test outcomes of the full suite (test names and ok/FAILED only).
           if [ -f "$UC_E2E_EVIDENCE_DIR/e2e-suite.log" ]; then

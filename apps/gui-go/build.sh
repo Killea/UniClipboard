@@ -19,18 +19,12 @@ cargo build --locked -p quick-panel --bin uniclip-quick-panel
 (cd packages/desktop-host-go && go generate ./buildinfo)
 (cd apps/cli-go && go build -o ../../target/gui-go/uniclip ./cmd/uniclip)
 VITE_GUI_GO_E2E="$E2E" bun --bun run --cwd apps/gui-go build
-# The release signer key comes from apps/gui-go/app.json, the single source of the app identity.
-# E2E builds leave it empty and use the local test feed override instead.
-PUBKEY=""
-if [[ "$E2E" == 0 ]]; then
-  PUBKEY="$(python3 -c 'import json;print(json.load(open("apps/gui-go/app.json"))["updater"]["pubkey"])')"
-fi
 # Bundle identity, minimum macOS version and the login item name come from apps/gui-go/app.json.
 read -r BUNDLE_ID PRODUCT VERSION MIN_MACOS < <(python3 -c 'import json;c=json.load(open("apps/gui-go/app.json"));print(c["identifier"],c["productName"],c["version"],c["minimumSystemVersion"])')
 # The single-instance scope includes the bundle identifier, so the E2E build never shares an instance with the real app.
 GO_BUNDLE_ID="$BUNDLE_ID"
 if [[ "$MODE" == e2e ]]; then GO_BUNDLE_ID="$BUNDLE_ID.e2e"; fi
-(cd apps/gui-go && go build -tags "$TAGS" -ldflags "-X main.updaterPublicKey=$PUBKEY -X main.productName=$PRODUCT -X main.bundleID=$GO_BUNDLE_ID" -o "../../target/gui-go/$APP-binary" .)
+(cd apps/gui-go && go build -tags "$TAGS" -ldflags "-X main.productName=$PRODUCT -X main.bundleID=$GO_BUNDLE_ID" -o "../../target/gui-go/$APP-binary" .)
 BUNDLE="$ROOT/target/gui-go/$APP.app"
 mkdir -p "$BUNDLE/Contents/MacOS"
 cp "target/gui-go/$APP-binary" "$BUNDLE/Contents/MacOS/gui-go"

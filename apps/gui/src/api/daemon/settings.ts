@@ -61,9 +61,6 @@ export type QuickPanelPosition = 'center' | 'follow_cursor'
 /** Modifier whose standalone double tap toggles the quick panel. */
 export type QuickPanelDoubleTapModifier = 'disabled' | 'alt' | 'control' | 'meta'
 
-/** Update channel override. / 更新通道覆盖。 */
-export type UpdateChannel = 'stable' | 'alpha' | 'beta' | 'rc'
-
 /**
  * Startup mode. / 启动方式。互斥三选一，与 `autoStart` 相互独立。
  *
@@ -129,8 +126,6 @@ export interface GeneralSettings {
    * OS clipboard once the daemon connection is confirmed at startup.
    */
   restoreLastEntryOnStartup: boolean
-  autoCheckUpdate: boolean
-  autoDownloadUpdate: boolean
   theme: Theme
   /** 旧版统一主题预设(回退用)。 */
   themeColor: string | null
@@ -144,7 +139,6 @@ export interface GeneralSettings {
   themeOverridesDark: Record<string, string>
   language: string | null
   deviceName: string | null
-  updateChannel?: UpdateChannel | null
   telemetryEnabled: boolean
   usageAnalyticsEnabled: boolean
   debugMode: boolean
@@ -500,8 +494,6 @@ function toSettingsPatchRequest(
     const {
       startupMode,
       restoreLastEntryOnStartup,
-      autoCheckUpdate,
-      autoDownloadUpdate,
       theme,
       themeColor,
       themeColorLight,
@@ -510,7 +502,6 @@ function toSettingsPatchRequest(
       themeOverridesDark,
       language,
       deviceName,
-      updateChannel,
       telemetryEnabled,
       usageAnalyticsEnabled,
       debugMode,
@@ -519,8 +510,6 @@ function toSettingsPatchRequest(
     patch.general = {
       startupMode,
       restoreLastEntryOnStartup,
-      autoCheckUpdate,
-      autoDownloadUpdate,
       theme,
       themeColor,
       themeColorLight,
@@ -529,7 +518,6 @@ function toSettingsPatchRequest(
       themeOverridesDark,
       language,
       deviceName,
-      updateChannel,
       telemetryEnabled,
       usageAnalyticsEnabled,
       debugMode,

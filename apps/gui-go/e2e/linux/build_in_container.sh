@@ -19,7 +19,7 @@ fi
 (cd packages/desktop-host-go && go generate ./buildinfo)
 (cd apps/cli-go && CGO_ENABLED=0 go build -o "$OUT/uniclip" ./cmd/uniclip)
 read -r BUNDLE_ID PRODUCT < <(python3 -c 'import json;c=json.load(open("apps/gui-go/app.json"));print(c["identifier"],c["productName"])')
-(cd apps/gui-go && CGO_ENABLED=1 go build -tags gtk3,e2e -ldflags "-X main.updaterPublicKey= -X main.productName=$PRODUCT -X main.bundleID=$BUNDLE_ID.e2e" -o "$OUT/gui-go" .)
+(cd apps/gui-go && CGO_ENABLED=1 go build -tags gtk3,e2e -ldflags "-X main.productName=$PRODUCT -X main.bundleID=$BUNDLE_ID.e2e" -o "$OUT/gui-go" .)
 (cd apps/gui-go && CGO_ENABLED=1 go vet -tags gtk3,production,release . && echo "vet gtk3,production,release ok")
 ldd "$OUT/gui-go" | awk '{print $1}' | sort > "$OUT/gui-go.ldd.txt"
 file "$OUT/gui-go" "$OUT/uniclip" ${SKIP_DAEMON:+} > "$OUT/file.txt" || true

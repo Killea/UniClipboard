@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
+import appIcon from '@/assets/app-icon.png'
 import { cn } from '@/lib/utils'
-import appIcon from '@/updater/app-icon.png'
 
 type AppStateShellProps = {
   category?: ReactNode

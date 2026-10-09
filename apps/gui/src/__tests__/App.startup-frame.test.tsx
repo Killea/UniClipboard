@@ -66,7 +66,6 @@ vi.mock('@/lib/ipc', () => ({
   },
 }))
 vi.mock('@/contexts/SettingContext', () => ({ SettingProvider: () => null }))
-vi.mock('@/contexts/UpdateContext', () => ({ UpdateProvider: () => null }))
 vi.mock('@/contexts/SearchContext', () => ({ SearchProvider: () => null }))
 vi.mock('@/contexts/ShortcutContext', () => ({
   ShortcutProvider: ({ children }: { children: ReactNode }) => children,

@@ -4,12 +4,10 @@ import { StartupProgressScreen } from '@/components/app/StartupProgressScreen'
 import { makeUpgradePreview } from '@/dev/upgrade-preview-model'
 
 const support = vi.hoisted(() => ({ contactAuthor: vi.fn() }))
-const updater = vi.hoisted(() => ({ checkForUpdate: vi.fn(), openUpdaterWindow: vi.fn() }))
 vi.mock('@/api/startup-support', () => ({
   contactAuthor: support.contactAuthor,
   STARTUP_SUPPORT_URL: 'https://github.com/UniClipboard/UniClipboard/issues/new/choose',
 }))
-vi.mock('@/api/updater', () => updater)
 
 beforeEach(() => {
   vi.resetAllMocks()
@@ -107,25 +105,6 @@ describe('startup and upgrade progress', () => {
         'https://github.com/UniClipboard/UniClipboard/issues/new/choose'
       )
     )
-  })
-
-  it('keeps update checking available after an upgrade failure', async () => {
-    updater.openUpdaterWindow.mockResolvedValue(undefined)
-    updater.checkForUpdate.mockRejectedValue(new Error('offline'))
-    const snapshot = makeUpgradePreview('upgrading', 1)
-    snapshot.state = 'failed'
-    snapshot.failure = { reason: 'corrupt_data', retryable: false }
-
-    render(<StartupProgressScreen snapshot={snapshot} onRetry={vi.fn()} onExport={vi.fn()} />)
-    fireEvent.click(screen.getByRole('button', { name: /检查更新|Check for updates/ }))
-
-    await waitFor(() =>
-      expect(screen.getByRole('alert')).toHaveTextContent(
-        /无法完成更新检查|Could not complete the update check/i
-      )
-    )
-    expect(updater.openUpdaterWindow).toHaveBeenCalledOnce()
-    expect(updater.checkForUpdate).toHaveBeenCalledWith(null)
   })
 
   it('keeps elapsed time moving without any backend progress update', () => {

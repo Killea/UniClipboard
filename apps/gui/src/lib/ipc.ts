@@ -211,12 +211,7 @@ export type {
   DaemonBootstrapFailure,
   DaemonConnectionPayload,
   DeviceMeta,
-  DownloadEvent,
-  DownloadPhase,
-  DownloadProgressSnapshot,
-  InstallKind,
   ShortcutKeyDto,
   TraceMetadata,
   UpdateKeyboardShortcutsResult,
-  UpdateMetadata,
 } from './ipc-bindings.generated'

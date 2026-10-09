@@ -287,8 +287,6 @@ mod relay_credential_wire_tests {
                 auto_start: false,
                 startup_mode: StartupModeDto::Normal,
                 restore_last_entry_on_startup: false,
-                auto_check_update: true,
-                auto_download_update: false,
                 theme: ThemeDto::System,
                 theme_color: None,
                 theme_color_light: None,
@@ -297,7 +295,6 @@ mod relay_credential_wire_tests {
                 theme_overrides_dark: Default::default(),
                 language: None,
                 device_name: None,
-                update_channel: None,
                 telemetry_enabled: false,
                 usage_analytics_enabled: true,
                 debug_mode: false,
@@ -543,13 +540,6 @@ pub struct GeneralSettingsDto {
     /// payloads compatible.
     #[serde(default)]
     pub restore_last_entry_on_startup: bool,
-    pub auto_check_update: bool,
-    /// Whether to download the next available update in the background.
-    /// Persisted alongside `auto_check_update`; consumed by the frontend's
-    /// `UpdateContext` after a successful `check_for_update` to decide
-    /// whether to start a silent download.
-    #[serde(default)]
-    pub auto_download_update: bool,
     pub theme: ThemeDto,
     /// 旧版"统一主题预设"字段（v0.7 之前唯一字段）。新前端不再写入,
     /// 但 wire 仍透传以便老 daemon ↔ 新前端 / 新 daemon ↔ 老前端兼容。
@@ -573,10 +563,6 @@ pub struct GeneralSettingsDto {
     pub theme_overrides_dark: std::collections::BTreeMap<String, String>,
     pub language: Option<String>,
     pub device_name: Option<String>,
-    /// Update channel preference. `None` means auto-detect from version string;
-    /// `Some(channel)` means the user has overridden the channel.
-    #[serde(default)]
-    pub update_channel: Option<UpdateChannelDto>,
     /// Whether anonymous diagnostic telemetry is enabled.
     pub telemetry_enabled: bool,
     /// Whether anonymous product usage analytics is enabled.
@@ -599,15 +585,6 @@ pub enum ThemeDto {
     Light,
     Dark,
     System,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, ToSchema)]
-#[serde(rename_all = "snake_case")]
-pub enum UpdateChannelDto {
-    Stable,
-    Alpha,
-    Beta,
-    Rc,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq, ToSchema)]
@@ -869,8 +846,6 @@ pub struct GeneralSettingsPatchDto {
     pub startup_mode: Option<StartupModeDto>,
     #[serde(default)]
     pub restore_last_entry_on_startup: Option<bool>,
-    pub auto_check_update: Option<bool>,
-    pub auto_download_update: Option<bool>,
     pub theme: Option<ThemeDto>,
     /// 旧版"统一主题预设"patch 字段。`Some(None)` = 显式清空,`None` = 不修改。
     #[serde(default)]
@@ -889,7 +864,6 @@ pub struct GeneralSettingsPatchDto {
     pub theme_overrides_dark: Option<std::collections::BTreeMap<String, String>>,
     pub language: Option<Option<String>>,
     pub device_name: Option<Option<String>>,
-    pub update_channel: Option<Option<UpdateChannelDto>>,
     pub telemetry_enabled: Option<bool>,
     pub usage_analytics_enabled: Option<bool>,
     pub debug_mode: Option<bool>,
@@ -1144,7 +1118,6 @@ mod network_dto_tests {
         let json = r#"{
             "autoStart": false,
             "silentStart": false,
-            "autoCheckUpdate": true,
             "theme": "system",
             "themeColor": "catppuccin",
             "language": null,
@@ -1163,7 +1136,6 @@ mod network_dto_tests {
         let json = r#"{
             "autoStart": false,
             "startupMode": "normal",
-            "autoCheckUpdate": true,
             "theme": "system",
             "themeColor": null,
             "themeColorLight": "zinc",
@@ -1214,7 +1186,6 @@ mod network_dto_tests {
         let json = r#"{
             "autoStart": false,
             "silentStart": false,
-            "autoCheckUpdate": true,
             "theme": "system",
             "themeColor": null,
             "language": null,
@@ -1232,7 +1203,6 @@ mod network_dto_tests {
         let json = r#"{
             "autoStart": false,
             "startupMode": "normal",
-            "autoCheckUpdate": true,
             "theme": "system",
             "themeColor": null,
             "themeOverridesLight": { "primary": "oklch(0.5 0.2 270)" },
@@ -1270,72 +1240,6 @@ mod network_dto_tests {
         );
         let dark = dto.theme_overrides_dark.expect("dark Some");
         assert!(dark.is_empty(), "explicit empty map preserved");
-    }
-
-    /// 老 wire 缺 `autoDownloadUpdate` 字段时 DTO 反序列化默认 false（opt-in）。
-    /// 保证 v0.9 之前持久化的 settings.json 升级到带本字段的版本不会反序列化失败。
-    #[test]
-    fn general_dto_legacy_wire_without_auto_download_defaults_to_false() {
-        let json = r#"{
-            "autoStart": false,
-            "silentStart": false,
-            "autoCheckUpdate": true,
-            "theme": "system",
-            "themeColor": null,
-            "language": null,
-            "deviceName": null,
-            "telemetryEnabled": true
-        }"#;
-        let dto: GeneralSettingsDto = serde_json::from_str(json).expect("deserialize legacy wire");
-        assert!(
-            !dto.auto_download_update,
-            "missing autoDownloadUpdate must default to false (opt-in)"
-        );
-    }
-
-    /// 新 wire 带 `autoDownloadUpdate` 字段时正确透传两个方向。
-    #[test]
-    fn general_dto_auto_download_round_trips_camel_case() {
-        let json = r#"{
-            "autoStart": false,
-            "startupMode": "normal",
-            "autoCheckUpdate": true,
-            "autoDownloadUpdate": true,
-            "theme": "system",
-            "themeColor": null,
-            "language": null,
-            "deviceName": null,
-            "telemetryEnabled": true
-        }"#;
-        let dto: GeneralSettingsDto =
-            serde_json::from_str(json).expect("deserialize with autoDownloadUpdate");
-        assert!(dto.auto_download_update);
-
-        let out = serde_json::to_string(&dto).expect("serialize");
-        assert!(
-            out.contains(r#""autoDownloadUpdate":true"#),
-            "wire field MUST be camelCase: {}",
-            out
-        );
-    }
-
-    /// patch DTO 缺字段不修改、显式带字段才修改 —— `autoDownloadUpdate` 同其他 bool patch。
-    #[test]
-    fn general_patch_dto_auto_download_optional_semantics() {
-        let absent: GeneralSettingsPatchDto =
-            serde_json::from_str("{}").expect("deserialize empty patch");
-        assert!(
-            absent.auto_download_update.is_none(),
-            "missing => no change"
-        );
-
-        let explicit_false: GeneralSettingsPatchDto =
-            serde_json::from_str(r#"{"autoDownloadUpdate": false}"#).expect("deserialize patch");
-        assert_eq!(explicit_false.auto_download_update, Some(false));
-
-        let explicit_true: GeneralSettingsPatchDto =
-            serde_json::from_str(r#"{"autoDownloadUpdate": true}"#).expect("deserialize patch");
-        assert_eq!(explicit_true.auto_download_update, Some(true));
     }
 }
 
@@ -1501,7 +1405,6 @@ mod retention_rule_dto_tests {
 /// 这些 enum 看起来人畜无害(unit-only 变体没 issue #606 那种"内嵌字段
 /// 被忽略"的坑),但 wire 字面量是与前端 TS 字面量类型硬绑定的契约:
 ///   - `ThemeDto` ↔ `type Theme = 'light' | 'dark' | 'system'`
-///   - `UpdateChannelDto` ↔ `type UpdateChannel = 'stable' | 'alpha' | 'beta' | 'rc'`
 ///   - `SyncFrequencyDto` ↔ `type SyncFrequency = 'realtime' | 'interval'`
 ///   - `RuleEvaluationDto` ↔ `type RuleEvaluation = 'anyMatch' | 'allMatch'`
 ///   - `ShortcutKeyDto` (untagged) ↔ `type ShortcutKey = string | string[]`
@@ -1550,24 +1453,6 @@ mod enum_wire_tests {
                 variant
             );
         }
-    }
-
-    #[test]
-    fn update_channel_dto_wire_is_snake_case_lowercase() {
-        for (variant, literal) in [
-            (UpdateChannelDto::Stable, r#""stable""#),
-            (UpdateChannelDto::Alpha, r#""alpha""#),
-            (UpdateChannelDto::Beta, r#""beta""#),
-            (UpdateChannelDto::Rc, r#""rc""#),
-        ] {
-            assert_eq!(serde_json::to_string(&variant).unwrap(), literal);
-            assert_eq!(
-                serde_json::from_str::<UpdateChannelDto>(literal).unwrap(),
-                variant
-            );
-        }
-
-        assert!(serde_json::from_str::<UpdateChannelDto>(r#""RC""#).is_err());
     }
 
     #[test]
@@ -1641,7 +1526,7 @@ mod enum_wire_tests {
 
 /// 子集 B —— `GeneralSettingsPatchDto` 的 `Option<Option<T>>` 字段当前 wire 语义锁定。
 ///
-/// `theme_color / language / device_name / update_channel` 的字段类型是
+/// `theme_color / language / device_name` 的字段类型是
 /// `Option<Option<T>>`,facade 层(`models.rs` line 485+)按三态语义消费:
 /// ```ignore
 /// if let Some(v) = general.theme_color {
@@ -1676,7 +1561,6 @@ mod general_patch_optional_field_wire_tests {
         assert!(dto.theme_color.is_none(), "missing field ⇒ None (不改)");
         assert!(dto.language.is_none());
         assert!(dto.device_name.is_none());
-        assert!(dto.update_channel.is_none());
     }
 
     /// ⚠️ 当前行为:wire `null` 反序列化成外层 `None`,与缺字段不可区分。
@@ -1686,8 +1570,7 @@ mod general_patch_optional_field_wire_tests {
         let body = r#"{
             "themeColor": null,
             "language": null,
-            "deviceName": null,
-            "updateChannel": null
+            "deviceName": null
         }"#;
         let dto: GeneralSettingsPatchDto = serde_json::from_str(body).expect("deserialize");
         assert_eq!(
@@ -1696,7 +1579,6 @@ mod general_patch_optional_field_wire_tests {
         );
         assert_eq!(dto.language, None);
         assert_eq!(dto.device_name, None);
-        assert_eq!(dto.update_channel, None);
     }
 
     #[test]
@@ -1704,14 +1586,12 @@ mod general_patch_optional_field_wire_tests {
         let body = r#"{
             "themeColor": "blue",
             "language": "zh-CN",
-            "deviceName": "ws-1",
-            "updateChannel": "beta"
+            "deviceName": "ws-1"
         }"#;
         let dto: GeneralSettingsPatchDto = serde_json::from_str(body).expect("deserialize");
         assert_eq!(dto.theme_color, Some(Some("blue".to_string())));
         assert_eq!(dto.language, Some(Some("zh-CN".to_string())));
         assert_eq!(dto.device_name, Some(Some("ws-1".to_string())));
-        assert_eq!(dto.update_channel, Some(Some(UpdateChannelDto::Beta)));
     }
 }
 

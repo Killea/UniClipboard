@@ -58,7 +58,7 @@ describe('LanOnlyDisclosure', () => {
     expect(screen.getByRole('dialog')).toBeInTheDocument()
   })
 
-  it('Test 5: PopoverContent 含 4 类外网请求标题', async () => {
+  it('Test 5: PopoverContent 含外网请求标题', async () => {
     const user = userEvent.setup()
     render(<LanOnlyDisclosure />)
     await user.click(screen.getByRole('button', { name: /查看 LAN-only|View the list/ }))
@@ -68,7 +68,6 @@ describe('LanOnlyDisclosure', () => {
     expect(
       screen.getByText(/pkarr DHT NodeId 解析|pkarr DHT NodeId resolution/)
     ).toBeInTheDocument()
-    expect(screen.getByText(/自动更新 GitHub 检查|Auto-update GitHub check/)).toBeInTheDocument()
   })
 
   it('Test 6: Esc 关闭 Popover', async () => {

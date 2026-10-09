@@ -75,8 +75,6 @@ describe('Settings API', () => {
           autoStart: true,
           startupMode: 'normal',
           restoreLastEntryOnStartup: false,
-          autoCheckUpdate: false,
-          autoDownloadUpdate: false,
           theme: 'dark',
           themeColor: '#1a1a1a',
           themeColorLight: null,
@@ -85,7 +83,6 @@ describe('Settings API', () => {
           themeOverridesDark: {},
           language: 'en-US',
           deviceName: 'My MacBook',
-          updateChannel: 'stable',
           telemetryEnabled: true,
           usageAnalyticsEnabled: false,
           debugMode: false,
@@ -97,11 +94,8 @@ describe('Settings API', () => {
 
       // camelCase field names from daemon serde serialisation
       expect(result.general).toHaveProperty('autoStart')
-      expect(result.general).toHaveProperty('autoCheckUpdate')
-      expect(result.general).toHaveProperty('autoDownloadUpdate')
       expect(result.general).toHaveProperty('themeColor')
       expect(result.general).toHaveProperty('deviceName')
-      expect(result.general).toHaveProperty('updateChannel')
       expect(result.general).toHaveProperty('usageAnalyticsEnabled')
       expect(result.general.theme).toBe('dark')
       expect(result.general.usageAnalyticsEnabled).toBe(false)
@@ -175,8 +169,6 @@ describe('Settings API', () => {
           autoStart: true,
           startupMode: 'normal',
           restoreLastEntryOnStartup: false,
-          autoCheckUpdate: true,
-          autoDownloadUpdate: false,
           theme: 'light',
           themeColor: null,
           themeColorLight: null,
@@ -185,7 +177,6 @@ describe('Settings API', () => {
           themeOverridesDark: {},
           language: null,
           deviceName: 'New Name',
-          updateChannel: null,
           telemetryEnabled: true,
           usageAnalyticsEnabled: true,
           debugMode: false,
@@ -215,8 +206,6 @@ describe('Settings API', () => {
           autoStart: false,
           startupMode: 'normal',
           restoreLastEntryOnStartup: false,
-          autoCheckUpdate: true,
-          autoDownloadUpdate: false,
           theme: 'dark',
           themeColor: null,
           themeColorLight: null,
@@ -225,7 +214,6 @@ describe('Settings API', () => {
           themeOverridesDark: {},
           language: null,
           deviceName: null,
-          updateChannel: null,
           telemetryEnabled: true,
           usageAnalyticsEnabled: true,
           debugMode: false,
@@ -270,8 +258,6 @@ describe('Settings API', () => {
             autoStart: false,
             startupMode: 'normal',
             restoreLastEntryOnStartup: false,
-            autoCheckUpdate: true,
-            autoDownloadUpdate: false,
             theme: 'invalid-theme' as Settings['general']['theme'],
             themeColor: null,
             themeColorLight: null,
@@ -280,7 +266,6 @@ describe('Settings API', () => {
             themeOverridesDark: {},
             language: null,
             deviceName: null,
-            updateChannel: null,
             telemetryEnabled: true,
             usageAnalyticsEnabled: true,
             debugMode: false,

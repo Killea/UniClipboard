@@ -8,7 +8,7 @@ One tool, one subcommand per stage, so CI and a developer run the same steps in 
   sign      sign inside-out: nested executables first, then the bundle (never `--deep`)
   notarize  submit to the Apple notary service, wait, keep the log, staple the ticket
   dmg       UniClipboard_<version>_<aarch64|x64>.dmg (signed, notarized, stapled when asked)
-  archive   UniClipboard.app.tar.gz from the finished bundle (the updater signature is separate: #1896)
+  archive   UniClipboard.app.tar.gz from the finished bundle
   keychain  create / delete the temporary keychain that holds the Developer ID certificate in CI
 
 The bundle identity (name, identifier, version, minimum macOS, icon) comes from apps/gui-go/app.json
@@ -129,11 +129,10 @@ def cmd_bundle(a):
 
     run(["go", "generate", "./buildinfo"], cwd=REPO / "packages/desktop-host-go")
 
-    pubkey = CFG["updater"]["pubkey"] if a.variant == "shipping" else ""
     minos = CFG["minimumSystemVersion"]
     genv = dict(os.environ, GOOS="darwin", GOARCH=t["goarch"], CGO_ENABLED="1", MACOSX_DEPLOYMENT_TARGET=minos,
                 CGO_CFLAGS=f"-mmacosx-version-min={minos}", CGO_LDFLAGS=f"-mmacosx-version-min={minos}")
-    ldflags = (f"-s -w -X main.updaterPublicKey={pubkey} -X main.productName={CFG['productName']}"
+    ldflags = (f"-s -w -X main.productName={CFG['productName']}"
                f" -X main.bundleID={bundle_id(a.variant)}")
     gobin = work / "gui-go"
     run(["go", "build", "-tags", v["tags"], "-trimpath", "-buildvcs=false", "-ldflags", ldflags, "-o", gobin, "."],

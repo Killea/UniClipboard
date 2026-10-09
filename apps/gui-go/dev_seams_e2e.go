@@ -6,49 +6,10 @@ import (
 	"os"
 	"strings"
 	"sync"
-	"time"
 
-	"github.com/UniClipboard/UniClipboard/apps/gui-go/internal/update"
 	"github.com/UniClipboard/UniClipboard/packages/desktop-host-go/quickpanelhelper"
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
-
-type devUpdate struct {
-	endpoints func(update.Channel) []string
-	publicKey string
-}
-
-// devUpdateOverrides lets the e2e build point the updater at a local feed, mirroring the Tauri shell's
-// debug-only UC_UPDATE_* overrides. With only UC_UPDATE_ENDPOINT set, the trusted key stays the one injected at
-// build time (`updaterPublicKey`), which is how the production key path is exercised against a local feed.
-func devUpdateOverrides() (devUpdate, bool) {
-	endpoint, key := os.Getenv("UC_UPDATE_ENDPOINT"), os.Getenv("UC_UPDATE_PUBKEY")
-	if endpoint == "" {
-		return devUpdate{}, false
-	}
-	if key == "" {
-		key = updaterPublicKey
-	}
-	return devUpdate{endpoints: func(update.Channel) []string { return []string{endpoint} }, publicKey: key}, true
-}
-
-// schedulerTimingOverride shortens the scheduler cadence for the e2e build so a
-// background check can be observed in seconds; jitter is disabled for determinism.
-func schedulerTimingOverride(t schedulerTiming) schedulerTiming {
-	if d, err := time.ParseDuration(os.Getenv("UC_UPDATE_SCHEDULER_INTERVAL")); err == nil && d > 0 {
-		t.setupPoll, t.success, t.jitter, t.failure = d, d, 0, d
-	}
-	// The wake guard is an hour in production; the e2e build shortens it so "stale" is a few seconds away.
-	if d, err := time.ParseDuration(os.Getenv("UC_UPDATE_WAKE_MIN_RECHECK")); err == nil && d > 0 {
-		t.wakeMinRecheck = d
-	}
-	// The background activity gets its own interval so a feed request can be attributed to the system callback
-	// rather than to the scheduler's own timer; without it the activity keeps the production interval.
-	if d, err := time.ParseDuration(os.Getenv("UC_UPDATE_BACKGROUND_ACTIVITY_INTERVAL")); err == nil && d > 0 {
-		t.activityInterval = d
-	}
-	return t
-}
 
 // helperExecutable lets the e2e build substitute a stand-in helper to exercise the supervision
 // and request handling deterministically; without the override it is the real helper.

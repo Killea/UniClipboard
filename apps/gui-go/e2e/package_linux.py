@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Package the Linux Go GUI: release binary, deb, rpm, AppImage and the AppImage updater archive.
+"""Package the Linux Go GUI: release binary, deb, rpm, AppImage.
 
   python3 apps/gui-go/e2e/package_linux.py --arch amd64|arm64 --daemon <path to uniclipd> --out <dir> [--frontend-dist <dir>]
 
@@ -8,12 +8,11 @@ cannot be cross-compiled from macOS. The daemon is NOT built here: `uniclipd` fo
 supplied; a missing or malformed file is a hard error. The frontend bundle (apps/gui-go/frontend/dist) must exist
 (`bun --bun run --cwd apps/gui-go build`).
 
-Outputs in <dir> (names follow the Tauri bundler, which the release workflow and updater feed already expect):
+Outputs in <dir> (names follow the Tauri bundler, which the release workflow already expects):
   uniclipboard                                       release build (tags gtk3,production,release)
   UniClipboard_<version>_<amd64|arm64>.deb           /usr/bin/uniclipboard + /usr/bin/uniclipd + desktop entry + icons
   UniClipboard-<version>-1.<x86_64|aarch64>.rpm      same payload
   UniClipboard_<version>_<amd64|aarch64>.AppImage    self-contained AppDir (linuxdeploy + the Wails GTK plugin, docs/architecture/gui-go-linux-appimage.md)
-  UniClipboard_<version>_<amd64|aarch64>.AppImage.tar.gz   the updater artifact (the release workflow signs it: `.sig`)
   package-manifest.json                              provenance and an explicit list of what is NOT proven
 
 What this proves: the artifacts build. It does NOT prove they install or run on a real desktop, and:
@@ -32,7 +31,6 @@ import re
 import shutil
 import subprocess
 import sys
-import tarfile
 import urllib.request
 from pathlib import Path
 
@@ -493,7 +491,7 @@ def release_gdk_backend(appdir):
     return {'hook': str(hook.relative_to(appdir)), 'removedLine': GDK_BACKEND_HOOK_LINE.search(text).group(0), 'hookSha256Before': before, 'hookSha256After': sha256(hook)}
 
 
-def build_appimage(stage, out, arch, name, tools, daemon, relocate=True, marker=None, tls_module=True, force_x11_hook=False, layer_shell=True):
+def build_appimage(stage, out, arch, name, tools, daemon, relocate=True, tls_module=True, force_x11_hook=False, layer_shell=True):
     tools.mkdir(exist_ok=True)
     tool_url, tool_pin = APPIMAGETOOL[arch]
     appimagetool = fetch_verified(tool_url, tool_pin, tools / 'appimagetool')
@@ -532,9 +530,6 @@ def build_appimage(stage, out, arch, name, tools, daemon, relocate=True, marker=
         sys.exit('shared-mime-info is not installed in the build image: /usr/share/mime/mime.cache is missing')
     (appdir / 'usr/share/mime').mkdir(parents=True)
     shutil.copy2(mime_cache, appdir / 'usr/share/mime/mime.cache')
-    if marker:
-        (appdir / 'usr/share/uniclipboard').mkdir(parents=True)
-        (appdir / 'usr/share/uniclipboard/update-marker.txt').write_text(marker)
 
     execs = [appdir / 'usr/bin/uniclipboard', appdir / 'usr/bin/uniclipd'] + [target / h for h in WEBKIT_HELPERS if (target / h).is_file()]
     cmd = [str(linuxdeploy), '--appimage-extract-and-run', '--appdir', str(appdir), '--plugin', 'gtk', '--custom-apprun', str(APPRUN),
@@ -593,7 +588,7 @@ def build_appimage(stage, out, arch, name, tools, daemon, relocate=True, marker=
 
     info = {'linuxdeploy': {'release': release, 'sha256': pin}, 'daemonRestoredAfterLinuxdeploy': True, 'daemonHashChain': daemon_chain, 'appimagetoolSha256': tool_pin,
             'gtkPlugin': {'source': str(plugin_source), 'wailsModuleDir': str(wails_dir), 'sha256': sha256(plugin)},
-            'webkitHelperDirectory': str(helper_dir), 'updateMarker': bool(marker),
+            'webkitHelperDirectory': str(helper_dir),
             'sharedMimeCache': {'source': str(mime_cache), 'sha256': sha256(mime_cache)}, 'gioModules': gio_modules_info, 'libdbusRemoved': removed_dbus,
             'layerShell': layer_shell_info, 'gdkBackendHook': gdk_hook_info}
     info['relocation'] = relocate_webkit(appdir, helper_dir) if relocate else 'DISABLED (negative control)'
@@ -666,8 +661,7 @@ def main():
     parser.add_argument('--packaging-check-fixture', action='store_true',
                         help='PACKAGING CHECK ONLY: accept a placeholder daemon; outputs are marked fixture, prefixed FIXTURE- and are not a product')
     parser.add_argument('--gui-binary', type=Path, help='package this prebuilt GUI (e.g. the gtk3,e2e build) instead of building the release one; marks the output E2E')
-    parser.add_argument('--appimage-only', action='store_true', help='build only the AppImage and its updater archive (no deb/rpm)')
-    parser.add_argument('--update-marker', help='write this text to usr/share/uniclipboard/update-marker.txt inside the AppImage (update E2E: tells v2 from v1)')
+    parser.add_argument('--appimage-only', action='store_true', help='build only the AppImage (no deb/rpm)')
     parser.add_argument('--negative-control-no-tls-module', action='store_true',
                         help='NEGATIVE CONTROL (17c7): leave the bundled GIO module directory empty (what 17c4-17c6 shipped); HTTPS in the WebView must fail; prefixed NEGTLS-')
     parser.add_argument('--negative-control-no-relocation', action='store_true',
@@ -703,7 +697,6 @@ def main():
     out.mkdir(parents=True, exist_ok=True)
     conf = json.loads((ROOT / 'apps/gui-go/app.json').read_text())
     product, version, ident = conf['productName'], conf['version'], conf['identifier']
-    pubkey = conf['updater']['pubkey']
     prov = provenance()
 
     if args.gui_binary:
@@ -717,7 +710,7 @@ def main():
     else:
         run(['go', 'generate', './buildinfo'], cwd=ROOT / 'packages/desktop-host-go')
         binary, tags = out / 'uniclipboard', 'gtk3,production,release'
-        ldflags = f'-w -s -X main.updaterPublicKey={pubkey} -X main.productName={product} -X main.bundleID={ident}'
+        ldflags = f'-w -s -X main.productName={product} -X main.bundleID={ident}'
         run(['go', 'build', '-tags', tags, '-trimpath', '-buildvcs=false', '-ldflags', ldflags, '-o', str(binary), '.'],
             cwd=GUI, env=dict(os.environ, CGO_ENABLED='1', GOARCH=args.arch))
 
@@ -735,12 +728,9 @@ def main():
     tools = args.tools_dir.resolve() if args.tools_dir else out / 'tools'
     tools.mkdir(parents=True, exist_ok=True)
     image, appimage = build_appimage(stage, out, args.arch, f'{prefix}{product}_{version}_{APPIMAGE_NAME_ARCH[args.arch]}.AppImage', tools, args.daemon,
-                                     relocate=not args.negative_control_no_relocation, marker=args.update_marker,
+                                     relocate=not args.negative_control_no_relocation,
                                      tls_module=not args.negative_control_no_tls_module, force_x11_hook=args.negative_control_keep_x11_hook, layer_shell=not args.negative_control_no_layer_shell)
-    archive = out / f'{image.name}.tar.gz'
-    with tarfile.open(archive, 'w:gz') as tar:
-        tar.add(image, arcname=image.name)
-    outputs += [image, archive]
+    outputs.append(image)
 
     daemon = {'kind': 'fixture' if fixture else 'release-build-with-evidence', 'bytes': args.daemon.stat().st_size, 'sha256': sha256(args.daemon),
               'elfValid': ok, 'elfCheck': reason, 'executedHere': False}
@@ -757,7 +747,7 @@ def main():
         'sha256': {p.name: sha256(p) for p in outputs},
         'signed': False, 'nativeDesktopVerified': False, 'appImageRunProven': False,
         'note': ('FIXTURE: placeholder daemon. ' if fixture else '') + 'AppDir inspected at build time; whether it runs without host GTK/WebKitGTK is shown only by e2e/linux_appimage_run.py. '
-                'Not signed (the release workflow signs the updater archive). If source.dirty is true the artifacts contain uncommitted changes.'}, indent=2) + '\n')
+                'Not signed. If source.dirty is true the artifacts contain uncommitted changes.'}, indent=2) + '\n')
     for leftover in ('stage', 'deb-root', 'rpmbuild', 'UniClipboard.AppDir'):
         shutil.rmtree(out / leftover, ignore_errors=True)
     if not args.tools_dir:

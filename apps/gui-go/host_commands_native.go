@@ -109,15 +109,7 @@ func init() {
 		"main_window_presentation_ready": func(context.Context, *HostService, commandArgs) (any, error) { return nil, nil },
 		"mark_main_window_ready":         func(context.Context, *HostService, commandArgs) (any, error) { return nil, nil },
 		"set_traffic_light_position":     func(context.Context, *HostService, commandArgs) (any, error) { return nil, nil },
-		"get_install_kind":               func(context.Context, *HostService, commandArgs) (any, error) { return installKind(), nil },
 	})
-}
-
-func installKind() string {
-	if runtime.GOOS == "darwin" {
-		return "macos"
-	}
-	return platformInstallKind()
 }
 
 func init() {

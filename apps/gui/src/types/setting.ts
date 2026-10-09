@@ -16,11 +16,6 @@ export type Theme = 'light' | 'dark' | 'system'
 export type QuickPanelPosition = 'center' | 'follow_cursor'
 
 /**
- * 更新频道 - 对应 Rust UpdateChannel enum
- */
-export type UpdateChannel = 'stable' | 'alpha' | 'beta' | 'rc'
-
-/**
  * 启动方式 - 对应 Rust StartupMode enum
  *
  * - `normal`：正常显示窗口
@@ -49,15 +44,6 @@ export interface GeneralSettings {
    * OS clipboard once the daemon connection is confirmed at startup.
    */
   restoreLastEntryOnStartup: boolean
-  autoCheckUpdate: boolean
-  /**
-   * Whether to download the next available update in the background.
-   * Pre-fetching the installer bytes lets the click-to-install flow skip
-   * the download step entirely. Opt-in: defaults to `false`. UI gates
-   * this toggle on `autoCheckUpdate` so users can't get into
-   * "download but never check" combinations.
-   */
-  autoDownloadUpdate: boolean
   theme: Theme
   /** 旧版统一主题预设字段(读取时作为回退,新代码不写入)。 */
   themeColor: string | null
@@ -72,7 +58,6 @@ export interface GeneralSettings {
   themeOverridesDark: Record<string, string>
   language: string | null
   deviceName: string | null
-  updateChannel?: UpdateChannel | null
   telemetryEnabled: boolean
   usageAnalyticsEnabled: boolean
   debugMode: boolean

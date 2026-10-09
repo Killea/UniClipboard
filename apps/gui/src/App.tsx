@@ -8,7 +8,6 @@ import { SearchProvider } from '@/contexts/SearchContext'
 import { SettingProvider } from '@/contexts/SettingContext'
 import { ShortcutProvider } from '@/contexts/ShortcutContext'
 import { TitleBarSlotContext } from '@/contexts/titlebar-slot-context'
-import { UpdateProvider } from '@/contexts/UpdateContext'
 import { useUINavigateListener } from '@/hooks/useUINavigateListener'
 import { useWindowFrame } from '@/hooks/useWindowFrame'
 import { WindowShell } from '@/layouts'
@@ -30,9 +29,7 @@ export default function App() {
         <Router>
           <SearchProvider>
             <SettingProvider>
-              <UpdateProvider>
-                <AppContentWithBar />
-              </UpdateProvider>
+              <AppContentWithBar />
             </SettingProvider>
           </SearchProvider>
         </Router>

@@ -29,7 +29,6 @@ export type {
   RetentionRule,
   ShortcutKey,
   Theme,
-  UpdateChannel,
   SyncFrequency,
   RuleEvaluation,
   RelayCredentialEdit,

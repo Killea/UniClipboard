@@ -17,7 +17,7 @@ docker run --rm --platform linux/arm64 -v "$ROOT:/work:ro" --mount "type=bind,sr
 set -uo pipefail
 export GOPATH=/cache/gopath GOFLAGS=-mod=mod CGO_ENABLED=1
 git config --global --add safe.directory /work
-LD="-X main.updaterPublicKey= -X main.productName=UniClipboard -X main.bundleID=app.uniclipboard.desktop.e2e"
+LD="-X main.productName=UniClipboard -X main.bundleID=app.uniclipboard.desktop.e2e"
 build() { # name srcdir
   mkdir -p /out/bin/$1 && (cd $2/apps/gui-go && go build -tags gtk3,e2e -ldflags "$LD" -o /out/bin/$1/gui-go . && CGO_ENABLED=0 go build -o /out/bin/$1/daemonget ./e2e/linux/daemonget) > /out/build-$1.log 2>&1; echo "build $1 rc=$?"; }
 # after: the working tree (read-only mount: build from a copy so go can write)

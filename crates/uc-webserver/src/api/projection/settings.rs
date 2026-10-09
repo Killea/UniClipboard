@@ -14,7 +14,7 @@ mod app_settings {
         SettingsContentTypesPatch as ContentTypesPatch, SettingsPatch,
         SettingsSummary as SettingsView, ShortcutKeySummary as ShortcutKeyView,
         StartupModeSummary as StartupModeView, SyncFrequencySummary as SyncFrequencyView,
-        SyncSettingsPatch, ThemeSummary as ThemeView, UpdateChannelSummary as UpdateChannelView,
+        SyncSettingsPatch, ThemeSummary as ThemeView,
     };
 }
 
@@ -25,7 +25,6 @@ use crate::api::dto::settings::{
     QuickPanelDoubleTapModifierDto, QuickPanelPositionDto, QuickPanelSettingsDto,
     RetentionPolicyDto, RetentionRuleDto, RuleEvaluationDto, SecuritySettingsDto, SettingsDto,
     SettingsPatchDto, ShortcutKeyDto, StartupModeDto, SyncFrequencyDto, SyncSettingsDto, ThemeDto,
-    UpdateChannelDto,
 };
 
 impl IntoDomain<app_settings::SettingsPatch> for SettingsPatchDto {
@@ -37,8 +36,8 @@ impl IntoDomain<app_settings::SettingsPatch> for SettingsPatchDto {
                     auto_start: general.auto_start,
                     startup_mode: general.startup_mode.map(IntoDomain::into_domain),
                     restore_last_entry_on_startup: general.restore_last_entry_on_startup,
-                    auto_check_update: general.auto_check_update,
-                    auto_download_update: general.auto_download_update,
+                    auto_check_update: None,
+                    auto_download_update: None,
                     theme: general.theme.map(IntoDomain::into_domain),
                     theme_color: general.theme_color,
                     theme_color_light: general.theme_color_light,
@@ -47,9 +46,7 @@ impl IntoDomain<app_settings::SettingsPatch> for SettingsPatchDto {
                     theme_overrides_dark: general.theme_overrides_dark,
                     language: general.language,
                     device_name: general.device_name,
-                    update_channel: general
-                        .update_channel
-                        .map(|channel| channel.map(IntoDomain::into_domain)),
+                    update_channel: None,
                     usage_analytics_enabled: general.usage_analytics_enabled,
                     debug_mode: general.debug_mode,
                 }),
@@ -147,8 +144,6 @@ impl IntoApiDto<SettingsDto> for app_settings::SettingsView {
                 auto_start: self.general.auto_start,
                 startup_mode: self.general.startup_mode.into_api_dto(),
                 restore_last_entry_on_startup: self.general.restore_last_entry_on_startup,
-                auto_check_update: self.general.auto_check_update,
-                auto_download_update: self.general.auto_download_update,
                 theme: self.general.theme.into_api_dto(),
                 theme_color: self.general.theme_color,
                 theme_color_light: self.general.theme_color_light,
@@ -157,7 +152,6 @@ impl IntoApiDto<SettingsDto> for app_settings::SettingsView {
                 theme_overrides_dark: self.general.theme_overrides_dark,
                 language: self.general.language,
                 device_name: self.general.device_name,
-                update_channel: self.general.update_channel.map(IntoApiDto::into_api_dto),
                 telemetry_enabled: uc_observability::is_telemetry_enabled(),
                 usage_analytics_enabled: self.general.usage_analytics_enabled,
                 debug_mode: self.general.debug_mode,
@@ -397,28 +391,6 @@ impl IntoApiDto<QuickPanelPositionDto> for app_settings::QuickPanelPositionView 
             app_settings::QuickPanelPositionView::FollowCursor => {
                 QuickPanelPositionDto::FollowCursor
             }
-        }
-    }
-}
-
-impl IntoDomain<app_settings::UpdateChannelView> for UpdateChannelDto {
-    fn into_domain(self) -> app_settings::UpdateChannelView {
-        match self {
-            UpdateChannelDto::Stable => app_settings::UpdateChannelView::Stable,
-            UpdateChannelDto::Alpha => app_settings::UpdateChannelView::Alpha,
-            UpdateChannelDto::Beta => app_settings::UpdateChannelView::Beta,
-            UpdateChannelDto::Rc => app_settings::UpdateChannelView::Rc,
-        }
-    }
-}
-
-impl IntoApiDto<UpdateChannelDto> for app_settings::UpdateChannelView {
-    fn into_api_dto(self) -> UpdateChannelDto {
-        match self {
-            app_settings::UpdateChannelView::Stable => UpdateChannelDto::Stable,
-            app_settings::UpdateChannelView::Alpha => UpdateChannelDto::Alpha,
-            app_settings::UpdateChannelView::Beta => UpdateChannelDto::Beta,
-            app_settings::UpdateChannelView::Rc => UpdateChannelDto::Rc,
         }
     }
 }

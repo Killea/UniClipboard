@@ -17,7 +17,6 @@ on:
           - 'windows-x86_64'
           - 'windows-arm64'
           - 'all'
-          - 'updater-signatures'
         default: 'all'
       channel:
         description: '发布渠道(决定 Sentry/OTLP environment 标签)'
@@ -55,11 +54,6 @@ on:
         description: '上传 Sentry 调试符号与前端 source map(仅 release 构建方式生效;关闭用于不产生生产副作用的优化构建验收)'
         type: boolean
         default: true
-      updater_artifact_runs:
-        description: 'For updater-signatures only: comma-separated successful Build Desktop run IDs'
-        type: string
-        required: false
-        default: ''
   workflow_call:
     inputs:
       build_mode:
@@ -112,18 +106,7 @@ on:
         default: false
 
 jobs:
-  accept-updater-signatures:
-    permissions:
-      contents: read
-      actions: read
-    if: github.event_name == 'workflow_dispatch' && inputs.platform == 'updater-signatures'
-    uses: ./.github/workflows/updater-signatures.yml
-    with:
-      artifact_runs: ${{ inputs.updater_artifact_runs }}
-    secrets: inherit
-
   setup-matrix:
-    if: inputs.platform != 'updater-signatures'
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
@@ -475,7 +458,7 @@ jobs:
 
   # Go/Wails macOS app (issue #1895): UniClipboard.app around the release uniclipd and quick panel
   # helper from build-sidecar, Developer ID signed (inside-out, hardened runtime), notarized and
-  # stapled, then the DMG and the updater archive. All steps are apps/gui-go/packaging/macos/package.py.
+  # stapled, then the DMG. All steps are apps/gui-go/packaging/macos/package.py.
   # Without the Apple secrets (fork PRs) the bundle is only ad-hoc signed and labelled unsigned; a
   # release caller (workflow_call) fails instead of publishing that.
   package-macos-gui:
@@ -612,7 +595,7 @@ jobs:
           python3 apps/gui-go/packaging/macos/package.py notarize --app "${{ steps.bundle.outputs.app }}" \
             --evidence target/macos-gui/notary
 
-      - name: updater archive from the finished bundle
+      - name: distribution archive from the finished bundle
         run: |
           mkdir -p target/macos-gui/dist
           python3 apps/gui-go/packaging/macos/package.py archive --app "${{ steps.bundle.outputs.app }}" \
@@ -665,7 +648,7 @@ jobs:
 
       - name: upload macOS app artifacts
         # The directory name carries the target triple: release.yml derives the per-target asset
-        # name of the updater archive from it. Only the shipped files are in this artifact; the
+        # name of the app archive from it. Only the shipped files are in this artifact; the
         # evidence JSON goes to a separate artifact so the release asset collection never sees it.
         uses: actions/upload-artifact@v7
         with:
@@ -693,7 +676,7 @@ jobs:
   # data root and the real login keychain of the machine it runs on: this only ever runs on a disposable
   # GitHub-hosted runner (smoke_release.py refuses anything else). Apple Silicon runs on macos-latest,
   # Intel on the native macos-15-intel runner (x86_64 does not run under Rosetta here: the host is x86_64).
-  # Go/Wails Linux packages (issue #1898): deb, rpm, AppImage and the updater archive on native amd64 and arm64 runners, with their own
+  # Go/Wails Linux packages (issue #1898): deb, rpm, AppImage on native amd64 and arm64 runners, with their own
   # daemon build and evidence (docs/architecture/gui-go-linux-ci-packaging.md). It does not use build-sidecar's Linux output, which has no
   # consumer. Always an optimised release build: a `test` build mode would not produce accepted evidence, so `all` runs it only for release.
   package-linux-gui:

@@ -31,17 +31,9 @@ type HostService struct {
 	effects          *visualEffects
 	panel            panelState
 	exit             exitIntent
-	prompts          promptStore
-	stopScheduler    context.CancelFunc
 	stopTray         context.CancelFunc
 	notifier         *notifications.NotificationService
 	helper           *quickpanelhelper.Supervisor // nil when the WebView quick panel is in use
-	updates          updater
-	lastCheck        lastCheckAt
-	wake             chan string // pending wake source (system resume, background activity) for the update scheduler, capacity 1
-	analytics        analyticsQueue
-	stopWake         func()
-	stopActivity     func() // invalidates the macOS background activity
 	tray             *trayMenu
 	singleInstanceID string
 	readyMu          sync.Mutex
@@ -127,8 +119,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	host := &HostService{effects: newVisualEffects(), notifier: notifications.New(), wake: make(chan string, 1)}
-	host.lastCheck.recordNow()
+	host := &HostService{effects: newVisualEffects(), notifier: notifications.New()}
 	services := append([]application.Service{application.NewService(host)}, notifierServices(host)...)
 	services = append(services, e2eServices(host)...)
 	uniqueID, err := singleInstanceID()
@@ -155,7 +146,6 @@ func main() {
 	// a launch arriving meanwhile would be lost. Activations that arrive before bootstrap finishes are held
 	// (see onSecondInstance) and carried out afterwards.
 	app.Event.OnApplicationEvent(events.Common.ApplicationStarted, func(*application.ApplicationEvent) { go host.bootstrap() })
-	host.stopWake = app.Event.OnApplicationEvent(events.Common.SystemDidWake, func(*application.ApplicationEvent) { host.signalWake(wakeSystemResume) })
 	if err := app.Run(); err != nil {
 		log.Fatal(err)
 	}
@@ -186,7 +176,7 @@ func incompatibleDaemonError(outcome daemonlife.Outcome) error {
 }
 
 // bootstrap attaches to (or starts) the daemon and builds the shell around it: windows, tray, quick panel, login item
-// reconcile, the cold-launch sequence and the update scheduler.
+// reconcile and the cold-launch sequence.
 func (h *HostService) bootstrap() {
 	spawnedDaemon := false // whether this launch started the daemon (a cold start) or attached to one
 	outcome, err := daemonlife.ProbeForReuse(daemonlife.StartupTimeout)
@@ -236,11 +226,4 @@ func (h *HostService) bootstrap() {
 		h.coldLaunch(startup, spawnedDaemon)
 		h.finishBootstrap()
 	}()
-	if !h.quitting.Load() {
-		schedulerCtx, stopScheduler := context.WithCancel(context.Background())
-		h.stopScheduler = stopScheduler
-		timing := schedulerTimingOverride(defaultSchedulerTiming)
-		h.stopActivity = startBackgroundActivity(timing.activityInterval, func() { h.signalWake(wakeBackgroundActivity) })
-		go h.runUpdateScheduler(schedulerCtx, timing)
-	}
 }

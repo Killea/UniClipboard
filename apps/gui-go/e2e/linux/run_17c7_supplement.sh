@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Supplement for a run_17c7.sh run whose HARNESS (not the product) was fixed afterwards: it re-checks with the SAME retained packages, feed and images of that run
+# Supplement for a run_17c7.sh run whose HARNESS (not the product) was fixed afterwards: it re-checks with the SAME retained packages and images of that run
 # (no product rebuild), from the current clean checkout, into a NEW directory. The product packages' SHA-256 are compared with the original run's SHA256SUMS.txt.
 #   run_17c7_supplement.sh <final run dir> <outdir>
 set -uo pipefail

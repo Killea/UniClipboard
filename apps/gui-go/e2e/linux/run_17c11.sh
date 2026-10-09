@@ -60,8 +60,6 @@ step control-prefix-fedora-gnome env UC_REAL_IMAGE=uc-gui-go-linux-real-apps:17c
 step engine-default-route "$E2E/diag_engine_default_route.sh" "$out/engine-default-route" "$V1" uc-gui-go-linux-real-apps:17c11-ubuntu
 step xdg-open-dispatch-ubuntu "$E2E/diag_xdg_open_generic.sh" "$out/xdg-open-dispatch-ubuntu" uc-gui-go-linux-real-apps:17c11-ubuntu
 step xdg-open-dispatch-fedora "$E2E/diag_xdg_open_generic.sh" "$out/xdg-open-dispatch-fedora" uc-gui-go-linux-real-apps:17c11-fedora
-step package-v2 "$R" package-appimage "$out/v2" --update-marker v2-installed || exit 1
-step feed "$R" appimage-feed "$out/feed" "$out/v2/pkg/E2E-UniClipboard_1.1.1_aarch64.AppImage.tar.gz" || exit 1
 for combo in ubuntu-generic ubuntu-gnome fedora-generic fedora-gnome; do
   d="${combo%-*}"; m="${combo#*-}"
   step "helpers-$combo" env UC_HELPERS_IMAGE="uc-gui-go-linux-runtime-helpers:17c10-$d" UC_HELPERS_DESKTOP="$m" "$R" appimage-helpers-e2e "$out/helpers-$combo" "$V1" "$M1"; rcs="$rcs helpers-$combo=$?"
@@ -69,7 +67,7 @@ done
 step content-v1 "$R" appimage-content-check "$out/content-v1" "$V1" "$M1"; content=$?
 step tls-ubuntu env UC_TLS_IMAGE=uc-gui-go-linux-runtime:17c7 "$R" appimage-tls-e2e "$out/tls-ubuntu" "$V1" "$M1"; tlsu=$?
 step tls-fedora env UC_TLS_IMAGE=uc-gui-go-linux-runtime-fedora:17c7 "$R" appimage-tls-e2e "$out/tls-fedora" "$V1" "$M1"; tlsf=$?
-step e2e-portable "$R" appimage-portable-e2e "$out/e2e-portable" "$V1" "$out/feed" "$M1"; portable=$?
+step e2e-portable "$R" appimage-portable-e2e "$out/e2e-portable" "$V1" "$M1"; portable=$?
 echo "all:$rcs content=$content tls-ubuntu=$tlsu tls-fedora=$tlsf portable=$portable" | tee -a "$out/steps.txt"
 ( cd "$out" && find . -type f \( -name '*.AppImage' -o -name 'package-manifest.json' -o -name 'appimage-assertions.json' -o -name 'content-check.json' \) -not -path '*/squashfs-root/*' -print0 | sort -z | xargs -0 shasum -a 256 > SHA256SUMS.txt )
 for f in "$out"/real-*/appimage-assertions.json "$out"/control-prefix-*/appimage-assertions.json "$out"/helpers-*/appimage-assertions.json; do python3 -I -c "import json,sys;r=json.load(open(sys.argv[1]));print(sys.argv[1].split('/')[-2], 'checks', len(r['checks']), 'failed', sum(not c['ok'] for c in r['checks']), 'passed', r['passed'])" "$f"; done | tee -a "$out/steps.txt"

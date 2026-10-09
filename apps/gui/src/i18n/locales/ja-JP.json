@@ -29,12 +29,10 @@
     "export": "ログをエクスポート",
     "exporting": "エクスポート中…",
     "contact": "作者に連絡",
-    "update": "更新を開く",
     "details": "エラーの詳細",
     "exported": "ログの保存先：{{path}}",
     "exportFailed": "ログをエクスポートできませんでした。保存先と空き容量を確認して再試行してください。",
     "contactFailed": "サポートページを開けませんでした。連絡先：",
-    "updateFailed": "更新を確認できませんでした。後でもう一度お試しください。",
     "contactOpened": "ブラウザーでサポートページを開きました。"
   },
   "appearanceLayout": {
@@ -185,11 +183,6 @@
     "history": "履歴",
     "devices": "デバイス",
     "settings": "設定",
-    "updateAvailable": "利用可能なアップデート",
-    "updateDownloading": "アップデートをダウンロード中...",
-    "updateDownloadingWithProgress": "アップデートをダウンロード中... {{percent}}%",
-    "updateInstalling": "更新をインストール中...",
-    "updateReady": "更新をインストールする準備ができました",
     "back": "戻る",
     "feedback": "フィードバック",
     "collapseSidebar": "サイドバーを折りたたむ",
@@ -202,54 +195,6 @@
     "disable": "デバッグ モードをオフにします",
     "disabledToast": "デバッグ モードがオフになりました。再起動して通常のログに完全に戻ります。",
     "disableFailed": "デバッグ モードをオフにできませんでした"
-  },
-  "update": {
-    "title": "利用可能なアップデート",
-    "currentVersion": "現在のバージョン",
-    "latestVersion": "最新バージョン",
-    "releaseNotes": "リリース ノート",
-    "noNotes": "リリース ノートは提供されていません。",
-    "updateNow": "今すぐ更新",
-    "installNow": "今すぐインストール",
-    "downloadInBackground": "バックグラウンドでダウンロード",
-    "cancelDownload": "ダウンロードをキャンセル",
-    "cancelling": "キャンセル中...",
-    "readyHint": "アップデートをダウンロードしました。［今すぐインストール］をクリックして適用し、再起動してください。",
-    "later": "後で",
-    "noUpdate": "すでに最新バージョンを使用しています。",
-    "checkFailed": "アップデートの確認に失敗しました。",
-    "installFailed": "アップデートに失敗しました。もう一度お試しください。",
-    "downloadFailed": "バックグラウンドでのダウンロードに失敗しました。もう一度お試しください。",
-    "downloading": "ダウンロード中...",
-    "installing": "インストール中...",
-    "packageManager": {
-      "title": "パッケージ マネージャー経由でアップグレードしてください",
-      "portableTitle": "新しいポータブル バージョンをダウンロードしてください",
-      "debHint": "UniClipboard は apt 経由でインストールされました(Debian/Ubuntu)。ターミナルでこれを実行してアップグレードします。",
-      "rpmHint": "UniClipboard は dnf/yum (Fedora/RHEL) 経由でインストールされました。ターミナルでこれを実行してアップグレードします。",
-      "portableHint": "ポータブル ビルドを実行しています。このファイルはその場で更新されません。リリース ページから新しいポータブル zip をダウンロードし、実行可能ファイルを置き換えます (データ フォルダーは変更されません)。",
-      "debCommand": "sudo apt update && sudo apt install --only-upgrade uniclipboard",
-      "rpmCommand": "sudo dnf upgrade uniclipboard",
-      "copyCommand": "コマンドをコピー",
-      "copied": "コピーされました",
-      "openReleasePage": "リリース ページを開く",
-      "ok": "わかりました"
-    }
-  },
-  "updater": {
-    "window": {
-      "title": "新しいバージョンの UniClipboard が利用可能になりました。",
-      "subtitle": "{{app}} {{version}} が利用可能です。現在のバージョンは {{currentVersion}} です。今すぐダウンロードしますか？",
-      "readySubtitle": "{{app}} {{version}} がダウンロードされ、インストールする準備ができています。",
-      "skipThisVersion": "このバージョンをスキップ",
-      "remindMeLater": "後で通知する",
-      "downloadUpdate": "アップデートをダウンロード",
-      "checking": "最新バージョンを確認中…",
-      "autoUpdate": "将来的にアップデートを自動的にダウンロードします",
-      "upToDateTitle": "最新のバージョンです。",
-      "upToDateBody": "すでに UniClipboard の最新バージョンを実行しています。",
-      "close": "閉じる"
-    }
   },
   "rePairingNotice": {
     "dontShowAgain": "今後表示しない",
@@ -580,10 +525,6 @@
             "pkarr": {
               "title": "pkarr DHT の NodeId 解決",
               "description": "クロスサブネット接続は、DNS と同様の性質のパブリック pkarr DHT を介してピア NodeId を解決します。これを無効にすると、クロスサブネット接続率が最大 90% からゼロ近くまで低下します。"
-            },
-            "autoUpdate": {
-              "title": "GitHub の自動更新チェック",
-              "description": "「一般」→「自動更新」によって個別に制御され、GitHub リリース API に新しいバージョンを問い合わせます。"
             }
           }
         },
@@ -915,34 +856,6 @@
         "title": "概要",
         "appName": "UniClipboard",
         "version": "バージョン {{version}}",
-        "checkUpdate": "更新を確認します",
-        "checkingUpdate": "確認中...",
-        "updatesTitle": "アップデート",
-        "updatesSelfMaintained": "このビルドは配布元が個別に管理しています。自動アップデートは利用できません。",
-        "autoCheckUpdate": {
-          "label": "アップデートを自動チェックする",
-          "description": "アプリの起動時に新しいバージョンを自動的にチェックする"
-        },
-        "autoDownloadUpdate": {
-          "label": "バックグラウンドでアップデートをダウンロードする",
-          "description": "新しいバージョンが検出されたときにインストーラーをプリフェッチするため、インストールは簡単です",
-          "disabledHint": "最初に「アップデートの自動チェック」を有効にする"
-        },
-        "updateChannel": {
-          "label": "アップデート チャネル",
-          "description": "アップデートを受信するリリース チャネルを選択してください",
-          "auto": "自動検出",
-          "stable": "安定",
-          "beta": "ベータ版",
-          "alpha": "アルファ",
-          "rc": "リリース候補",
-          "alphaWarning": {
-            "title": "アルファに切り替えますか?",
-            "description": "アルファ ビルドには、完全に検証されていない機能やリグレッションが含まれている場合があります。 UniClipboard は、切り替え直後にアルファ チャネルをチェックします。",
-            "cancel": "キャンセル",
-            "confirm": "切り替え"
-          }
-        },
         "sponsors": {
           "title": "スポンサー",
           "thanks": "スポンサーシップにより UniClipboard が前進し続ける素晴らしい人々のおかげです。",
@@ -952,10 +865,9 @@
         },
         "copyright": "© 2025 UniClipboard.無断転載を禁じます。",
         "links": {
-          "privacyPolicy": "プライバシー ポリシー",
-          "termsOfService": "利用規約",
-          "aboutMaintainers": "概要と管理者"
-        }
+          "repository": "リポジトリ"
+        },
+        "selfMaintained": "自管理フォーク版。更新は手動での再インストールのみで配布されます。"
       }
     }
   },

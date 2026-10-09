@@ -29,12 +29,10 @@
     "export": "Export logs",
     "exporting": "Exporting…",
     "contact": "Contact author",
-    "update": "Open updater",
     "details": "Error details",
     "exported": "Logs saved to: {{path}}",
     "exportFailed": "Could not export logs. Check the save location and available space, then try again.",
     "contactFailed": "Could not open the support page. Contact address:",
-    "updateFailed": "Could not complete the update check. Please try again later.",
     "contactOpened": "The support page is open in your browser."
   },
   "appearanceLayout": {
@@ -185,11 +183,6 @@
     "history": "History",
     "devices": "Devices",
     "settings": "Settings",
-    "updateAvailable": "Update available",
-    "updateDownloading": "Downloading update...",
-    "updateDownloadingWithProgress": "Downloading update... {{percent}}%",
-    "updateInstalling": "Installing update...",
-    "updateReady": "Update ready to install",
     "back": "Back",
     "feedback": "Feedback",
     "collapseSidebar": "Collapse sidebar",
@@ -202,54 +195,6 @@
     "disable": "Turn off Debug mode",
     "disabledToast": "Debug mode turned off. Restart to fully return to normal logging.",
     "disableFailed": "Failed to turn off Debug mode"
-  },
-  "update": {
-    "title": "Update available",
-    "currentVersion": "Current version",
-    "latestVersion": "Latest version",
-    "releaseNotes": "Release notes",
-    "noNotes": "No release notes provided.",
-    "updateNow": "Update now",
-    "installNow": "Install now",
-    "downloadInBackground": "Download in background",
-    "cancelDownload": "Cancel download",
-    "cancelling": "Cancelling...",
-    "readyHint": "Update downloaded. Click Install now to apply and restart.",
-    "later": "Later",
-    "noUpdate": "You're already on the latest version.",
-    "checkFailed": "Failed to check for updates.",
-    "installFailed": "Update failed. Please try again.",
-    "downloadFailed": "Background download failed. Please try again.",
-    "downloading": "Downloading...",
-    "installing": "Installing...",
-    "packageManager": {
-      "title": "Please upgrade via your package manager",
-      "portableTitle": "Please download the new portable version",
-      "debHint": "UniClipboard was installed via apt (Debian/Ubuntu). Run this in a terminal to upgrade:",
-      "rpmHint": "UniClipboard was installed via dnf/yum (Fedora/RHEL). Run this in a terminal to upgrade:",
-      "portableHint": "You're running the portable build. It doesn't update in place — download the new portable zip from the release page and replace the executable (your data folder stays untouched).",
-      "debCommand": "sudo apt update && sudo apt install --only-upgrade uniclipboard",
-      "rpmCommand": "sudo dnf upgrade uniclipboard",
-      "copyCommand": "Copy command",
-      "copied": "Copied",
-      "openReleasePage": "Open release page",
-      "ok": "Got it"
-    }
-  },
-  "updater": {
-    "window": {
-      "title": "A new version of UniClipboard is available!",
-      "subtitle": "{{app}} {{version}} is now available—you have {{currentVersion}}. Would you like to download it now?",
-      "readySubtitle": "{{app}} {{version}} has been downloaded and is ready to install.",
-      "skipThisVersion": "Skip This Version",
-      "remindMeLater": "Remind Me Later",
-      "downloadUpdate": "Download Update",
-      "checking": "Checking for the latest version…",
-      "autoUpdate": "Automatically download updates in the future",
-      "upToDateTitle": "You're up to date!",
-      "upToDateBody": "You're already running the latest version of UniClipboard.",
-      "close": "Close"
-    }
   },
   "rePairingNotice": {
     "title": "Re-pair your devices",
@@ -580,10 +525,6 @@
             "pkarr": {
               "title": "pkarr DHT NodeId resolution",
               "description": "Cross-subnet connections resolve peer NodeIds via the public pkarr DHT, similar in nature to DNS. Disabling it would drop cross-subnet connection rate from ~90% to near zero."
-            },
-            "autoUpdate": {
-              "title": "Auto-update GitHub check",
-              "description": "Controlled independently by General → Auto-update, which queries the GitHub Release API for new versions."
             }
           }
         },
@@ -915,34 +856,6 @@
         "title": "About",
         "appName": "UniClipboard",
         "version": "Version {{version}}",
-        "checkUpdate": "Check for updates",
-        "checkingUpdate": "Checking...",
-        "updatesTitle": "Updates",
-        "updatesSelfMaintained": "This build is distributed by its maintainer — automatic updates are not available.",
-        "autoCheckUpdate": {
-          "label": "Auto-check for updates",
-          "description": "Automatically check for new versions when the app starts"
-        },
-        "autoDownloadUpdate": {
-          "label": "Download updates in background",
-          "description": "Pre-fetch the installer when a new version is detected, so installing is instant.",
-          "disabledHint": "Enable \"Auto-check for updates\" first"
-        },
-        "updateChannel": {
-          "label": "Update Channel",
-          "description": "Choose which release channel to receive updates from",
-          "auto": "Auto-detect",
-          "stable": "Stable",
-          "beta": "Beta",
-          "alpha": "Alpha",
-          "rc": "Release Candidate",
-          "alphaWarning": {
-            "title": "Switch to Alpha?",
-            "description": "Alpha builds may include features and regressions that have not been fully validated. UniClipboard will check the alpha channel immediately after switching.",
-            "cancel": "Cancel",
-            "confirm": "Switch"
-          }
-        },
         "sponsors": {
           "title": "Sponsors",
           "thanks": "Thanks to these wonderful people whose sponsorship keeps UniClipboard moving forward.",
@@ -952,10 +865,9 @@
         },
         "copyright": "© 2025 UniClipboard. All rights reserved.",
         "links": {
-          "privacyPolicy": "Privacy Policy",
-          "termsOfService": "Terms of Service",
-          "aboutMaintainers": "About & Maintainers"
-        }
+          "repository": "Repository"
+        },
+        "selfMaintained": "Self-maintained fork. Updates are delivered by manual reinstall only."
       }
     }
   },

@@ -31,7 +31,7 @@ Outputs in <dir>:
 What this proves: the artifacts build, the installer script compiles and the packaged daemon is the CI-built one
 (the payload itself is checked afterwards by windows_package_verify.py). It does NOT prove the installer, the exe or
 the update flow run on Windows (windows_package_acceptance.py does, on a Windows host), and the outputs are NOT signed
-(no Authenticode; the updater `.sig` comes from the updater-signatures workflow): signing stays in the release workflow.
+(no Authenticode: signing stays in the release workflow).
 """
 import argparse
 import hashlib
@@ -171,7 +171,6 @@ def stage_prepare(args, out):
     out.mkdir(parents=True, exist_ok=True)
     conf = json.loads((ROOT / 'apps/gui-go/app.json').read_text())
     product, version, ident = conf['productName'], args.acceptance_version or conf['version'], conf['identifier']
-    pubkey = conf['updater']['pubkey']
     prov = provenance()
     daemon_prov = None if fixture else verify_daemon_provenance(args.daemon, args.arch, args.daemon_provenance, prov)
 
@@ -199,7 +198,7 @@ def stage_prepare(args, out):
     try:
         run(['go', 'generate', './buildinfo'], cwd=ROOT / 'packages/desktop-host-go')
         run(['bun', '--bun', 'run', '--cwd', 'apps/gui-go', 'build'], env=dict(os.environ, VITE_GUI_GO_E2E='0'))
-        ldflags = f'-w -s -H windowsgui -X main.updaterPublicKey={pubkey} -X main.productName={product} -X main.bundleID={ident}'
+        ldflags = f'-w -s -H windowsgui -X main.productName={product} -X main.bundleID={ident}'
         run(['go', 'build', '-tags', 'production,release', '-trimpath', '-buildvcs=false', '-ldflags', ldflags, '-o', str(exe), '.'],
             cwd=GUI, env=dict(os.environ, GOOS='windows', GOARCH=args.arch, CGO_ENABLED='0'))
     finally:

@@ -152,7 +152,7 @@ jobs:
                 -H "Accept: application/vnd.github+json" \
                 "https://api.github.com/repos/UniClipboard/UniClipboard/actions/artifacts/${id}/zip" \
                 -o "/tmp/copr-art/${name}.zip"
-              # Only the rpm; the deb, AppImage and updater archive in the same artifact are not COPR inputs.
+              # Only the rpm; the deb and AppImage in the same artifact are not COPR inputs.
               unzip -j -o -d "$RUNNER_TEMP/upstream-rpms/" "/tmp/copr-art/${name}.zip" 'UniClipboard-*.rpm'
               rm "/tmp/copr-art/${name}.zip"
               echo "::endgroup::"

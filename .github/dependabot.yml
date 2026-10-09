@@ -32,17 +32,6 @@ updates:
         patterns:
           - "*"
 
-  # Cloudflare Worker (update server)
-  - package-ecosystem: bun
-    directory: /workers/update-server
-    schedule:
-      interval: weekly
-    open-pull-requests-limit: 3
-    groups:
-      bun-update-server:
-        patterns:
-          - "*"
-
   # Rust workspace (repo-root Cargo.toml)
   - package-ecosystem: cargo
     directory: /

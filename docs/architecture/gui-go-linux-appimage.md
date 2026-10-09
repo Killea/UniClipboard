@@ -18,7 +18,7 @@
 | WebKit 辅助进程重定位 | 否：只复制文件，不改 `libwebkit2gtk` 里硬编码的 `/usr/lib/<triple>/webkit2gtk-4.1`（已用 `strings` 在 Ubuntu 24.04 的 2.52.6 上确认存在该字符串） | 缺口：宿主没有 WebKitGTK 时辅助进程找不到；Tauri 的 bundler 用同长度的字符串替换解决，见下 |
 | GDK 后端 | 插件脚本导出 `GDK_BACKEND=x11`（与 Tauri 一致） | **17c13 起不再采用**：17c4–17c12 把它作为兼容选择记录（AppImage 经 X server），17c13 删除该行并自带 `libgtk-layer-shell`，AppImage 在真实 Wayland 会话里使用原生 GDK 后端与 Layer Shell（`gui-go-linux-appimage-native-wayland.md`）；用户显式的 `GDK_BACKEND` 仍被遵守 |
 | 自启动 | `app.Autostart`（XDG） | 已采用；AppImage 内 `os.Executable()` 指向临时挂载，已有最小适配（`autostart_linux.go`，`Exec=$APPIMAGE`）；本片只做真实 AppImage 验证，不新增机制 |
-| 更新安装 | 无 | 业务语义（`internal/update/appimage.go`），17c3 已有 |
+| 更新安装 | — | 已随应用内自动更新整体移除；升级由用户手动安装新 AppImage 完成 |
 
 不能用 `wails3 generate appimage` 的原因因此是证据确凿的三项缺口，而非偏好。打包脚本只补这三项，其余（GTK 插件、AppDir 约定）沿用。
 

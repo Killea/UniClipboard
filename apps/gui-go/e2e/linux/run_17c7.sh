@@ -28,10 +28,8 @@ done
 step frontend-e2e bash -c "cd '$ROOT' && VITE_GUI_GO_E2E=1 bun --bun run --cwd apps/gui-go build" || exit 1
 step build-gui "$R" release-e2e-build || exit 1
 step package-v1 "$R" package-appimage "$out/v1" || exit 1
-step package-v2 "$R" package-appimage "$out/v2" --update-marker v2-installed || exit 1
 step package-negtls "$R" package-appimage "$out/negtls" --negative-control-no-tls-module || exit 1
 step package-negative "$R" package-appimage "$out/negative" --negative-control-no-relocation || exit 1
-step feed "$R" appimage-feed "$out/feed" "$out/v2/pkg/E2E-UniClipboard_1.1.1_aarch64.AppImage.tar.gz" || exit 1
 V1="$out/v1/pkg/E2E-UniClipboard_1.1.1_aarch64.AppImage"; M1="$out/v1/pkg/package-manifest.json"
 NT="$out/negtls/pkg/NEGTLS-UniClipboard_1.1.1_aarch64.AppImage"; MN="$out/negtls/pkg/package-manifest.json"
 step content-v1 "$R" appimage-content-check "$out/content-v1" "$V1" "$M1"; content=$?
@@ -45,14 +43,14 @@ step control-17c6-ubuntu env UC_TLS_E2E_ARGS="--expect-tls absent" "$R" appimage
 # On Fedora the 17c6 package does not even start (its bundled libdbus breaks the host dbus-launch). That is NOT TLS evidence. The expected outcome is asserted:
 # the step must exit non-zero AND the failing stage must be the daemon start (T1), checked below from the assertions file.
 step control-17c6-fedora env UC_TLS_IMAGE=uc-gui-go-linux-runtime-fedora:17c7 UC_TLS_E2E_ARGS="--expect-tls absent" "$R" appimage-tls-e2e "$out/control-17c6-fedora" "$OLDPKG" "$OLDM"; c6f=$?
-# Regression of what the AppDir change can affect: portable (unprivileged, no Secret Service), full (non-portable, real update/restart), negative control, release smoke.
-step e2e-portable "$R" appimage-portable-e2e "$out/e2e-portable" "$V1" "$out/feed" "$M1"; portable=$?
-step e2e-full "$R" appimage-e2e "$out/e2e-full" full "$V1" "$out/feed" "$M1"; full=$?
+# Regression of what the AppDir change can affect: portable (unprivileged, no Secret Service), full (non-portable), negative control, release smoke.
+step e2e-portable "$R" appimage-portable-e2e "$out/e2e-portable" "$V1" "$M1"; portable=$?
+step e2e-full "$R" appimage-e2e "$out/e2e-full" full "$V1" "$M1"; full=$?
 step e2e-negative "$R" appimage-e2e "$out/e2e-negative" negative "$out/negative/pkg/NEGCONTROL-UniClipboard_1.1.1_aarch64.AppImage"; neg=$?
 step frontend-release bash -c "cd '$ROOT' && VITE_GUI_GO_E2E=0 bun --bun run --cwd apps/gui-go build" || exit 1
 step package-release "$R" package-release "$out/release" || exit 1
 step e2e-smoke "$R" appimage-e2e "$out/e2e-smoke" smoke "$out/release/packages/UniClipboard_1.1.1_aarch64.AppImage"; smoke=$?
-step runtime-identity python3 -I "$ROOT/apps/gui-go/e2e/linux/runtime_pin_check.py" "$M1" "$out/v2/pkg/package-manifest.json" "$out/negative/pkg/package-manifest.json" "$out/release/packages/package-manifest.json"; ident=$?
+step runtime-identity python3 -I "$ROOT/apps/gui-go/e2e/linux/runtime_pin_check.py" "$M1" "$out/negative/pkg/package-manifest.json" "$out/release/packages/package-manifest.json"; ident=$?
 c6f_ok=1; python3 -I - "$out/control-17c6-fedora/appimage-assertions.json" <<'PY' && c6f_ok=0
 import json, sys
 r = json.load(open(sys.argv[1]))

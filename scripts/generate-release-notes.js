@@ -272,8 +272,7 @@ export function readChangelogSection(filePath, fallbackTitle = "## What's Change
     : `${fallbackTitle}\n\nRelease notes are not available yet.`
 
   // A pinned announcement next to the changelog files is prepended to every
-  // release until the file is deleted (kept in sync with
-  // scripts/assemble-update-manifest.js, which pins it in the updater notes).
+  // release until the file is deleted.
   const announcementPath = path.join(path.dirname(filePath), 'announcement.md')
   if (fs.existsSync(announcementPath)) {
     const announcement = fs.readFileSync(announcementPath, 'utf8').trim()

@@ -6,7 +6,7 @@ with the same settings API the UI uses; the native test service uses an injected
 checks its on-screen position against independently computed expectations (centered on the monitor, anchored
 to the cursor, flipped at the screen corner), that a disabled panel stays hidden, and that an unsupported
 modifier double-tap setting is refused. The panel window is captured while it is shown. Quiet mode: the pointer is injected, the panel is parked off-screen
-and its placement recorded rather than applied (see updater_dev_e2e.go).
+and its placement recorded rather than applied (see dev_seams_e2e.go).
 """
 import argparse
 import json

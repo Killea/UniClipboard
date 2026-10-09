@@ -9,13 +9,12 @@
 #   run.sh daemon-release        build the shipped release daemon (build_daemon_release.sh) into /cache/out-release with build-evidence.txt
 #   run.sh release-e2e-build     build the GUI with tags gtk3,production,release,e2e (needs frontend/dist built with VITE_GUI_GO_E2E=1)
 #   run.sh package-release <outdir>      full release package (release-tag GUI, deb, rpm, AppImage) from the release daemon (dist built with E2E=0)
-#   run.sh package-appimage <outdir> [package_linux.py args]   AppImage-only package of the release+e2e GUI (E2E-prefixed; v2 adds --update-marker)
-#   run.sh appimage-feed <outdir> <v2 AppImage.tar.gz>   sign the v2 updater archive with isolated fixture keys (e2e/updatetool, needs Go: build image)
-#   run.sh appimage-e2e <outdir> <full|negative|smoke> <AppImage> [feed dir] [package-manifest.json]
+#   run.sh package-appimage <outdir> [package_linux.py args]   AppImage-only package of the release+e2e GUI (E2E-prefixed)
+#   run.sh appimage-e2e <outdir> <full|negative|smoke> <AppImage> [package-manifest.json]
 #                                (image uc-gui-go-linux-runtime:17c4, NO GTK/WebKitGTK; the Secret Service runs in its own
 #                                container, uc-gui-go-linux-keyring:17c4, sharing a session bus volume) linux_appimage_run.py
 #   (UC_PORTABLE_E2E_ARGS=--supplement runs only the stale-APPIMAGE and XDG_CONFIG_HOME scenarios)
-#   run.sh appimage-portable-e2e <outdir> <AppImage> <feed dir> <package-manifest.json>
+#   run.sh appimage-portable-e2e <outdir> <AppImage> <package-manifest.json>
 #                                (17c5, image uc-gui-go-linux-runtime:17c4 as an UNPRIVILEGED user, NO Secret Service and no session bus:
 #                                portable mode uses the file keystore) linux_appimage_portable_run.py
 #   run.sh appimage-helpers-e2e <outdir> <AppImage> <package-manifest.json>   (17c10; UC_HELPERS_IMAGE, UC_HELPERS_DESKTOP=generic|gnome)
@@ -86,21 +85,13 @@ case "$mode" in
       git config --global --add safe.directory /work; export GOPATH=/cache/gopath GOFLAGS=-mod=mod
       tools=/cache/tools; [ ! -d /tools ] || tools=/tools
       python3 apps/gui-go/e2e/package_linux.py --arch "$ARCH" --daemon /cache/out-release/uniclipd --daemon-evidence /cache/out-release/build-evidence.txt --gui-binary /cache/out-release/gui-go-release-e2e --appimage-only --tools-dir "$tools" --out /out/pkg "$@"' _ "$@" ;;
-  appimage-feed)
-    out="$(mkdir -p "${2:?outdir}" && cd "$2" && pwd)"; archive="$(cd "$(dirname "${3:?v2 AppImage.tar.gz}")" && pwd)/$(basename "$3")"
-    docker run "${common[@]}" -v "$out:/out" -v "$archive:/in/update.AppImage.tar.gz:ro" "$IMAGE" bash -c '
-      export GOPATH=/cache/gopath GOFLAGS=-mod=mod
-      cp /in/update.AppImage.tar.gz /out/update.AppImage.tar.gz
-      tar -xzOf /in/update.AppImage.tar.gz | sha256sum > /out/v2.sha256
-      cd apps/gui-go && go run ./e2e/updatetool /out/update.AppImage.tar.gz /out' ;;
   appimage-e2e)
     out="$(mkdir -p "${2:?outdir}" && cd "$2" && pwd)"; mode="${3:?full|negative|smoke}"
     image="$(cd "$(dirname "${4:?AppImage}")" && pwd)/$(basename "$4")"
     tag="$(basename "$out")-$$"; bus="uc-17c4-bus-$tag"; keyring="uc-17c4-keyring-$tag"
     mounts=(-v "$image:/in/appimage.AppImage:ro")
     runargs=(--mode "$mode" --out /out --appimage /in/appimage.AppImage)
-    if [ -n "${5:-}" ]; then mounts+=(-v "$(cd "$5" && pwd):/in/feed"); runargs+=(--feed /in/feed); fi
-    if [ -n "${6:-}" ]; then mounts+=(-v "$(cd "$(dirname "$6")" && pwd)/$(basename "$6"):/in/package-manifest.json:ro"); runargs+=(--manifest /in/package-manifest.json); fi
+    if [ -n "${5:-}" ]; then mounts+=(-v "$(cd "$(dirname "$5")" && pwd)/$(basename "$5"):/in/package-manifest.json:ro"); runargs+=(--manifest /in/package-manifest.json); fi
     docker volume create "$bus" >/dev/null
     docker run -d --name "$keyring" --platform "$PLATFORM" -v "$bus:/bus" "$KEYRING_IMAGE" /usr/local/bin/keyring_service.sh >/dev/null
     for _ in $(seq 60); do docker run --rm -v "$bus:/bus" "$RUNTIME_IMAGE" test -f /bus/ready && break; sleep 1; done
@@ -121,14 +112,13 @@ case "$mode" in
   appimage-portable-e2e)  # SYS_PTRACE: the runner (root) reads /proc/<pid>/{exe,environ,maps} of the unprivileged user's processes
     out="$(mkdir -p "${2:?outdir}" && cd "$2" && pwd)"
     image="$(cd "$(dirname "${3:?AppImage}")" && pwd)/$(basename "$3")"
-    feed="$(cd "${4:?feed dir}" && pwd)"
-    manifest="$(cd "$(dirname "${5:?package-manifest.json}")" && pwd)/$(basename "$5")"
+    manifest="$(cd "$(dirname "${4:?package-manifest.json}")" && pwd)/$(basename "$4")"
     set +e
     docker run --rm --init --platform "$PLATFORM" --device /dev/fuse --cap-add SYS_ADMIN --cap-add SYS_PTRACE --security-opt apparmor:unconfined \
-      -v "$ROOT:/work:ro" -v "$VOLUME:/cache:ro" -v "$out:/out" -v "$image:/in/appimage.AppImage:ro" -v "$feed:/in/feed" \
+      -v "$ROOT:/work:ro" -v "$VOLUME:/cache:ro" -v "$out:/out" -v "$image:/in/appimage.AppImage:ro" \
       -v "$manifest:/in/package-manifest.json:ro" \
       uc-gui-go-linux-runtime:17c4 python3 /work/apps/gui-go/e2e/linux_appimage_portable_run.py --out /out --appimage /in/appimage.AppImage \
-      --uniclip /cache/out/uniclip --feed /in/feed --manifest /in/package-manifest.json ${UC_PORTABLE_E2E_ARGS:-} > "$out/run.log" 2>&1
+      --uniclip /cache/out/uniclip --manifest /in/package-manifest.json ${UC_PORTABLE_E2E_ARGS:-} > "$out/run.log" 2>&1
     code=$?
     exit "$code" ;;
   appimage-tls-e2e)  # 17c7: WebView HTTPS + runtime library origin. UC_TLS_IMAGE selects the host distribution image (default: Ubuntu runtime :17c7 = :17c4 + binutils)

@@ -1,12 +1,12 @@
 name: 'Package Linux GUI'
 run-name: package-linux-gui-${{ github.run_number }}
 
-# Linux deb, rpm, AppImage and updater archive of the Go GUI on NATIVE amd64 and arm64 runners (issue #1898;
+# Linux deb, rpm and AppImage of the Go GUI on NATIVE amd64 and arm64 runners (issue #1898;
 # contract: docs/architecture/gui-go-linux-ci-packaging.md). The release daemon, the GUI and the packages are built in the
 # glibc-floor image (Debian 12), the AppImage is accepted on clean hosts of the floor distribution and of a newer one, and
 # the deb/rpm are installed, upgraded over the released package, launched and removed in real distribution containers.
 #
-# It publishes nothing: no tag, release, feed, Pages or FlareRelease write, no Sentry upload, no signing. The only outputs are
+# It publishes nothing: no tag, release or Pages write, no Sentry upload, no signing. The only outputs are
 # workflow artifacts: `linux-gui-<arch>` holds exactly the four named release candidates (the shared release collector decides
 # what that is) and `linux-gui-evidence-<arch>` the manifest, build evidence and test results.
 on:

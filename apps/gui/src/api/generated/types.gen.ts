@@ -1470,14 +1470,6 @@ export type FileSyncSettingsPatchDto = {
 };
 
 export type GeneralSettingsDto = {
-    autoCheckUpdate: boolean;
-    /**
-     * Whether to download the next available update in the background.
-     * Persisted alongside `auto_check_update`; consumed by the frontend's
-     * `UpdateContext` after a successful `check_for_update` to decide
-     * whether to start a silent download.
-     */
-    autoDownloadUpdate?: boolean;
     autoStart: boolean;
     /**
      * Persistent local diagnostic logging mode. Takes effect after restart.
@@ -1527,7 +1519,6 @@ export type GeneralSettingsDto = {
     themeOverridesLight?: {
         [key: string]: string;
     };
-    updateChannel?: UpdateChannelDto | null;
     /**
      * Whether anonymous product usage analytics is enabled.
      * 与 `telemetry_enabled` 拆开（schema doc §6.4）：前者控制 Sentry 错误
@@ -1540,8 +1531,6 @@ export type GeneralSettingsDto = {
  * All fields are optional — only provided fields are updated.
  */
 export type GeneralSettingsPatchDto = {
-    autoCheckUpdate?: boolean | null;
-    autoDownloadUpdate?: boolean | null;
     autoStart?: boolean | null;
     debugMode?: boolean | null;
     deviceName?: string | null;
@@ -1574,7 +1563,6 @@ export type GeneralSettingsPatchDto = {
     themeOverridesLight?: {
         [key: string]: string;
     } | null;
-    updateChannel?: UpdateChannelDto | null;
     usageAnalyticsEnabled?: boolean | null;
 };
 
@@ -4255,8 +4243,6 @@ export type UnlockSpaceResponse = {
 export type UnpairDeviceRequest = {
     peerId: string;
 };
-
-export type UpdateChannelDto = 'stable' | 'alpha' | 'beta' | 'rc';
 
 /**
  * Canonical success envelope: `{ "data": T, "ts": <unix millis i64> }`.

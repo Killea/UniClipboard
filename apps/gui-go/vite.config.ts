@@ -61,12 +61,11 @@ export default defineConfig({
     cssTarget: 'safari15.6',
     emptyOutDir: true,
     sourcemap: sentryEnabled ? 'hidden' : false,
-    // Three documents: main app, quick panel, updater.
+    // Two documents: main app and quick panel.
     rollupOptions: {
       input: {
         main: path('./frontend/index.html'),
         'quick-panel': path('./frontend/quick-panel.html'),
-        updater: path('./frontend/updater.html'),
       },
     },
   },

@@ -4,7 +4,7 @@
 #   run_17c10.sh <outdir> baseline|final
 #     baseline  build + package + the four helper runs ({Ubuntu 24.04, Fedora 44} x {generic, gnome}); on a checkout WITHOUT the fix the A provenance checks are expected to fail
 #     final     the same, plus the regression runs that the host-helper environment must not break: WebView HTTPS (17c7 TLS E2E, both distributions, trusted/untrusted CA),
-#               portable-mode E2E (17c5, with the update feed), static content check
+#               portable-mode E2E (17c5), static content check
 # Needs: Docker with uc-gui-go-linux-build:17c2, uc-gui-go-linux-runtime:17c7, uc-gui-go-linux-runtime-fedora:17c7; network for the image builds; bun on the host.
 set -uo pipefail
 export UC_LINUX_IMAGE="${UC_LINUX_IMAGE:-uc-gui-go-linux-build:17c2}"
@@ -46,12 +46,10 @@ for combo in ubuntu-generic ubuntu-gnome fedora-generic fedora-gnome; do
 done
 echo "helpers:$rcs" | tee -a "$out/steps.txt"
 if [ "$kind" = final ]; then
-  step package-v2 "$R" package-appimage "$out/v2" --update-marker v2-installed || exit 1
-  step feed "$R" appimage-feed "$out/feed" "$out/v2/pkg/E2E-UniClipboard_1.1.1_aarch64.AppImage.tar.gz" || exit 1
   step content-v1 "$R" appimage-content-check "$out/content-v1" "$V1" "$M1"; content=$?
   step tls-ubuntu env UC_TLS_IMAGE=uc-gui-go-linux-runtime:17c7 "$R" appimage-tls-e2e "$out/tls-ubuntu" "$V1" "$M1"; tlsu=$?
   step tls-fedora env UC_TLS_IMAGE=uc-gui-go-linux-runtime-fedora:17c7 "$R" appimage-tls-e2e "$out/tls-fedora" "$V1" "$M1"; tlsf=$?
-  step e2e-portable "$R" appimage-portable-e2e "$out/e2e-portable" "$V1" "$out/feed" "$M1"; portable=$?
+  step e2e-portable "$R" appimage-portable-e2e "$out/e2e-portable" "$V1" "$M1"; portable=$?
   echo "content=$content tls-ubuntu=$tlsu tls-fedora=$tlsf portable=$portable" | tee -a "$out/steps.txt"
 fi
 ( cd "$out" && find . -type f \( -name '*.AppImage' -o -name 'package-manifest.json' -o -name 'appimage-assertions.json' -o -name 'content-check.json' \) -not -path '*/squashfs-root/*' -print0 | sort -z | xargs -0 shasum -a 256 > SHA256SUMS.txt )

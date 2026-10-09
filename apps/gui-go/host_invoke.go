@@ -48,6 +48,12 @@ func (a commandArgs) decode(key string, out any) error {
 	return nil
 }
 
+// stringError is a command error serialised as a plain string, the wire shape
+// the frontend expects for commands whose errors carry no code object.
+type stringError string
+
+func (e stringError) Error() string { return string(e) }
+
 type commandFunc func(ctx context.Context, h *HostService, args commandArgs) (any, error)
 
 // commands is the single routing table for the Tauri command surface.
@@ -111,11 +117,7 @@ func (a commandArgs) channel(key string) (func(*HostService, any), error) {
 	return func(h *HostService, message any) { h.emit("channel://"+ref.ID, message) }, nil
 }
 
-// commandTimeout gives long-running update commands room; others fail fast.
-func commandTimeout(name string) time.Duration {
-	switch name {
-	case "download_update", "install_update":
-		return 30 * time.Minute
-	}
+// commandTimeout bounds a single host command invocation.
+func commandTimeout(string) time.Duration {
 	return 30 * time.Second
 }

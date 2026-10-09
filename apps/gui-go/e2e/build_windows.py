@@ -36,7 +36,6 @@ def main():
     out.mkdir(parents=True, exist_ok=True)
     conf = json.loads((ROOT / 'apps/gui-go/app.json').read_text())
     bundle_id = conf['identifier'] + ('.e2e' if args.mode == 'e2e' else '')
-    pubkey = '' if args.mode == 'e2e' else conf['updater']['pubkey']
     env = dict(os.environ, GOOS='windows', GOARCH='amd64', CGO_ENABLED='0') if args.cross_check_only else dict(os.environ, CGO_ENABLED='0')
     if not args.cross_check_only:
         run(['cargo', 'build', '--locked', '-p', 'uc-daemon'])
@@ -46,7 +45,7 @@ def main():
         shutil.copy2(ROOT / 'target/debug/uniclipd.exe', out / 'uniclipd.exe')
     elif not (ROOT / 'apps/gui-go/frontend/dist').is_dir():
         sys.exit('apps/gui-go/frontend/dist is missing: build the frontend once (bun --bun run --cwd apps/gui-go build)')
-    ldflags = f'-X main.updaterPublicKey={pubkey} -X main.productName={conf["productName"]} -X main.bundleID={bundle_id}'
+    ldflags = f'-X main.productName={conf["productName"]} -X main.bundleID={bundle_id}'
     # -H windowsgui: a GUI-subsystem executable, so no console window appears next to the app.
     run(['go', 'build', '-tags', TAGS[args.mode], '-ldflags', ldflags + ' -H windowsgui', '-o', str(out / 'gui-go.exe'), '.'], cwd=ROOT / 'apps/gui-go', env=env)
     manifest = {'mode': args.mode, 'crossCheckOnly': args.cross_check_only,

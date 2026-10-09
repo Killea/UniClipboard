@@ -28,15 +28,6 @@ func (h *HostService) quit(keepDaemon bool) {
 
 // shutdown stops background work, then the daemon unless the exit keeps it.
 func (h *HostService) shutdown() {
-	if h.stopWake != nil {
-		h.stopWake() // unsubscribe before the scheduler stops so no wake targets a finished loop
-	}
-	if h.stopActivity != nil {
-		h.stopActivity() // likewise: stop the system callback before the loop it feeds
-	}
-	if h.stopScheduler != nil {
-		h.stopScheduler()
-	}
 	if h.stopTray != nil {
 		h.stopTray()
 	}

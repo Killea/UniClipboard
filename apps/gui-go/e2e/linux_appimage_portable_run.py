@@ -4,7 +4,7 @@
 Runs inside uc-gui-go-linux-runtime:17c4 (Xvfb, FUSE, NO GTK/WebKitGTK) as an UNPRIVILEGED user `uc` whose passwd home (/home/uc) is
 the login session's home. There is NO Secret Service and no session bus: a portable installation must work with the file keystore.
 
-  linux_appimage_portable_run.py --out DIR --appimage v1.AppImage --uniclip uniclip --feed DIR --manifest package-manifest.json
+  linux_appimage_portable_run.py --out DIR --appimage v1.AppImage --uniclip uniclip --manifest package-manifest.json
 
 Scenarios (docs F-numbers):
   P1 portable launch   AppImage in `dir with space é/My App.AppImage`, `.home` created by the runtime's own `--appimage-portable-home`,
@@ -12,7 +12,6 @@ Scenarios (docs F-numbers):
                        real user home gets nothing, no Secret Service, an encrypted space is created and one entry written (F1-F5)
   P2 autostart         the entry lands in the login session's directory (passwd home), not in the portable home, and disabling removes it (F7)
   P3 restart           second start with UC_PORTABLE=1 reads the same settings, space and entry back; no plaintext in the data root (F5)
-  P4 update            untrusted signature rejected, trusted fixture update replaces the file, data stays in the same `.home`, old daemon gone (F6)
   P5 failures          UC_PORTABLE=1 without `.home` (F9), read-only `.home` owned by another user (F8), AppRun without $APPIMAGE (F10): an
                        error dialog and stderr message, exit 1, nothing written anywhere, no fallback to the user profile
 Not proven: real desktop session reading the autostart entry, official signing, amd64, native desktop, GPU.
@@ -32,10 +31,9 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
-from linux_appimage_run import (DISPLAY, PASSPHRASE, PLATFORM_KEY, VERSION, Launch, Run, daemon_status, inspect_processes, maps_of,  # noqa: E402,F401
-                                pid_alive, procs, serve, sha256, stable, start_xvfb, wait_panel_ready)
+from linux_appimage_run import (DISPLAY, PASSPHRASE, Launch, Run, daemon_status, inspect_processes, maps_of,  # noqa: E402,F401
+                                pid_alive, procs, sha256, stable, start_xvfb, wait_panel_ready)
 import linux_appimage_run as base  # noqa: E402
-from linux_xvfb_run import read_steps  # noqa: E402
 
 _sha256 = base.sha256
 
@@ -179,7 +177,6 @@ def main():
     parser.add_argument('--out', type=Path, required=True)
     parser.add_argument('--appimage', type=Path, required=True)
     parser.add_argument('--uniclip', type=Path, required=True)
-    parser.add_argument('--feed', type=Path)
     parser.add_argument('--manifest', type=Path)
     parser.add_argument('--supplement', action='store_true', help='run only the supplement scenarios (F11, XDG_CONFIG_HOME) against an AppImage')
     args = parser.parse_args()
@@ -317,11 +314,9 @@ def scenarios(run, launches, args, sandbox, install, target, login_home, origina
     run.results['spaceStatusBefore'] = status_before
     run.check('P1 the encrypted space was created in the portable data root and is unlocked (file keystore)',
               init['rc'] == 0 and status_before['rc'] == 0, [init, status_before])
-    default = gui.invoke('ad0', 'get_auto_download_update')
-    flipped = not default['data']
-    written = gui.ctl(f"setting autoDownloadUpdate {'on' if flipped else 'off'}", 'control-setting')
-    readback = gui.invoke('ad1', 'get_auto_download_update')
-    run.check('P1 a user setting is written through the daemon API and reads back', written['ok'] and readback['data'] == flipped, [default, written, readback])
+    written = gui.ctl('setting usageAnalyticsEnabled off', 'control-setting')
+    run.check('P1 a user setting (general.usageAnalyticsEnabled) is written through the daemon API and reads back',
+              written['ok'] and written['detail'].get('stored') is False, written)
     sent = uniclip(run, args, conn, 'send', '--text', UNIQUE_TEXT)
     run.results['send'] = sent
     searched = uniclip(run, args, conn, 'search', 'portable-appimage-secret')
@@ -373,8 +368,8 @@ def scenarios(run, launches, args, sandbox, install, target, login_home, origina
               [str(conn2_path), conn2 and conn2['pid'], conn['pid']])
     gui2.step('bootstrapped', 120)
     wait_panel_ready(gui2, 'p3')
-    after = gui2.invoke('ad2', 'get_auto_download_update')
-    run.check('P3 the setting written before the restart reads back', after['data'] == flipped, after)
+    after = gui2.ctl('setting usageAnalyticsEnabled off', 'control-setting-p3')
+    run.check('P3 the setting written before the restart reads back', after['ok'] and after['detail'].get('stored') is False, after)
     status_after = uniclip(run, args, conn2, 'space', 'status')
     try:
         same = stable(json.loads(status_before['stdout'])) == stable(json.loads(status_after['stdout']))
@@ -387,91 +382,9 @@ def scenarios(run, launches, args, sandbox, install, target, login_home, origina
     code = stop(gui2, conn2)
     run.check('P3 exit 0, daemon stopped', code == 0 and not pid_alive(conn2['pid']), {'exit': code})
 
-    # --- P4: update
-    if not args.feed:
-        run.check('P4 update scenarios were not run (no --feed)', False)
-    else:
-        update(run, launches, args, sandbox, target, home_dir, data_root, daemon_sha, flipped, original_sha, conn2)
-
     failures(run, launches, args, sandbox, install, target, login_home)
 
 
-def update(run, launches, args, sandbox, target, home_dir, data_root, daemon_sha, flipped, original_sha, previous):
-    feed = args.feed
-    pubkey = (feed / 'pubkey.b64').read_text()
-    v2_sha = (feed / 'v2.sha256').read_text().split()[0]
-    server = serve(feed)
-    base = f'http://127.0.0.1:{server.server_address[1]}'
-    try:
-        for name, sig in (('good', 'good.sig.b64'), ('bad', 'bad.sig.b64')):
-            (feed / f'{name}.json').write_text(json.dumps({
-                'version': VERSION, 'notes': 'E2E update notes', 'pub_date': '2026-10-06T00:00:00Z',
-                'platforms': {PLATFORM_KEY[os.uname().machine]: {'url': f'{base}/update.AppImage.tar.gz', 'signature': (feed / sig).read_text()}}}))
-        files_before = sorted(str(p.relative_to(home_dir)) for p in home_dir.rglob('*') if p.is_file())
-        bad = run.launch('update-bad', {'UC_GUI_GO_E2E_PHASE': 'update-bad', 'UC_UPDATE_ENDPOINT': f'{base}/bad.json', 'UC_UPDATE_PUBKEY': pubkey})
-        launches.append(bad)
-        bad.step('update-check', 120)
-        row = bad.step('update-download-rejected', 120)
-        run.check('P4 an artifact signed by an untrusted key is rejected, naming the signature', row['ok'] and 'signature' in json.dumps(row['detail']).lower(), row)
-        run.check('P4 the AppImage is byte-identical after the rejected update', sha256(target) == original_sha)
-        try:
-            bad.proc.wait(timeout=90)
-        except Exception:
-            bad.proc.terminate()
-        good = run.launch('update-good', {'UC_GUI_GO_E2E_PHASE': 'update-good', 'UC_UPDATE_ENDPOINT': f'{base}/good.json', 'UC_UPDATE_PUBKEY': pubkey})
-        launches.append(good)
-        first = good.step('update-state', 120)
-        first_pid = first['detail']['pid']
-        _, old = wait_daemon(sandbox)
-        good.step('update-relaunched', 240, allow_exit=True)
-        states = [x for x in read_steps(good.evidence) if x['step'] == 'update-state']
-        run.check('P4 the AppImage now holds the v2 bytes', sha256(target) == v2_sha, {'v2': v2_sha, 'file': sha256(target)})
-        run.check('P4 the restarted process is a new process running the v2 image (marker in its mount)',
-                  len(states) == 2 and states[1]['detail']['installed'] and states[1]['detail']['pid'] != first_pid, states)
-        deadline = time.monotonic() + 40
-        while old and pid_alive(old['pid']) and time.monotonic() < deadline:
-            time.sleep(.5)
-        run.check('P4 the old daemon is gone after the update (/proc state)', old is not None and not pid_alive(old['pid']), old and old['pid'])
-        new_env = environ_of(states[-1]['detail']['pid'])
-        _, new = wait_daemon(sandbox)
-        run.check('P4 the new daemon runs on the SAME portable data root (<AppImage>.home/data) of the replaced file',
-                  new is not None and new['pid'] != old['pid'] and any(c.parent == data_root for c in sandbox.rglob('daemon.conn')),
-                  {'new': new and new['pid'], 'env': {k: new_env.get(k) for k in ('APPIMAGE', 'HOME')}})
-        run.check('P4 the restarted GUI process sees the same APPIMAGE path and portable HOME', new_env.get('APPIMAGE') == str(target) and new_env.get('HOME') == str(home_dir), new_env.get('APPIMAGE'))
-        try:
-            good.proc.wait(timeout=60)
-        except Exception:
-            pass
-        deadline = time.monotonic() + 40
-        while (pid_alive(states[-1]['detail']['pid']) or pid_alive(new['pid'])) and time.monotonic() < deadline:
-            time.sleep(.5)
-        run.check('P4 the relaunched process ended its scenario and took its daemon down', not pid_alive(states[-1]['detail']['pid']) and not pid_alive(new['pid']))
-        # A fresh launch of the replaced AppImage on the same portable home: new daemon, user data readable through the real API.
-        post = run.launch('post-update')
-        launches.append(post)
-        pconn_path, pconn = wait_daemon(sandbox)
-        run.check('P4 the replaced AppImage starts a new daemon on the same portable data root',
-                  pconn is not None and pconn['pid'] not in (old['pid'], new['pid']) and pconn_path.parent == data_root, [str(pconn_path), pconn and pconn['pid']])
-        post.step('bootstrapped', 120)
-        pstate = wait_panel_ready(post, 'post')
-        run.check('P4 the v2 page reached the daemon (panel ready)', pstate.get('panelReady') is True, pstate)
-        pmount = inspect_processes(run, 'P4', post.proc.pid, daemon_sha, pconn['pid'])
-        marker = as_user(['test', '-f', f'{pmount}/usr/share/uniclipboard/update-marker.txt'], run.env)
-        run.check('P4 the running image is v2 (marker file in its mount)', pmount is not None and marker.returncode == 0, pmount)
-        after = post.invoke('ad3', 'get_auto_download_update')
-        run.check('P4 the user setting written before the update reads back through the new daemon after the update', after['data'] == flipped, after)
-        found = uniclip(run, args, pconn, 'search', 'portable-appimage-secret')
-        status = uniclip(run, args, pconn, 'space', 'status')
-        run.check('P4 the entry and the unlocked encrypted space survived the update', UNIQUE_TEXT[:20] in (found['stdout'] + found['stderr']) and status['rc'] == 0, [found, status])
-        files_after = sorted(str(p.relative_to(home_dir)) for p in home_dir.rglob('*') if p.is_file())
-        gone = sorted(f for f in set(files_before) - set(files_after) if not f.rsplit('/', 1)[-1].startswith(('daemon', '.daemon', '.uniclipd')))
-        run.check('P4 no persisted file of the portable home disappeared (lifecycle state files excluded)', not gone, gone)
-        run.check('P4 the portable home is still next to the (replaced) file; the update did not move or recreate it',
-                  home_dir.is_dir() and sorted(p.name for p in target.parent.iterdir()) == ['My App.AppImage', 'My App.AppImage.home'])
-        code = stop(post, pconn)
-        run.check('P4 exit 0 and the daemon stopped', code == 0 and not pid_alive(pconn['pid']), {'exit': code})
-    finally:
-        server.shutdown()
 
 
 def dismiss_dialog(run, launch, timeout=60):

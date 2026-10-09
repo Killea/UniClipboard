@@ -87,20 +87,11 @@ async function navigate(
 
 async function run() {
   const phase = (await Call.ByName('main.EvidenceService.Phase')) as string
-  if (phase === 'linux-package-update') return runLinuxPackageUpdateScenario()
-  if (phase.startsWith('update')) return runUpdateScenario(phase)
   if (phase === 'file-preview') return runFilePreviewScenario()
-  if (phase === 'key-path-verify') {
-    await waitFor('app root content', () => document.getElementById('root')?.children.length)
-    await control('update-verify')
-    return control('exit')
-  }
   if (phase === 'unlock-wrong') return runUnlockWrongScenario()
   if (phase === 'unlock-restart') return runUnlockRestartScenario()
   if (phase === 'history-live') return runHistoryLiveScenario()
   if (phase === 'single-image-ui') return runSingleImageUiScenario()
-  if (phase === 'scheduler') return runSchedulerScenario()
-  if (phase === 'wake') return // the orchestrator drives this launch through the control file
   if (phase === 'quick-panel-settings') return runQuickPanelSettingsScenario()
   if (phase === 'native-panel') return runNativePanelScenario()
   if (phase === 'file-ops') return runFileOpsScenario()
@@ -198,10 +189,7 @@ async function run() {
   // The WebView survived the hide/show cycle with its React state and host bindings intact.
   const pid = await Call.ByName('main.HostService.Invoke', 'get_tauri_pid', {})
   await record('webview-alive-after-reopen', !!(pid as { ok: boolean }).ok && !!link('/settings'))
-  // Second windows: the real updater (dev preview) and quick panel pages.
-  await control('open-updater')
-  await sleep(3000)
-  await control('close-updater')
+  // Second window: the quick panel page.
   await control('show-quick-panel')
   await sleep(3000)
   await control('dismiss-quick-panel')
@@ -211,7 +199,6 @@ async function run() {
     Object.values(refusals).every(code => code === 404),
     refusals
   )
-  await control('tray-check')
   await record('driver-complete', true)
   // Give the orchestrator time to read daemon state before the GUI exits.
   await sleep(2500)
@@ -480,33 +467,6 @@ async function runSingleImageUiScenario() {
     }
   )
   await sleep(1000)
-  await control('exit')
-}
-
-// Update scenarios drive the release feed served by the orchestrator: the main window
-// starts the flow and the updater window (e2e-secondary.ts) performs the clicks.
-async function runUpdateScenario(phase: string) {
-  await waitFor('app root content', () => document.getElementById('root')?.children.length)
-  await control('update-state')
-  if (phase === 'update-good' && (await installedBundle())) {
-    await record('update-relaunched', true)
-    await sleep(1500)
-    await control('exit')
-    return
-  }
-  await control('update-check')
-  // The updater window reports the rest; keep this window alive meanwhile.
-  await sleep(120000)
-}
-
-// The scheduler scenario never asks for a check: the background scheduler has to open
-// the updater window on its own, and must not open it again for the same version.
-async function runSchedulerScenario() {
-  await waitFor('app root content', () => document.getElementById('root')?.children.length)
-  await control('scheduler-wait-updater')
-  await sleep(4000) // the orchestrator screenshots the window meanwhile
-  await control('close-updater')
-  await control('scheduler-quiet')
   await control('exit')
 }
 
@@ -875,11 +835,6 @@ async function runStartupSetScenario(phase: string) {
   await control('exit')
 }
 
-async function installedBundle(): Promise<boolean> {
-  const rows = (await Call.ByName('main.EvidenceService.Installed')) as boolean
-  return rows
-}
-
 run().catch(error =>
   record('driver-error', false, {
     error: String(error),
@@ -889,75 +844,3 @@ run().catch(error =>
     text: document.body.innerText.slice(0, 300),
   })
 )
-
-// Exercise installed-package detection and the actual Settings update dialog.
-async function runLinuxPackageUpdateScenario() {
-  const create = await waitFor('setup entry', () => $('[data-testid="setup-entry-create"]'))
-  create.click()
-  await waitFor('device form', () => $('#device-name'))
-  fill('#device-name', 'package-ui-fixture')
-  fill('#pass1', SETUP_PASSPHRASE)
-  fill('#pass2', SETUP_PASSPHRASE)
-  await sleep(200)
-  $('[data-testid="setup-initialize-submit"]')!.click()
-  await waitFor('setup complete', () => $('[data-testid="setup-complete-later"]') || mainLayout())
-  $('[data-testid="setup-complete-later"]')?.click()
-  await waitFor('initialised main layout', mainLayout, 120000)
-  const consent = await waitFor('telemetry notice', () =>
-    Array.from(document.querySelectorAll<HTMLElement>('[role="alertdialog"]')).find(dialog =>
-      dialog.textContent?.includes(i18n.t('settings.sections.general.telemetry.notice.title'))
-    )
-  )
-  Array.from(consent.querySelectorAll<HTMLButtonElement>('button'))
-    .find(
-      b => b.textContent?.trim() === i18n.t('settings.sections.general.telemetry.notice.optOut')
-    )!
-    .click()
-  await waitFor('telemetry notice dismissed', () => !consent.isConnected)
-  const kind = await commands.getInstallKind(null)
-  await record('package-install-kind', kind.status === 'ok', kind)
-  if (kind.status !== 'ok' || (kind.data !== 'deb' && kind.data !== 'rpm')) {
-    throw new Error('expected an installed deb or rpm')
-  }
-  await navigate(
-    () => link('/settings')?.click(),
-    '/settings',
-    () => $('[data-testid="settings-page-header"]'),
-    'package-settings',
-    true
-  )
-  const button = (text: string) =>
-    Array.from(document.querySelectorAll<HTMLButtonElement>('button')).find(
-      b => b.textContent?.trim() === text
-    )
-  const about = await waitFor('About category', () => button(i18n.t('settings.categories.about')))
-  about.click()
-  const check = await waitFor('check update button', () => {
-    const b = button(i18n.t('settings.sections.about.checkUpdate'))
-    return b && !b.disabled ? b : null
-  })
-  check.click()
-  const dialog = await waitFor('package manager update dialog', () =>
-    Array.from(document.querySelectorAll<HTMLElement>('[role="alertdialog"]')).find(
-      d =>
-        d.textContent?.includes(i18n.t('update.packageManager.title')) &&
-        d.querySelector('.font-mono')
-    )
-  )
-  const text = dialog.textContent ?? ''
-  const command = dialog.querySelector('.font-mono')?.textContent ?? ''
-  const expected =
-    kind.data === 'deb'
-      ? 'sudo apt update && sudo apt install --only-upgrade uniclipboard'
-      : 'sudo dnf upgrade uniclipboard'
-  await record('package-update-hint', command === expected, {
-    kind: kind.data,
-    command,
-    expected,
-    text,
-  })
-  sendNotification({ title: 'Linux acceptance', body: 'Isolated package notification fixture' })
-  await record('package-notification-requested', true)
-  await sleep(4000)
-  await control('exit')
-}

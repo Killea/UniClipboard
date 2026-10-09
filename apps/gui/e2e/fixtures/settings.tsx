@@ -11,7 +11,6 @@ import SettingsSidebar from '@/components/setting/SettingsSidebar'
 import { SidebarProvider } from '@/components/ui/sidebar'
 import { SettingContext } from '@/contexts/setting-context'
 import { ShortcutContext, type ShortcutContextType } from '@/contexts/shortcut-context'
-import { UpdateContext, type UpdateContextType } from '@/contexts/update-context'
 import SettingContentLayout from '@/layouts/SettingContentLayout'
 import { applyThemeOverrides, applyThemePreset } from '@/lib/theme-engine'
 import { makeBaseSettings } from '@/test/fixtures/settings'
@@ -60,19 +59,6 @@ const shortcutContext: ShortcutContextType = {
   activePriority: 0,
   pushLayer: () => 'fixture',
   popLayer: () => {},
-}
-const updateContext: UpdateContextType = {
-  state: { phase: 'idle', info: null, downloaded: 0, total: null },
-  isCheckingUpdate: false,
-  checkForUpdates: async () => null,
-  downloadUpdate: async () => {},
-  cancelDownload: async () => {},
-  installUpdate: async () => {},
-  updateInfo: null,
-  downloadProgress: { phase: 'idle', downloaded: 0, total: null },
-  installKind: null,
-  isSystemManaged: false,
-  isManualUpdate: false,
 }
 
 export default function SettingsFixture() {
@@ -262,33 +248,31 @@ export default function SettingsFixture() {
   return (
     <SettingContext.Provider value={context}>
       <ShortcutContext value={shortcutContext}>
-        <UpdateContext value={updateContext}>
-          <LazyMotion features={domMax} strict>
-            <VisualEffectsProvider>
-              <MemoryRouter>
-                <SidebarProvider
-                  className="h-screen min-h-0"
-                  style={{ '--sidebar-width': '12rem' } as CSSProperties}
-                >
-                  <div className="hidden h-full md:block">
-                    <SettingsSidebar activeCategory={category} onCategoryChange={setCategory} />
-                  </div>
-                  <InsetSurface className="mr-2 mb-2">
-                    <main
-                      data-testid="settings-scroll"
-                      className="min-w-0 flex-1 overflow-y-auto p-4 text-foreground sm:p-6 lg:p-8"
-                      key={category}
-                    >
-                      <SettingContentLayout header={header}>
-                        {Selected && <Selected />}
-                      </SettingContentLayout>
-                    </main>
-                  </InsetSurface>
-                </SidebarProvider>
-              </MemoryRouter>
-            </VisualEffectsProvider>
-          </LazyMotion>
-        </UpdateContext>
+        <LazyMotion features={domMax} strict>
+          <VisualEffectsProvider>
+            <MemoryRouter>
+              <SidebarProvider
+                className="h-screen min-h-0"
+                style={{ '--sidebar-width': '12rem' } as CSSProperties}
+              >
+                <div className="hidden h-full md:block">
+                  <SettingsSidebar activeCategory={category} onCategoryChange={setCategory} />
+                </div>
+                <InsetSurface className="mr-2 mb-2">
+                  <main
+                    data-testid="settings-scroll"
+                    className="min-w-0 flex-1 overflow-y-auto p-4 text-foreground sm:p-6 lg:p-8"
+                    key={category}
+                  >
+                    <SettingContentLayout header={header}>
+                      {Selected && <Selected />}
+                    </SettingContentLayout>
+                  </main>
+                </InsetSurface>
+              </SidebarProvider>
+            </MemoryRouter>
+          </VisualEffectsProvider>
+        </LazyMotion>
       </ShortcutContext>
     </SettingContext.Provider>
   )

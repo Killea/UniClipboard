@@ -5,7 +5,7 @@
 ## 范围与不做的事
 
 - 做：原生 amd64 与 arm64 runner 上构建真实 release `uniclipd` 与 GUI，运行 `apps/gui-go/e2e/package_linux.py`，只上传四种命名工件，保留构建证据，在真实 Debian/Ubuntu 与 Fedora 环境验证 deb/rpm，在下限发行版与较新发行版上运行 AppImage。
-- 不做：更新签名（`.sig`）与更新通道（归 [gui-go-updater-signatures.md](gui-go-updater-signatures.md) 与渠道 issue）；tag、release、feed、Pages、FlareRelease 的任何写入；生产 Sentry 上传；`release.yml` 的 Linux 接入（它对未验收平台继续失败关闭）。
+- 不做：tag、release 或 Pages 的任何写入；生产 Sentry 上传；`release.yml` 的 Linux 接入（它对未验收平台继续失败关闭）。应用内自动更新已在本维护分支移除，不再有更新签名（`.sig`）与更新通道。
 
 ## issue 描述与主线的出入（2026-10-08 核对 `origin/main` `101ffb38e`）
 

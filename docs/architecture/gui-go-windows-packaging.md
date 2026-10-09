@@ -1,6 +1,6 @@
 # Go 宿主 Windows 安装包、便携包与验收合同
 
-适用于 issue #1897。macOS 对应文档见 `apps/gui-go/README.md`「macOS 发布构建」；更新签名见 `docs/architecture/gui-go-updater-signatures.md`。
+适用于 issue #1897。macOS 对应文档见 `apps/gui-go/README.md`「macOS 发布构建」。应用内自动更新已在本维护分支移除，更新签名文档随之删除。
 
 ## 产物与流水线
 
