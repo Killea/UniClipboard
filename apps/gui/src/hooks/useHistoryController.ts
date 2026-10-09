@@ -15,6 +15,7 @@ import {
   type HistoryTagColorDto,
   type HistoryTagRenameResultDto,
 } from '@/api/daemon/history-tags'
+import { saveFilesAs } from '@/api/storage'
 import { toast } from '@/components/ui/toast'
 import { useCopyFeedback } from '@/hooks/useCopyFeedback'
 import { useDeleteFlow } from '@/hooks/useDeleteFlow'
@@ -25,6 +26,7 @@ import { useShortcutScope } from '@/hooks/useShortcutScope'
 import { useTagCatalog } from '@/hooks/useTagCatalog'
 import { useTransferProgress } from '@/hooks/useTransferProgress'
 import type { DisplayClipboardItem } from '@/lib/clipboard-entry'
+import { pasteableFilePaths } from '@/lib/clipboard-utils'
 import { createLogger } from '@/lib/logger'
 import { splitSearchTags, tagLabel } from '@/lib/search-tags'
 import { DEFAULT_TAG_COLOR } from '@/lib/tag-colors'
@@ -143,6 +145,36 @@ export function useHistoryController() {
       }
     },
     [markCopied, t]
+  )
+
+  // ── Save-as (file entries) ────────────────────────────────────
+  // Exports the entry's materialized local copies to a user-picked directory —
+  // an escape hatch that never touches the system clipboard.
+  const handleSaveAs = useCallback(
+    async (item: DisplayClipboardItem | null): Promise<boolean> => {
+      const paths = item ? pasteableFilePaths(item.content) : []
+      if (paths.length === 0) return false
+      try {
+        const result = await saveFilesAs(paths)
+        if (!result) return false // user cancelled the picker
+        if (result.failed?.length) {
+          toast.error(
+            t('clipboard.errors.saveAsPartial', {
+              failed: result.failed.length,
+              total: paths.length,
+            })
+          )
+          return false
+        }
+        toast.success(t('clipboard.actionBar.saveAsDone', { count: result.copied }))
+        return true
+      } catch (err) {
+        log.error({ err }, 'save-files-as failed')
+        toast.error(t('clipboard.errors.saveAsFailed'))
+        return false
+      }
+    },
+    [t]
   )
 
   // ── Delete flow ───────────────────────────────────────────────
@@ -531,6 +563,7 @@ export function useHistoryController() {
     // Cross-region handlers.
     handleCopy,
     handleCopyFilePaths,
+    handleSaveAs,
     requestDelete,
     handleToggleFavorite,
     handleCardClick,

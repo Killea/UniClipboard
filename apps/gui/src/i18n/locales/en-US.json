@@ -1267,7 +1267,9 @@
       "unknown": "An unknown error occurred",
       "unavailableBadge": "Content unavailable",
       "unavailableTooltip": "This content is no longer available (bytes lost). Cannot paste. Consider deleting it from history.",
-      "fileSourceMissing": "The source file is no longer at its original location — it may have been deleted or moved. Restore it to retry."
+      "fileSourceMissing": "The source file is no longer at its original location — it may have been deleted or moved. Restore it to retry.",
+      "saveAsFailed": "Failed to save files",
+      "saveAsPartial": "{{failed}} of {{total}} files could not be saved"
     },
     "item": {
       "characters": "characters",
@@ -1338,6 +1340,9 @@
     "actionBar": {
       "title": "Clipboard History",
       "copy": "Copy",
+      "saveAs": "Save as…",
+      "saveAsDone_one": "Saved {{count}} file",
+      "saveAsDone_other": "Saved {{count}} files",
       "favorite": "Favorite",
       "unfavorite": "Unfavorite",
       "delete": "Delete"

@@ -1263,7 +1263,9 @@
       "unknown": "發生未知錯誤",
       "unavailableBadge": "內容已不可用",
       "unavailableTooltip": "該內容已不可用（資料已丟失），無法貼上。建議從歷史中刪除。",
-      "fileSourceMissing": "源檔案已不在原位置，可能被刪除或移動；放回原位置後可重試。"
+      "fileSourceMissing": "源檔案已不在原位置，可能被刪除或移動；放回原位置後可重試。",
+      "saveAsFailed": "儲存檔案失敗",
+      "saveAsPartial": "{{total}} 個檔案中有 {{failed}} 個儲存失敗"
     },
     "item": {
       "characters": "字符",
@@ -1334,6 +1336,9 @@
     "actionBar": {
       "title": "剪貼簿歷史",
       "copy": "複製",
+      "saveAs": "另存為…",
+      "saveAsDone_one": "已儲存 {{count}} 個檔案",
+      "saveAsDone_other": "已儲存 {{count}} 個檔案",
       "favorite": "我的最愛",
       "unfavorite": "取消我的最愛",
       "delete": "刪除"

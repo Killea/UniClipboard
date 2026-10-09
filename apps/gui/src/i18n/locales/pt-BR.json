@@ -1272,7 +1272,9 @@
       "unknown": "Ocorreu um erro desconhecido",
       "unavailableBadge": "Conteúdo indisponível",
       "unavailableTooltip": "Este conteúdo não está mais disponível (bytes perdidos). Não é possível colar. Considere excluí-lo do histórico.",
-      "fileSourceMissing": "O arquivo de origem não está mais no local original — ele pode ter sido excluído ou movido. Restaure-o para tentar novamente."
+      "fileSourceMissing": "O arquivo de origem não está mais no local original — ele pode ter sido excluído ou movido. Restaure-o para tentar novamente.",
+      "saveAsFailed": "Falha ao salvar arquivos",
+      "saveAsPartial": "{{failed}} de {{total}} arquivos não puderam ser salvos"
     },
     "item": {
       "characters": "caracteres",
@@ -1343,6 +1345,10 @@
     "actionBar": {
       "title": "Histórico da área de transferência",
       "copy": "Copiar",
+      "saveAs": "Salvar como…",
+      "saveAsDone_one": "{{count}} arquivo salvo",
+      "saveAsDone_many": "{{count}} arquivos salvos",
+      "saveAsDone_other": "{{count}} arquivos salvos",
       "favorite": "Favoritar",
       "unfavorite": "Desfavoritar",
       "delete": "Excluir"

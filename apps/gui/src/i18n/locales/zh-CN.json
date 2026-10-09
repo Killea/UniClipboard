@@ -1263,7 +1263,9 @@
       "unknown": "发生未知错误",
       "unavailableBadge": "内容已不可用",
       "unavailableTooltip": "该内容已不可用（数据已丢失），无法粘贴。建议从历史中删除。",
-      "fileSourceMissing": "源文件已不在原位置，可能被删除或移动；放回原位置后可重试。"
+      "fileSourceMissing": "源文件已不在原位置，可能被删除或移动；放回原位置后可重试。",
+      "saveAsFailed": "保存文件失败",
+      "saveAsPartial": "{{total}} 个文件中有 {{failed}} 个保存失败"
     },
     "item": {
       "characters": "字符",
@@ -1334,6 +1336,9 @@
     "actionBar": {
       "title": "剪贴板历史",
       "copy": "复制",
+      "saveAs": "另存为…",
+      "saveAsDone_one": "已保存 {{count}} 个文件",
+      "saveAsDone_other": "已保存 {{count}} 个文件",
       "favorite": "收藏",
       "unfavorite": "取消收藏",
       "delete": "删除"

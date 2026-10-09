@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -84,6 +86,87 @@ func (h *HostService) chooseDirectory() (string, bool, error) {
 	return path, path != "", err
 }
 
+// saveFilesResult reports a save-files-as export: the chosen directory, how
+// many sources copied successfully, and the basenames that failed.
+type saveFilesResult struct {
+	Directory string   `json:"directory"`
+	Copied    int      `json:"copied"`
+	Failed    []string `json:"failed,omitempty"`
+}
+
+// uniqueTargetPath returns dir/name, appending " (n)" before the extension
+// until the slot is free so a save-as never clobbers an existing file.
+func uniqueTargetPath(dir, name string) string {
+	target := filepath.Join(dir, name)
+	if _, err := os.Lstat(target); os.IsNotExist(err) {
+		return target
+	}
+	ext := filepath.Ext(name)
+	stem := strings.TrimSuffix(name, ext)
+	for i := 2; ; i++ {
+		target = filepath.Join(dir, fmt.Sprintf("%s (%d)%s", stem, i, ext))
+		if _, err := os.Lstat(target); os.IsNotExist(err) {
+			return target
+		}
+	}
+}
+
+// copyPathIntoDir copies a file or a directory tree into dir under the
+// source's basename.
+func copyPathIntoDir(src, dir string) error {
+	info, err := os.Stat(src)
+	if err != nil {
+		return err
+	}
+	if !info.IsDir() {
+		return copyFileInto(src, uniqueTargetPath(dir, filepath.Base(src)))
+	}
+	root := uniqueTargetPath(dir, filepath.Base(src))
+	return filepath.WalkDir(src, func(path string, d fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		rel, err := filepath.Rel(src, path)
+		if err != nil {
+			return err
+		}
+		target := filepath.Join(root, rel)
+		if d.IsDir() {
+			return os.MkdirAll(target, 0o755)
+		}
+		if !d.Type().IsRegular() {
+			return nil // skip symlinks and other non-regular entries
+		}
+		return copyFileInto(path, target)
+	})
+}
+
+func copyFileInto(src, target string) error {
+	in, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+	info, err := in.Stat()
+	if err != nil {
+		return err
+	}
+	out, err := os.OpenFile(target, os.O_WRONLY|os.O_CREATE|os.O_EXCL, info.Mode().Perm())
+	if err != nil {
+		return err
+	}
+	if _, err := io.Copy(out, in); err != nil {
+		out.Close()
+		os.Remove(target)
+		return err
+	}
+	if err := out.Close(); err != nil {
+		return err
+	}
+	os.Chtimes(target, time.Now(), info.ModTime())
+	return nil
+}
+
 // chooseSaveFile shows the native save dialog; ok=false means the user cancelled.
 func (h *HostService) chooseSaveFile(name string, filterName, pattern string) (string, bool, error) {
 	if path, ok := dialogOverride("save"); ok {
@@ -118,6 +201,31 @@ func init() {
 				return nil, nil
 			}
 			return path, nil
+		},
+		"save_files_as": func(_ context.Context, h *HostService, args commandArgs) (any, error) {
+			var paths []string
+			if err := args.decode("paths", &paths); err != nil {
+				return nil, err
+			}
+			if len(paths) == 0 {
+				return nil, nil
+			}
+			dir, ok, err := h.chooseDirectory()
+			if err != nil {
+				return nil, internalError(err)
+			}
+			if !ok {
+				return nil, nil
+			}
+			result := saveFilesResult{Directory: dir}
+			for _, src := range paths {
+				if err := copyPathIntoDir(src, dir); err != nil {
+					result.Failed = append(result.Failed, filepath.Base(src))
+					continue
+				}
+				result.Copied++
+			}
+			return result, nil
 		},
 		"open_url": func(_ context.Context, h *HostService, args commandArgs) (any, error) {
 			var url string

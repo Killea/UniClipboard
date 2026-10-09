@@ -1,10 +1,11 @@
-import { Check, Copy, Star, Trash2 } from 'lucide-react'
+import { Check, Copy, FolderDown, Star, Trash2 } from 'lucide-react'
 import React from 'react'
 import { useTranslation } from 'react-i18next'
 import type { EntryDeliveryView } from '@/api/tauri-command/clipboard_delivery'
 import ClipboardSendMenu from '@/components/clipboard/ClipboardSendMenu'
 import { ExpandableActionBar } from '@/components/motion/expandable-action-bar'
 import type { DisplayClipboardItem } from '@/lib/clipboard-entry'
+import { pasteableFilePaths } from '@/lib/clipboard-utils'
 import { cn } from '@/lib/utils'
 
 export interface ClipboardActionBarTransferStatus {
@@ -20,6 +21,7 @@ interface ClipboardActionBarProps {
   onCopy: () => void
   onDelete: () => void
   onToggleFavorite: () => void
+  onSaveAs?: () => void
 }
 
 const ClipboardActionBar: React.FC<ClipboardActionBarProps> = ({
@@ -30,6 +32,7 @@ const ClipboardActionBar: React.FC<ClipboardActionBarProps> = ({
   onCopy,
   onDelete,
   onToggleFavorite,
+  onSaveAs,
 }) => {
   const { isCopyBlocked, copyBlockedReason } = transferStatus ?? {}
   const { t } = useTranslation()
@@ -38,6 +41,13 @@ const ClipboardActionBar: React.FC<ClipboardActionBarProps> = ({
   const favoriteLabel = isFavorited
     ? t('clipboard.actionBar.unfavorite')
     : t('clipboard.actionBar.favorite')
+  // File entries with materialized local copies can be exported to a directory;
+  // missing/cancelled files are filtered out by pasteableFilePaths.
+  const canSaveAs =
+    item?.type === 'file' &&
+    !item.isUnavailable &&
+    pasteableFilePaths(item.content).length > 0 &&
+    onSaveAs !== undefined
 
   return (
     <>
@@ -67,6 +77,17 @@ const ClipboardActionBar: React.FC<ClipboardActionBarProps> = ({
             disabled: !hasActiveItem || isCopyBlocked,
             onClick: onCopy,
           },
+          ...(canSaveAs
+            ? [
+                {
+                  id: 'saveAs',
+                  label: t('clipboard.actionBar.saveAs'),
+                  icon: <FolderDown className="size-3.5" />,
+                  disabled: false,
+                  onClick: () => onSaveAs?.(),
+                },
+              ]
+            : []),
           {
             id: 'favorite',
             label: favoriteLabel,

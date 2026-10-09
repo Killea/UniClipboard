@@ -1266,7 +1266,9 @@
       "unknown": "不明なエラーが発生しました",
       "unavailableBadge": "コンテンツは利用できません",
       "unavailableTooltip": "このコンテンツは次のとおりです利用できなくなりました (バイトが失われます)。ペーストできません。履歴から削除することを検討してください。",
-      "fileSourceMissing": "ソース ファイルは元の場所になくなりました。削除または移動された可能性があります。復元して再試行してください。"
+      "fileSourceMissing": "ソース ファイルは元の場所になくなりました。削除または移動された可能性があります。復元して再試行してください。",
+      "saveAsFailed": "ファイルの保存に失敗しました",
+      "saveAsPartial": "{{total}} 個中 {{failed}} 個のファイルを保存できませんでした"
     },
     "item": {
       "characters": "文字",
@@ -1337,6 +1339,9 @@
     "actionBar": {
       "title": "クリップボード履歴",
       "copy": "コピー",
+      "saveAs": "別名で保存…",
+      "saveAsDone_one": "{{count}} 個のファイルを保存しました",
+      "saveAsDone_other": "{{count}} 個のファイルを保存しました",
       "favorite": "お気に入り",
       "unfavorite": "お気に入り解除",
       "delete": "削除"

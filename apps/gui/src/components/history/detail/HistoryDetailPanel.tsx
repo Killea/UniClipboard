@@ -22,6 +22,7 @@ import type {
   ClipboardTextItem,
   DisplayClipboardItem,
 } from '@/lib/clipboard-entry'
+import { pasteableFilePaths } from '@/lib/clipboard-utils'
 import { imageFormatLabel } from '@/lib/image-handoff'
 import { cn } from '@/lib/utils'
 import { formatFileSize } from '@/utils'
@@ -39,6 +40,7 @@ interface HistoryDetailPanelProps {
   onCopy: () => void
   onToggleFavorite: () => void
   onDelete: () => void
+  onSaveAs?: () => void
 }
 
 const iconButton =
@@ -84,6 +86,7 @@ const HistoryDetailPanel: React.FC<HistoryDetailPanelProps> = ({
   onCopy,
   onToggleFavorite,
   onDelete,
+  onSaveAs,
 }) => {
   const { t, i18n } = useTranslation()
   const state = useClipboardPreviewState(item)
@@ -167,6 +170,8 @@ const HistoryDetailPanel: React.FC<HistoryDetailPanelProps> = ({
     state.imageDimensions ??
     (image && image.width > 0 ? { width: image.width, height: image.height } : null)
   const files = item.type === 'file' ? (item.content as ClipboardFileItem | null) : null
+  const canSaveAs =
+    files !== null && !item.isUnavailable && pasteableFilePaths(files).length > 0 && onSaveAs
   // A third card only appears for multi-file entries (the file count).
   const third: MetaCardProps | null =
     !item.isUnavailable && files && files.file_names.length > 1
@@ -369,6 +374,20 @@ const HistoryDetailPanel: React.FC<HistoryDetailPanelProps> = ({
             </button>
           )}
         />
+        {canSaveAs && (
+          <button
+            type="button"
+            disabled={item.isUnavailable}
+            onClick={() => onSaveAs?.()}
+            className={cn(
+              pillButton,
+              'border border-border bg-background px-4 text-foreground hover:bg-muted/60 @max-[30rem]:px-3.5'
+            )}
+          >
+            <Download className="hidden size-3.5 @max-[30rem]:block" aria-hidden="true" />
+            <span className="@max-[30rem]:sr-only">{t('history.detail.saveAs')}</span>
+          </button>
+        )}
         {isImage && (
           <>
             <button

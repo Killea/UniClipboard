@@ -163,6 +163,9 @@ const HistoryPage: React.FC = () => {
   const deleteSelected = () => {
     if (c.selectedId) c.requestDelete(c.selectedId)
   }
+  const saveSelectedAs = () => {
+    if (c.selectedItem) void c.handleSaveAs(c.selectedItem)
+  }
   const selectedCopySuccess = c.copySuccessId !== null && c.copySuccessId === c.selectedId
   // Local tags of the selected entry for the macOS detail column; hidden while
   // tags are unavailable.
@@ -414,6 +417,7 @@ const HistoryPage: React.FC = () => {
                         onCopy={copySelected}
                         onToggleFavorite={toggleSelectedFavorite}
                         onDelete={deleteSelected}
+                        onSaveAs={saveSelectedAs}
                       />
                     )}
                   />
@@ -431,6 +435,7 @@ const HistoryPage: React.FC = () => {
                     onCopy={copySelected}
                     onToggleFavorite={toggleSelectedFavorite}
                     onDelete={deleteSelected}
+                    onSaveAs={saveSelectedAs}
                   />
                 )}
               </m.div>

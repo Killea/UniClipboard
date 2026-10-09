@@ -263,6 +263,17 @@ export const commands = {
 	timestamp: number,
 } | null) => typedError<null, CommandError>(__TAURI_INVOKE("open_image_externally", { fileName, data, trace })),
 	/**
+	 *  Export a file entry's local copies: shows a native directory picker, then
+	 *  copies every given file or directory path into it under its basename
+	 *  (auto-renamed on collision). Returns the export summary, or `None` when
+	 *  the user cancels the picker or no paths were supplied.
+	 *  弹原生目录选择框，把给定文件/目录逐个复制进去（重名自动改名）；取消返回 `None`。
+	 */
+	saveFilesAs: (paths: string[], trace: {
+	trace_id: string,
+	timestamp: number,
+} | null) => typedError<SaveFilesAsResult | null, CommandError>(__TAURI_INVOKE("save_files_as", { paths, trace })),
+	/**
 	 *  Hide the quick panel, re-activate the previous app, and paste.
 	 * 
 	 *  隐藏快捷面板，重新激活之前的应用，并粘贴。
@@ -727,6 +738,21 @@ export type QuickPanelExpandSide = "right" | "left";
  *  wire form: `center` | `follow_cursor`.
  */
 export type QuickPanelPositionArg = "center" | "follow_cursor";
+
+export type SaveFilesAsResult = {
+/**
+ * Absolute path of the directory the user picked.
+ */
+directory: string;
+/**
+ * How many source paths were copied successfully.
+ */
+copied: number;
+/**
+ * Basenames of sources that failed to copy (missing file, permission, IO).
+ */
+failed?: string[];
+};
 
 export type SamplePermit = {
 	sampleId: number,

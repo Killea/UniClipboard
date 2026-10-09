@@ -76,6 +76,23 @@ export async function openImageExternally(fileName: string, bytes: Uint8Array): 
   await commands.openImageExternally(fileName, Array.from(bytes))
 }
 
+/**
+ * Export a file entry's local copies to a user-picked directory. The native
+ * folder picker is shown by the host; every given path (file or directory) is
+ * copied under its basename, auto-renamed on collision. Resolves to the export
+ * summary, or `null` when the user cancels.
+ *
+ * Received files materialize under the app cache dir; `file_paths` on
+ * `ClipboardFileItem` already carries their decoded native paths (see
+ * `pasteableFilePaths`).
+ */
+export async function saveFilesAs(
+  paths: string[]
+): Promise<{ directory: string; copied: number; failed?: string[] } | null> {
+  const { commands } = await import('@/lib/ipc')
+  return commands.saveFilesAs(paths)
+}
+
 // Re-export clipboard history clearance from daemon clipboard API.
 // This is used by StorageSection for the "clear all history" action.
 export { clearClipboardHistory as clearAllClipboardHistory } from './daemon/clipboard'
