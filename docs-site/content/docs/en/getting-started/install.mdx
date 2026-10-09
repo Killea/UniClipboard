@@ -45,11 +45,10 @@ curl -fsSL https://raw.githubusercontent.com/UniClipboard/UniClipboard/main/scri
 ```
 
 <Callout type="info">
-  Update behavior matches the platform tabs below: `.deb` / `.rpm` installs are not picked up by the
-  in-app updater — re-run the script or use your system package manager. The app detects these
-  installs and, when you click **Check for updates**, pops a dialog with the exact `apt` / `dnf`
-  command (and a copy button) instead of attempting an in-app install. AppImage on Linux and `.app`
-  on macOS continue to update from inside the app. For Windows, see the **Windows** tab.
+  This build has no in-app auto-updater — every install form upgrades by reinstalling a newer
+  build: `.deb` / `.rpm` re-run the script or go through your system package manager; AppImage on
+  Linux and `.app` on macOS are replaced by downloading the newer release manually. For Windows,
+  see the **Windows** tab.
 </Callout>
 
 ## Pick your platform
@@ -144,9 +143,8 @@ described below.
   Surface Pro X); the `x64` zip is for regular Intel/AMD PCs.
 
 <Callout type="info">
-  The portable build does **not** self-update (the in-app updater runs the NSIS installer, which
-  would install into Program Files). **Check for updates** points you to the release page to
-  download a newer `*-portable.zip`; replace `UniClipboard.exe` and your `data` folder is preserved.
+  The portable build upgrades by manual replacement: download a newer `*-portable.zip` from the
+  release page, extract it, and replace `UniClipboard.exe`; your `data` folder is preserved.
   It still needs the Microsoft Edge WebView2 Runtime (preinstalled on current Windows).
 </Callout>
 
@@ -232,7 +230,7 @@ chmod +x UniClipboard_<version>_amd64.AppImage
 ./UniClipboard_<version>_amd64.AppImage
 ```
 
-AppImage is the only Linux format the in-app updater supports — packages installed via COPR / Snap / dpkg do not auto-update from inside the app; use your package manager instead.
+AppImage upgrades by downloading the newer file and replacing it manually; installs via COPR / Snap / dpkg upgrade through the package manager.
 
 ### One-shot install of a single .deb / .rpm
 

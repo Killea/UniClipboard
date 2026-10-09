@@ -31,7 +31,7 @@ When documentation conflicts with code, treat the code as the source of truth an
 - [Snapshot Cache Pipeline ADR](architecture/snapshot-cache/adr-001-snapshot-cache-pipeline.md) - Cache/spool/worker design decisions
 - [Error Handling](guides/error-handling.md) - Error handling strategy
 - [明文探针验收](development/plaintext-probe.md) - 检查数据库、缓存、索引、临时目录和日志是否残留业务原文
-- [GitHub Releases Updater](guides/github-releases-updater.md) - Auto-update pipeline with latest.json
+- [GitHub Releases Updater](guides/github-releases-updater.md) - （已退役，历史文档）旧 Tauri 自动更新流水线 with latest.json
 
 **For Operators / Deployment:**
 

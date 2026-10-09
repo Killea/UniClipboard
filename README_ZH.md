@@ -207,7 +207,7 @@ chmod +x UniClipboard_<version>_amd64.AppImage
 ./UniClipboard_<version>_amd64.AppImage
 ```
 
-> 经包管理器（COPR / Snap / rpm / deb）安装的版本不会通过 App 内更新器升级，请使用对应的包管理器更新。Linux 上 App 内更新器只对 AppImage 生效。
+> 本构建已移除应用内自动更新：所有安装形态都通过重装新版升级。经包管理器（COPR / Snap / rpm / deb）安装的版本由对应包管理器升级；AppImage、`.app` 与便携包请下载新版本手动替换。
 
 ### Homebrew（macOS）
 

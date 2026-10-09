@@ -28,7 +28,7 @@ AppImage 的 GIO 模块：只带 `libgiognutls.so`（17c7），不带 libproxy�
 | P2 | 代理不可达（端口无监听）时前端因代理而卡死 | 同 P1，代理端口关闭：面板仍就绪，daemon 连接仍可用 |
 | P3 | WebView 访问外部 HTTP(S) 的实际路径被误认：只看到成功就以为用了代理 | 受控目标（非回环地址，容器内别名）与代理各自记录；三种结果分开：目标日志有请求而代理无 = 直连；代理日志有 CONNECT/请求 = 经代理；两者皆无 = 失败。因果正对照：同一容器里一个已知遵守环境代理的客户端（curl）必须出现在代理日志里，证明代理与日志链有效；`no_proxy` 绕过对照 |
 | P4 | 宿主系统代理设置（GNOME `org.gnome.system.proxy`）被读取与否 | 容器里安装宿主的 dconf/gsettings 与 `glib-networking`，用 `gsettings` 写入手动代理，断言 WebView 外部请求的实际路径（直连/经代理），并记录 AppImage 的 GIO 模块目录。不预设必须生效 |
-| P5 | Go 更新器是否按环境代理访问非回环的 feed | 更新器（e2e 构建的 `UC_UPDATE_ENDPOINT` 覆盖）指向非回环主机名；代理日志与 feed 日志区分；回环 feed 在设置了代理时仍直连（Go 自带绕过）。仅覆盖环境变量机制 |
+| P5 | ~~Go 更新器是否按环境代理访问非回环的 feed~~ | **已失效**：应用内自动更新已整体移除，本条仅作历史记录 |
 | P6 | daemon 的 rendezvous HTTPS 请求是否按环境代理出站（只是 Engine 出站的一种，**不外推 iroh**） | 容器网络 `--internal`，`rendezvous.uniclipboard.app` 只解析到受控夹具或不可达；代理对该主机只记录 `CONNECT` 并返回受控错误，**不转发、不到生产服务**；不创建真实配对。触发方式见「触发与安全边界」 |
 | P7 | 代理不可达与恢复 | 代理停止 → 请求失败的形态（错误码、耗时、是否永久卡住）；代理恢复 → 新请求经代理。注意 reqwest 在构建客户端时读取环境，daemon 内是否重新读取是观察项 |
 | P8 | `NO_PROXY` 与大小写优先级的实际行为 | 记录各路径（Go、reqwest、WebView）对 `NO_PROXY`、`no_proxy`、`HTTP_PROXY`/`http_proxy` 同时存在时的实测结果，不假设一致 |
@@ -140,7 +140,7 @@ stage3 同一个包上的两个矩阵。页面自身的 HTTP 取数与 WebSocket
 
 边界：握手以 `unknown ca` 结束，只证明到达 TLS 握手阶段，不证明请求完成或代理成功；只证明 rendezvous 这一条 Engine 出站，iroh 其他出站另有结论，不外推。首轮 `p6-portable`（rc 1，探针把 HTTP 200 封装当错误）保留并有 `ATTRIBUTION.txt`。
 
-### P5：Go 更新器（`stage3/p5-portable-v2`，退出码 0）
+### P5：Go 更新器（`stage3/p5-portable-v2`，退出码 0）——已随自动更新移除，仅作历史记录
 
 入口是真实的 `check` 控制命令（手动检查的同一条代码路径，`update.NewHTTPClient()` = `ProxyFromEnvironment`），feed 是受控内部 HTTPS 目标 `update-feed.test`（Tauri 格式，宣告 `9999.0.0`，只检查不下载，下载与签名回归留在最终 P9 的隔离流程）。更新器使用自己的主机名和自己的代理日志窗口，不以 curl 或 WebView 替代。
 
@@ -384,7 +384,7 @@ GLib 默认解析器本身对同一组 PAC 的回答（`stage6/auth-semantics/pa
 
 **仍然开放（不由本切片声称完成）。** 原生 Wayland 后端、原生 amd64、deb/rpm、真实桌面快捷键与粘贴、macOS 与 Windows 代理对等、Tauri 退役；PAC 失败时 fail-open（404/语法）与永久持有的产品决定；更新器读取 GNOME 设置（目前只读环境变量，与 Tauri 更新器一致）。
 
-### 更新门禁（`e2e-portable`）：`final-2` 失败的归因与复验
+### 更新门禁（`e2e-portable`）：`final-2` 失败的归因与复验——已随自动更新移除，仅作历史记录
 
 - **原失败（保留，`final-2/e2e-portable`，rc 1，`passed=false`）**：`timeout waiting for update-relaunched`。`update-good.jsonl` 共 36 个状态全部 `installed=false`，进程与挂载点不断变化。
 - **因果（对照观测，非推测）**：`run_17c12.sh` 当时用 v1 包的 tar.gz 作为更新源（SHA-256 `c4b3355c…`，v1 清单 `updateMarker=false`），没有构建带标记的 v2。更新装入的 AppImage 与正在运行的相同，运行器等待一个不可能出现的标记。复验用 `package-appimage --update-marker v2-installed` 构建 v2（清单 `updateMarker=true`，AppImage `db69f769…`，tar.gz `b0eedaf7…`），更新源由它生成；**被测的运行包仍是同一个 v1 `3669e047…`**，产品源码未变。归因文件：`final-2-portable-gate/ATTRIBUTION.txt`。

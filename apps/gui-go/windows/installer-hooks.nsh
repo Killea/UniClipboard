@@ -6,8 +6,8 @@
 ;   as a detached process. A manual `setup.exe` run over a live install must
 ;   stop BOTH before file extraction, otherwise NSIS hits a file lock and raises
 ;   the "file in use — Abort/Retry/Ignore" dialog (aborting then freezes the
-;   installer). The in-app updater handles this via stop_daemon_before_update();
-;   a manual installer run bypasses that path entirely.
+;   installer). In-app process coordination (tray restart handoff) does this via
+;   stopDaemon; a manual installer run bypasses that path entirely.
 ;
 ; Two things must happen, in order:
 ;   1. Kill the GUI FIRST. It is the daemon's parent/supervisor; killing only
@@ -20,8 +20,8 @@
 ;      the file — so a fixed Sleep races. We poll the target until it opens for
 ;      write (or give up after ~10s and let NSIS surface a clear error).
 ;
-; Graceful, PID-identity-aware shutdown remains the in-app updater's job; the
-; installer can only match by image name and force-terminate.
+; Graceful, PID-identity-aware shutdown is the GUI lifecycle's job (stopDaemon);
+; the installer can only match by image name and force-terminate.
 
 ; UNIQ makes the internal labels unique per insertion — a label-bearing macro
 ; inserted more than once in the same script (PREINSTALL + PREUNINSTALL) would

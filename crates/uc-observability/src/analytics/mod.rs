@@ -29,12 +29,10 @@ pub use context::{
     EventContextInputs, InstallSource, Os,
 };
 pub use events::{
-    CaptureOrigin, DialogOpenSource, Direction, DismissSource, Event, FailureReason, InstallKind,
-    InvitationCodeSource, LatencyBucket, MobileAuthFailureKind, NameLengthBucket,
-    NotificationDeliveryStatus, PairingDiscoveryChannel, PairingFailureReason, PairingMethod,
-    PayloadSizeBucket, PayloadType, SetupEntry, SyncDeferReason, SyncDeferredProps, SyncEventProps,
-    SyncFailureStage, TransportType, UnlockFailureReason, UpdateAction, UpdateActionOutcome,
-    UpdateCheckOutcome, UpdateCheckSource, UpdateFailureKind, UpdatePhase,
+    CaptureOrigin, Direction, Event, FailureReason, InvitationCodeSource, LatencyBucket,
+    MobileAuthFailureKind, NameLengthBucket, PairingDiscoveryChannel, PairingFailureReason,
+    PairingMethod, PayloadSizeBucket, PayloadType, SetupEntry, SyncDeferReason, SyncDeferredProps,
+    SyncEventProps, SyncFailureStage, TransportType, UnlockFailureReason,
 };
 pub use facade::{
     AnalyticsFacade, DefaultAnalyticsFacade, NoopAnalyticsFacade, ResetIdentityError,

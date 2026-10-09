@@ -1,6 +1,5 @@
 //! Transport-facing daemon API modules.
 
-pub mod analytics;
 pub mod auth;
 pub mod blob;
 pub mod clipboard;

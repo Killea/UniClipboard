@@ -44,10 +44,9 @@ curl -fsSL https://raw.githubusercontent.com/UniClipboard/UniClipboard/main/scri
 ```
 
 <Callout type="info">
-  更新策略与下方各平台一致：`.deb` / `.rpm` 不会从 App
-  内更新器升级，请重跑安装脚本或走系统包管理器。 App 检测到这两种安装方式后，点 **检查更新**
-  会弹出对应的 `apt` / `dnf` 命令（含复制按钮），而不是尝试应用内安装。 AppImage（Linux）与
-  `.app`（macOS）仍由 App 内更新器接管。Windows 安装请参见下方 **Windows** 标签页。
+  本构建不含应用内自动更新，所有形态均通过重装新版升级：`.deb` / `.rpm`
+  请重跑安装脚本或走系统包管理器；AppImage（Linux）与 `.app`（macOS）
+  请到发布页下载新版替换。Windows 安装请参见下方 **Windows** 标签页。
 </Callout>
 
 ## 选择平台
@@ -118,9 +117,9 @@ Windows 提供两种形式：**安装版**（NSIS 安装包，推荐大多数人
 - **选对架构。** `arm64` 版用于 Surface Pro X 等 Windows on ARM 设备，`x64` 版用于常见的 Intel/AMD 电脑。
 
 <Callout type="info">
-  便携版**不会**应用内自更新（自更新走的 NSIS 安装器会装到 Program Files，与便携理念冲突）。升级时点
-  **检查更新** 会提示你去发布页下载新的 `*-portable.zip`，替换 `UniClipboard.exe` 即可，`data`
-  文件夹保留不动。便携版同样需要系统已安装 Microsoft Edge WebView2 Runtime（新版 Windows 已预装）。
+  便携版升级方式是手动替换：到发布页下载新的 `*-portable.zip`，解压替换
+  `UniClipboard.exe` 即可，`data` 文件夹保留不动。便携版同样需要系统已安装
+  Microsoft Edge WebView2 Runtime（新版 Windows 已预装）。
 </Callout>
 
 <Callout type="warn">
@@ -204,7 +203,7 @@ chmod +x UniClipboard_<version>_amd64.AppImage
 ./UniClipboard_<version>_amd64.AppImage
 ```
 
-AppImage 是 Linux 上 App 内更新器唯一支持的自更新格式 —— 走 COPR / Snap / dpkg 安装的版本不会通过应用内更新器升级，请用对应包管理器。
+AppImage 请下载新版文件手动替换升级；走 COPR / Snap / dpkg 安装的版本请用对应包管理器升级。
 
 ### 一次性手动安装单个 .deb / .rpm
 

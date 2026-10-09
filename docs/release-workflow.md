@@ -3,6 +3,8 @@
 本文档说明如何使用项目的版本管理和发布系统。
 
 > **当前状态：发布被阻塞。** 旧 Tauri 宿主已退役，Go/Wails 宿主的发布流水线（macOS 签名、公证与 dmg、更新签名 `.sig` 签署器、各平台安装包）尚未建立，`release.yml` 被有意阻塞。下文关于安装包、签名与渠道的描述是旧流水线的设计记录，在新流水线落地前不能据此发布。权威记录见 [`docs/architecture/gui-go-tauri-retirement.md`](architecture/gui-go-tauri-retirement.md)。版本号脚本仍然可用。
+>
+> **本维护分支**：应用内自动更新已整体移除——`workers/update-server`、`scripts/assemble-update-manifest.js`、`.github/workflows/mirror-desktop-gitcode.yml` 与所有更新签名/feed 设施均已删除；下文涉及它们的内容仅作历史记录。
 
 ## 版本管理脚本
 

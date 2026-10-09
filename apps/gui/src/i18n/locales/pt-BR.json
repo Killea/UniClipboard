@@ -212,7 +212,7 @@
       "security": "Gerencie o desbloqueio automático neste dispositivo.",
       "network": "Configure conexões, servidores de retransmissão e desempenho de transferência.",
       "storage": "Veja o uso de espaço e gerencie o histórico e o cache.",
-      "about": "Veja a versão do aplicativo, as atualizações e as informações do projeto."
+      "about": "Veja a versão do aplicativo e as informações do projeto."
     },
     "sectionHeadings": {
       "syncBehavior": "Comportamento da sincronização",

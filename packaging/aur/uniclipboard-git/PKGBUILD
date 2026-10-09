@@ -73,16 +73,14 @@ build() {
   (cd packages/desktop-host-go && go generate ./buildinfo)
   bun --bun run --cwd apps/gui-go build
 
-  # Product name, identifier and updater key come from app.json. The identifier keys the
-  # single-instance scope, login item and notifications, so it must match the other packages. The
-  # update key is baked in like in every build, but a package-manager install never replaces itself.
-  local root="$PWD" product identifier pubkey
+  # Product name and identifier come from app.json. The identifier keys the
+  # single-instance scope, login item and notifications, so it must match the other packages.
+  local root="$PWD" product identifier
   product="$(jq -r .productName apps/gui-go/app.json)"
   identifier="$(jq -r .identifier apps/gui-go/app.json)"
-  pubkey="$(jq -r .updater.pubkey apps/gui-go/app.json)"
   (cd apps/gui-go && go build -tags gtk3,production,release \
       -trimpath -buildvcs=false -mod=readonly -modcacherw \
-      -ldflags "-w -s -X main.updaterPublicKey=$pubkey -X main.productName=$product -X main.bundleID=$identifier" \
+      -ldflags "-w -s -X main.productName=$product -X main.bundleID=$identifier" \
       -o "$root/target/release/$_pkgname" .)
 }
 

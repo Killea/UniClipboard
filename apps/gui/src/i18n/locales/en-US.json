@@ -212,7 +212,7 @@
       "security": "Manage automatic unlocking on this device.",
       "network": "Configure connections, relay servers, and transfer performance.",
       "storage": "Check space usage and manage history and caches.",
-      "about": "View the app version, updates, and project information."
+      "about": "View the app version and project information."
     },
     "sectionHeadings": {
       "syncBehavior": "Sync behavior",

@@ -41,8 +41,8 @@
 | F5 | daemon 不是真实 release 产物或与 GUI 版本不匹配（GUI 对 daemon 版本做握手） | 记录来源证据；启动后 `daemon.conn` 的 pid 的 `/proc/<pid>/exe` 位于挂载内，其 SHA-256 等于 `build-evidence.txt`；GUI 到 daemon 的 HTTP/WS 握手成功（`panelReady`） |
 | F6 | `cd "$APPDIR/usr"` 破坏相对路径语义 | 已核对事实：GUI 唯一消费的参数是 quick-panel 启动标志（`main.go` 的 `hasArg`）与自启动的 `--autostart`，没有文件参数、没有 deep link/URL 处理，桌面入口里的 `%U` 无消费者。因此没有需要保留的相对路径语义，AppRun 不导出原工作目录（没有消费者的变量不加）；将来若加文件关联，必须在那时设计原目录传递 |
 | F7 | 自启动条目指向临时挂载路径，或旧 Tauri 条目与新条目并存 | 真实 AppImage 内 `update_autostart(true)`：`Exec=` 必须等于 `$APPIMAGE` 且不在 `/tmp/.mount_*`；预置 Tauri 风格旧条目被清除；禁用后条目消失 |
-| F8 | 更新验证链：未受信任签名被安装 | 复用 17c3 的 fixture 密钥：不受信任签名的下载必须被拒绝，AppImage 文件字节不变 |
-| F9 | 更新后文件被替换但重启仍运行旧映像，或旧 daemon 残留 | 更新后新进程的 `/proc/<pid>/exe` 在新映像挂载内、`$APPIMAGE` 文件的 SHA-256 等于 v2、旧 daemon pid 已退出 |
+| F8 | 更新验证链：未受信任签名被安装 | **已失效**：应用内自动更新整体移除（`internal/update` 已删除），本条不再适用 |
+| F9 | 更新后文件被替换但重启仍运行旧映像，或旧 daemon 残留 | **已失效**：同上，随自动更新移除 |
 | F10 | 重建 deb/rpm 丢失 17c2 加入的 `libgtk-layer-shell` 依赖，或 rpm 触发 build-id 冲突 | `dpkg-deb -I` / `rpm -qpR` 读取依赖；`rpmbuild` 无 build-id 报错并检查 `rpm -qp --list` |
 | F11 | 把 e2e 标签二进制的 E2E 结果说成 release 构建的证明 | 打包 E2E 用 `gtk3,e2e` 二进制装入同一套 AppImage 管线；release 标签包另做 **无控制面** 的启动冒烟（窗口出现、daemon 存活、进程持续存活、日志无致命错误），两者在文档中分开陈述 |
 | F12 | 用合成文本或 stub 当 AppImage/daemon | 所有 E2E 输入是 `package_linux.py` 的真实输出；daemon 的 ELF 检查与 SHA 对照 build 证据；脚本拒绝 `--packaging-check-fixture` 产物 |
@@ -58,7 +58,7 @@
 1. `clean-host`：`ldconfig -p` 中没有 `libwebkit2gtk-4.1`、`libgtk-3`。
 2. `launch`：用隔离临时 HOME、`UC_PORTABLE=1`、file keystore、`UC_DISABLE_SYSTEM_CLIPBOARD=1` 启动 AppImage；断言 `panelReady`、辅助进程与 daemon 的映像归属、daemon SHA。
 3. `autostart`：F7 的三项断言；分别用 `release+e2e` 构建（release-no-profile：没有 `UC_PROFILE`，条目名是产品名 `UniClipboard.desktop`）与带 `UC_PORTABLE=1` 的运行；**非 portable 数据根** 需要 Secret Service，而 gnome-keyring 会把 GTK 拖进宿主，故先在干净宿主里直接观察 daemon 在无 Secret Service 时的表现，结果写入「验证结果」；若 daemon 不能启动，非 portable 数据根保持 OPEN 并给出该原因
-4. `update-bad` / `update-good`：F8、F9；v2 AppImage 与 v1 由同一管线构建，v2 多一个 e2e 专用标记文件，签名用 `e2e/updatetool` 的隔离 fixture 私钥，feed 是本地 HTTP 服务。
+4. ~~`update-bad` / `update-good`~~：已随应用内自动更新移除，脚本中不再有该场景。
 5. `negative-control`：对照包（无重定位）在同一环境必须启动失败。
 
 产物目录：`/Users/mark/.herdr-projects/uni/t-0188-artifacts/linux-17c4/`，仓库只索引。

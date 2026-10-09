@@ -20,11 +20,10 @@ use uc_daemon_contract::api::auth::DaemonConnectionInfo;
 
 pub use connection::DaemonConnectionState;
 pub use http::{
-    DaemonAnalyticsClient, DaemonClipboardClient, DaemonConfigClient, DaemonDiagnosticsClient,
-    DaemonLifecycleClient, DaemonMemberClient, DaemonMobileSyncClient, DaemonPairingClient,
-    DaemonPairingRequestError, DaemonQueryClient, DaemonRequestError, DaemonSearchClient,
-    DaemonSettingsClient, DaemonSetupV2Client, DaemonUpgradeClient, ExchangedSessionToken,
-    SearchQueryRequest,
+    DaemonClipboardClient, DaemonConfigClient, DaemonDiagnosticsClient, DaemonLifecycleClient,
+    DaemonMemberClient, DaemonMobileSyncClient, DaemonPairingClient, DaemonPairingRequestError,
+    DaemonQueryClient, DaemonRequestError, DaemonSearchClient, DaemonSettingsClient,
+    DaemonSetupV2Client, DaemonUpgradeClient, ExchangedSessionToken, SearchQueryRequest,
 };
 pub use http_ws_service::HttpWsDaemonService;
 pub use service::{ControlLeaseGuard, DaemonService, FileExport, InboundActivityEvent};

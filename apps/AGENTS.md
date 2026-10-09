@@ -8,7 +8,7 @@
 | `daemon/` | `uc-daemon` | `uniclipd` | （暂无；遵循 workspace 规则） |
 | `quick-panel/` | `quick-panel` | GPUI 快捷面板（macOS 随安装包发布，可执行文件 `uniclip-quick-panel`） | `README.md` |
 | `android-probe/`、`ios-probe/`、`ohos-probe/` | - | 移动端验收宿主应用（非 Rust） | 不发布；**当前不可构建**：它们依赖已移出本仓的 `uc-mobile-probe-core` 与 `uc-ohos-napi`（`scripts/architecture/check-engine-repository.mjs` 禁止其回到本仓），处置待定 |
-| `gui-go/` | Go 模块 `github.com/UniClipboard/UniClipboard/apps/gui-go` | 桌面 GUI 宿主（Go/Wails），目前唯一的桌面宿主；应用标识、版本与更新公钥的唯一来源是 `apps/gui-go/app.json` | `apps/gui-go/AGENTS.md` |
+| `gui-go/` | Go 模块 `github.com/UniClipboard/UniClipboard/apps/gui-go` | 桌面 GUI 宿主（Go/Wails），目前唯一的桌面宿主；应用标识与版本的唯一来源是 `apps/gui-go/app.json` | `apps/gui-go/AGENTS.md` |
 | `gui/` | `uniclipboard-gui`（前端，JS） | 桌面 GUI 的共享 React 前端源码（`src/`）、测试与设计规范；随包产物由 `apps/gui-go/vite.config.ts` 构建 | `apps/gui/src/AGENTS.md` |
 
 桌面宿主（窗口、托盘、打包）在 `apps/gui-go/`；共享 React 前端源码在 `apps/gui/src`，测试用 `bun run test`，类型检查用 `bun run typecheck`。开发运行用仓库根的 `bun wails:dev`；本地 macOS 构建与打包用 `apps/gui-go/build.sh`。仓库根的 `package.json` 只是 bun workspace 根和命令转发入口，GUI 依赖与脚本以 `apps/gui/package.json` 为准。旧 Tauri 宿主已退役，记录见 `docs/architecture/gui-go-tauri-retirement.md`。

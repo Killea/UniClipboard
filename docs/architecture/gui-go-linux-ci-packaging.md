@@ -128,26 +128,8 @@ PR #1920（Windows 打包）修改 `build.yml` 的：`workflow_dispatch`/`workfl
 
 ## 已安装包的更新提示补充验收
 
-`apps/gui-go/e2e/linux/package_update_check.sh` 在一次性 Ubuntu / Fedora 容器安装
-带 `gtk3,production,release,e2e` 控制面的真实 deb / rpm，通过原生 WebView 完成初始化、
-关闭遥测提示、进入设置并点击检查更新。它要求宿主查询返回 `deb` / `rpm`，前端提示的
-apt / dnf 命令使用真实包名 `uniclipboard`，并记录截图、包数据库归属、工件及已安装
-可执行文件的哈希、GUI 和 daemon 日志。通知通过 GUI 发起并由私有 D-Bus 接收器记录；
-这不证明真实桌面通知的展示。运行依赖现有真实应用镜像与 Secret Service 镜像。
-
-更新 feed 只监听容器 loopback，公钥使用 E2E 更新工具产生的公开夹具；不下载或安装系统包更新。
-普通发布包没有测试控制面，不能用于这项自动化。可先用现有 `package_linux.py --gui-binary`
-将 E2E 宿主和来源可验证的 release daemon 打成测试包。
-
-```bash
-apps/gui-go/e2e/linux/package_update_check.sh \
-  deb /absolute/path/E2E-UniClipboard_version_arm64.deb \
-  /absolute/path/fixture-pubkey.b64 /absolute/path/new-evidence
-```
-
-当前补充脚本固定使用原生 arm64 Docker 平台，Ubuntu / Fedora 容器不等于物理 rpm 宿主。
-AppImage 完整验收则在原位更新前保持自启动启用，替换后核对条目和执行 `Exec`；
-手动执行该命令不等于真实登录管理器读取自启动条目。
+已随应用内自动更新整体移除：`package_update_check.sh` 与其依赖的更新 feed、
+fixture 公钥与 e2e 控制面更新命令均已删除。
 
 ## 手动 deb/rpm 包身份迁移
 

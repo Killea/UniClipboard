@@ -6,6 +6,8 @@
 - **相关文档**：`docs/release-workflow.md`、`.github/workflows/release.yml`、`scripts/assemble-update-manifest.js`
 
 > 2026-08-20 起，本文记录的 R2 可变清单与旧 Worker 拼接方案不再是现行架构。FlareRelease 以 D1 保存 Release、Channel、发布说明和不可变客户端响应，并通过原有 `release.uniclipboard.app` 地址提供兼容结果。Desktop CI 只上传不可变安装包并登记 Ready Release；只有显式 Promote 才能改变 Channel。旧 Worker 代码仅在生产验证后的约定回滚窗口内保留，窗口结束后删除。
+>
+> 本维护分支（hank_dev）已整体移除应用内自动更新：本文涉及的 updater endpoint、manifest、`.sig` 签名链与 feed 设施均已删除，仅作历史记录保留。
 
 ## 1. 背景
 

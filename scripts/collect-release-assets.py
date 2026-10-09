@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Collect named distributables only; reject collisions instead of renaming them.
 
-Packaging evidence, raw executables and pre-existing updater signatures stay out.
-The updater signer runs after this collector, over the final published bytes.
+Packaging evidence and raw executables stay out; only the named distributables
+are collected.
 """
 import argparse
 from pathlib import Path

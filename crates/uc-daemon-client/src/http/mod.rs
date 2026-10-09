@@ -1,4 +1,3 @@
-pub mod analytics;
 pub mod clipboard;
 pub mod config;
 pub mod diagnostics;
@@ -13,7 +12,6 @@ pub mod settings;
 pub mod setup_v2;
 pub mod upgrade;
 
-pub use analytics::DaemonAnalyticsClient;
 pub use clipboard::DaemonClipboardClient;
 pub use config::DaemonConfigClient;
 pub use diagnostics::DaemonDiagnosticsClient;

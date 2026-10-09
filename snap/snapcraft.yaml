@@ -149,9 +149,8 @@ parts:
       # single source: the identifier keys the single-instance scope and notifications).
       PRODUCT="$(jq -r .productName apps/gui-go/app.json)"
       IDENTIFIER="$(jq -r .identifier apps/gui-go/app.json)"
-      PUBKEY="$(jq -r .updater.pubkey apps/gui-go/app.json)"
       (cd apps/gui-go && CGO_ENABLED=1 go build -tags gtk3,production,release -trimpath -buildvcs=false \
-        -ldflags "-w -s -X main.updaterPublicKey=${PUBKEY} -X main.productName=${PRODUCT} -X main.bundleID=${IDENTIFIER}" \
+        -ldflags "-w -s -X main.productName=${PRODUCT} -X main.bundleID=${IDENTIFIER}" \
         -o ../../target/release/uniclipboard .)
 
       # 4) Install into the snap. A strict snap mounts this tree at /usr, so paths start with usr/.

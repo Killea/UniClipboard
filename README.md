@@ -173,7 +173,7 @@ curl -fsSL https://raw.githubusercontent.com/UniClipboard/UniClipboard/main/scri
 curl -fsSL https://raw.githubusercontent.com/UniClipboard/UniClipboard/main/scripts/uninstall.sh | bash -s -- --dry-run
 ```
 
-> Update behavior matches the manual download paths below: `.deb` / `.rpm` / COPR / Snap installs are updated by your system package manager, not the in-app updater. AppImage on Linux and `.app` on macOS update from inside the app.
+> All installs are upgraded by reinstalling a newer build: `.deb` / `.rpm` / COPR / Snap packages update through your system package manager, and AppImage / `.app` / portable builds update by downloading and installing the newer release manually. This build has no in-app auto-updater.
 
 ### Linux
 
