@@ -16,7 +16,7 @@
 //! excluded so the committed artifact is build-profile-independent.
 //!
 //! Path resolution is ROBUST: the repo root is derived from `CARGO_MANIFEST_DIR`
-//! (= .../src-tauri/crates/uc-webserver), NOT the current working directory, so
+//! (= .../crates/uc-webserver), NOT the current working directory, so
 //! it works no matter where `cargo` is invoked from.
 //!
 //! Run: `cargo run -p uc-webserver --bin gen-openapi`
@@ -65,9 +65,17 @@ use uc_webserver::api::openapi::ApiDoc;
 /// Passphrase changes add one path and operation: 79 / 88.
 /// Daemon-owned CLI file dispatch adds one path and operation: 80 / 89.
 /// Profile recovery adds one path and operation: 81 / 90. Engine-owned custom
-/// relay query/mutation share one path: 82 / 92.
-const EXPECTED_PATHS: usize = 82;
-const EXPECTED_OPERATIONS: usize = 92;
+/// relay query/mutation share one path: 82 / 92. The daemon-owned content lock adds four
+/// paths and four operations (status, unlock, unlock-keyring, revoke): 86 / 96. The relay overview adds one path and
+/// operation: 87 / 97.
+/// t-0171 added `POST /lifecycle/graceful-stop` (caller-requested orderly
+/// shutdown, any residency — distinct from the Oneshot-only controlled
+/// restart): +1 path, +1 operation → 88 / 98.
+/// Batch search counting adds one path and operation: 89 / 99.
+/// Local history tags add six paths and eight operations: 95 / 107.
+/// The tag layout adds four paths and four operations: 99 / 111.
+const EXPECTED_PATHS: usize = 99;
+const EXPECTED_OPERATIONS: usize = 111;
 const SCHEMA_PREFIX: &str = "#/components/schemas/";
 const HTTP_METHODS: [&str; 7] = ["get", "put", "post", "delete", "patch", "head", "options"];
 

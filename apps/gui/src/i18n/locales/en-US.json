@@ -1,0 +1,2712 @@
+{
+  "profileRecovery": {
+    "restartRequired": "Background services could not start. Restart them to continue recovery. Your data is preserved; contact the author if this happens again.",
+    "restart": "Restart background services",
+    "title": "Recover local data",
+    "description": "The saved system key is missing or unusable. Enter your original encryption passphrase to recover. History, clipboard monitoring and device sync are unavailable until recovery completes.",
+    "submit": "Recover and continue",
+    "recovering": "Recovering…",
+    "partial": "Some original keys are missing. Your passphrase may not recover local history or device identity. Keep your data, do not reset, and contact the author for help.",
+    "unsupported": "This version cannot read the recovery data. Keep your original files and update the app or contact the author.",
+    "persistenceFailed": "Recovered keys could not be saved. Check free disk space and system keychain permissions, then retry. Do not delete your original data.",
+    "corrupt": "Recovery data could not be read. Keep your original files and backups, and contact the author.",
+    "failed": "Recovery did not complete. Retry; if it still fails, keep your original data and contact the author.",
+    "help": "An incorrect passphrase will not delete data. If you forgot it or recovery fails, contact mkdir700@gmail.com or open a GitHub issue before clearing any data."
+  },
+  "omarchyTheme": {
+    "title": "Follow Omarchy theme",
+    "description": "Omarchy controls light and dark mode and theme colors.",
+    "unavailable": "Omarchy is unavailable. Using your saved app theme."
+  },
+  "startupFailure": {
+    "unavailable": "Startup interrupted",
+    "title": "Unable to start right now",
+    "description": "The background service could not be reached. The app is temporarily unavailable.",
+    "updateTitle": "An app update is needed",
+    "updateDescription": "A newer version is running in the background. Update this app to continue.",
+    "retry": "Retry",
+    "retrying": "Retrying…",
+    "export": "Export logs",
+    "exporting": "Exporting…",
+    "contact": "Contact author",
+    "update": "Open updater",
+    "details": "Error details",
+    "exported": "Logs saved to: {{path}}",
+    "exportFailed": "Could not export logs. Check the save location and available space, then try again.",
+    "contactFailed": "Could not open the support page. Contact address:",
+    "updateFailed": "Could not complete the update check. Please try again later.",
+    "contactOpened": "The support page is open in your browser."
+  },
+  "appearanceLayout": {
+    "effectsHelp": "Balance visual effects and performance.",
+    "scaleHelp": "Adjust the size of text and interface elements.",
+    "themeHelp": {
+      "system": "Automatically switch between light and dark with your system.",
+      "light": "Always use a light appearance.",
+      "dark": "Always use a dark appearance."
+    },
+    "lightPalette": "Light colors",
+    "darkPalette": "Dark colors",
+    "theme": "Theme",
+    "palette": "Colors",
+    "effects": "Visual effects",
+    "display": "Display",
+    "customColors": "Custom colors",
+    "preview": "Current theme preview",
+    "zoomIn": "Zoom in",
+    "zoomOut": "Zoom out",
+    "saveFailed": "Could not save the change. Please try again."
+  },
+  "smoothMode": {
+    "title": "Smooth Mode",
+    "auto": "Auto",
+    "effects": "Effects first",
+    "smooth": "Smooth first",
+    "currentSmooth": "Currently using reduced effects",
+    "currentEffects": "Currently prioritizing effects",
+    "notSaved": "Applied for this session, but could not save. Restarting may restore the previous choice.",
+    "unavailable": "Unable to read or save appearance preferences. Please try again.",
+    "reason": {
+      "manual": "Using your selection.",
+      "system": "Respecting reduced motion, including when the system preference is unavailable.",
+      "platform_default": "Auto uses reduced effects on Linux.",
+      "hardware": "Selected for this device.",
+      "unknown": "Device capability is unconfirmed; using reduced effects.",
+      "runtime": "Selected from previous runtime performance."
+    }
+  },
+  "deviceTrust": {
+    "presentation": {
+      "localRemovalTitle": "{{actor}} wants to remove this device",
+      "leave": "Leave the device group",
+      "keep": "Keep existing devices",
+      "leaveEffect": "Stop syncing with all devices.",
+      "keepEffect": "Keep existing devices. Sync with {{names}} will pause.",
+      "showDevices": "View devices",
+      "hideDevices": "Hide devices",
+      "scope": "Expected sync scope: {{names}}.",
+      "title": "Choose a device group for {{name}}",
+      "local": "This device: {{name}}",
+      "localMember": "{{name}} (this device)",
+      "unnamed": "Unnamed device",
+      "members": "Group members",
+      "membersUnknown": "Member details are incomplete",
+      "impactUnknown": "Details about this choice's effects are incomplete.",
+      "detailsIncomplete": "Some change details are unavailable.",
+      "paused": "Sync with {{names}} will pause.",
+      "rejoin": "{{names}} must join again to sync within the selected group.",
+      "waiting": "Waiting for {{names}} to confirm.",
+      "removed": "{{actor}} proposed removing {{target}}.",
+      "added": "{{actor}} added {{target}}.",
+      "accepted": "{{actor}} accepted removing {{target}}.",
+      "rejected": "{{actor}} rejected removing {{target}}.",
+      "reason": {
+        "unknown": "The device groups differ. There is not enough information to explain why.",
+        "pending_removal": "A device removal needs your decision.",
+        "different_removals": "The two sides removed different devices.",
+        "removal_decision_disagreement": "The two sides made different decisions about the same removal.",
+        "diverged_history": "The two sides recorded different device group changes."
+      },
+      "select": "Choose a device group",
+      "back": "Back to choices",
+      "retry": "Check again",
+      "processing": "Submitting your choice",
+      "checking": "Checking the result",
+      "pending": "Your choice was received and is still being processed.",
+      "completed": "Device group updated",
+      "next": "Continue",
+      "done": "Done",
+      "more": "The previous choice is complete. {{count}} more need your decision.",
+      "uncertain": "The result could not be confirmed. Please check again.",
+      "changed": "The choices changed. Please review them again.",
+      "loading": "Checking device relationships",
+      "loadFailed": "Device relationships could not be loaded. Please retry."
+    },
+    "listSeparator": ", ",
+    "notification": {
+      "title": "Review device relationship",
+      "decision": "Your device group changed. Open UniClipboard to decide what to do.",
+      "status": "A device sync relationship changed. Open UniClipboard to review it."
+    },
+    "modal": {
+      "title": "Choose which devices to keep syncing with",
+      "summary": "{{proposer}} wants to remove {{targets}}",
+      "localSummary": "{{proposer}} wants to remove this device",
+      "groupConflictSummary": "These devices report different groups. Choose which group this device should use.",
+      "issueProgress": "Decision {{current}} of {{total}}",
+      "applyTitle": "Accept this removal",
+      "keepTitle": "Decline and keep the original devices",
+      "leaveTitle": "Leave the device group",
+      "stayTitle": "Stay in the current device group",
+      "useGroupTitle": "Use this device group",
+      "continueSyncing": "Keep syncing",
+      "stopSyncing": "Stop syncing",
+      "noDevices": "None",
+      "confirmLocalRemoval": "This removes this device from the space and stops syncing here. Confirm again to continue.",
+      "requiresRePairing": "Devices outside this group will need to pair again.",
+      "membersIncomplete": "This group may contain devices that are not shown here.",
+      "stateChanged": "The device state changed. The latest situation is now shown.",
+      "choicePending": "Your choice is saved and is still being completed.",
+      "rePairingRequired": "The group changed. Affected devices need to be paired again.",
+      "failed": "Your choice could not be saved. Check the background service and try again."
+    },
+    "actions": {
+      "confirm": "Confirm",
+      "back": "Back",
+      "keep": "Keep current space",
+      "apply": "Also remove the target device",
+      "exit": "Leave this space",
+      "confirmKeep": "Keep separate spaces",
+      "confirmExit": "Confirm leaving"
+    },
+    "status": {
+      "diverged": "Different space",
+      "upgrade": "Update required",
+      "unverifiable": "Device details cannot be verified",
+      "pending": "Device change needs review",
+      "awaitingPeerConfirmation": "Pairing complete, waiting for peer confirmation",
+      "unconfirmed": "Pairing complete, but not confirmed"
+    }
+  },
+  "common": {
+    "notifications": "Notifications",
+    "dismissNotification": "Dismiss toast",
+    "loading": "Loading...",
+    "unknownSize": "Unknown size",
+    "zeroBytes": "0 Bytes"
+  },
+  "loading": {
+    "initializing": "Initializing...",
+    "error_title": "Initialization Failed",
+    "timeout_error": "Initialization timeout. Please restart the application."
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "history": "History",
+    "devices": "Devices",
+    "settings": "Settings",
+    "updateAvailable": "Update available",
+    "updateDownloading": "Downloading update...",
+    "updateDownloadingWithProgress": "Downloading update... {{percent}}%",
+    "updateInstalling": "Installing update...",
+    "updateReady": "Update ready to install",
+    "back": "Back",
+    "feedback": "Feedback",
+    "collapseSidebar": "Collapse sidebar",
+    "expandSidebar": "Expand sidebar"
+  },
+  "debugBadge": {
+    "title": "Debug mode is on",
+    "description": "Local logs are more detailed and can grow faster.",
+    "restartHint": "Turn it off and restart the app or daemon to fully return to normal logging.",
+    "disable": "Turn off Debug mode",
+    "disabledToast": "Debug mode turned off. Restart to fully return to normal logging.",
+    "disableFailed": "Failed to turn off Debug mode"
+  },
+  "update": {
+    "title": "Update available",
+    "currentVersion": "Current version",
+    "latestVersion": "Latest version",
+    "releaseNotes": "Release notes",
+    "noNotes": "No release notes provided.",
+    "updateNow": "Update now",
+    "installNow": "Install now",
+    "downloadInBackground": "Download in background",
+    "cancelDownload": "Cancel download",
+    "cancelling": "Cancelling...",
+    "readyHint": "Update downloaded. Click Install now to apply and restart.",
+    "later": "Later",
+    "noUpdate": "You're already on the latest version.",
+    "checkFailed": "Failed to check for updates.",
+    "installFailed": "Update failed. Please try again.",
+    "downloadFailed": "Background download failed. Please try again.",
+    "downloading": "Downloading...",
+    "installing": "Installing...",
+    "packageManager": {
+      "title": "Please upgrade via your package manager",
+      "portableTitle": "Please download the new portable version",
+      "debHint": "UniClipboard was installed via apt (Debian/Ubuntu). Run this in a terminal to upgrade:",
+      "rpmHint": "UniClipboard was installed via dnf/yum (Fedora/RHEL). Run this in a terminal to upgrade:",
+      "portableHint": "You're running the portable build. It doesn't update in place — download the new portable zip from the release page and replace the executable (your data folder stays untouched).",
+      "debCommand": "sudo apt update && sudo apt install --only-upgrade uniclipboard",
+      "rpmCommand": "sudo dnf upgrade uniclipboard",
+      "copyCommand": "Copy command",
+      "copied": "Copied",
+      "openReleasePage": "Open release page",
+      "ok": "Got it"
+    }
+  },
+  "updater": {
+    "window": {
+      "title": "A new version of UniClipboard is available!",
+      "subtitle": "{{app}} {{version}} is now available—you have {{currentVersion}}. Would you like to download it now?",
+      "readySubtitle": "{{app}} {{version}} has been downloaded and is ready to install.",
+      "skipThisVersion": "Skip This Version",
+      "remindMeLater": "Remind Me Later",
+      "downloadUpdate": "Download Update",
+      "checking": "Checking for the latest version…",
+      "autoUpdate": "Automatically download updates in the future",
+      "upToDateTitle": "You're up to date!",
+      "upToDateBody": "You're already running the latest version of UniClipboard.",
+      "close": "Close"
+    }
+  },
+  "rePairingNotice": {
+    "title": "Re-pair your devices",
+    "body": "This version updates the device pairing scheme. Your previous pairings can no longer sync. Please open Devices to invite or re-join the other device.",
+    "goToDevices": "Open device management",
+    "dontShowAgain": "Don't show again"
+  },
+  "settings": {
+    "pageDescriptions": {
+      "general": "Configure startup, language, sound, and diagnostics.",
+      "appearance": "Adjust your theme, colors, and display.",
+      "shortcuts": "Customize keyboard shortcuts for common actions.",
+      "quickPanel": "Choose how to open and position the quick panel.",
+      "sync": "Manage clipboard and file synchronization.",
+      "security": "Manage automatic unlocking on this device.",
+      "network": "Configure connections, relay servers, and transfer performance.",
+      "storage": "Check space usage and manage history and caches.",
+      "about": "View the app version, updates, and project information."
+    },
+    "sectionHeadings": {
+      "syncBehavior": "Sync behavior",
+      "historyRetention": "History retention"
+    },
+    "title": "Settings",
+    "restartBanner": {
+      "restartButton": "Restart now",
+      "restartingButton": "Restarting…",
+      "successMessage": "Restart complete",
+      "dismissAriaLabel": "Dismiss restart notice",
+      "errorMessage": "Automatic restart failed. Please quit the app manually and reopen it to apply the change.",
+      "retryButton": "Retry"
+    },
+    "categories": {
+      "general": "General",
+      "appearance": "Appearance",
+      "sync": "Sync",
+      "security": "Security & Privacy",
+      "network": "Network",
+      "storage": "Storage",
+      "about": "About",
+      "shortcuts": "Shortcuts",
+      "quickPanel": "Quick Panel"
+    },
+    "sections": {
+      "general": {
+        "title": "General",
+        "startupTitle": "Startup",
+        "saveError": "Failed to save setting",
+        "deviceName": {
+          "label": "Device Name",
+          "description": "Distinguish this device from your other devices.",
+          "placeholder": "Enter device name"
+        },
+        "autoStart": {
+          "label": "Launch at startup",
+          "description": "Start UniClipboard when the system boots"
+        },
+        "startupMode": {
+          "summaries": {
+            "normal": "Show the app window on startup.",
+            "silent": "Run in the background without opening a window.",
+            "lightweight": "On login, keep only background sync running. Reopen the interface when needed."
+          },
+          "label": "Startup mode",
+          "description": "Silent skips the window and runs straight in the background. Lightweight goes further — once sync is ready it exits the window and tray too, keeping just the background service and sending a notification; click the app icon again to reopen the window.",
+          "options": {
+            "normal": "Normal",
+            "silent": "Silent",
+            "lightweight": "Lightweight"
+          }
+        },
+        "restoreLastEntryOnStartup": {
+          "label": "Restore clipboard on startup",
+          "description": "Put the most recent history entry back on the clipboard."
+        },
+        "language": {
+          "title": "Language",
+          "label": "UI language",
+          "description": "Takes effect immediately"
+        },
+        "sound": {
+          "title": "Sound",
+          "label": "Interaction sound feedback",
+          "description": "Play light cues for state changes, menu selection, and successful actions"
+        },
+        "telemetry": {
+          "title": "Privacy",
+          "diagnostics": {
+            "label": "Send diagnostics",
+            "description": "Send crashes, errors, and anonymous logs. Clipboard content is never collected."
+          },
+          "usageAnalytics": {
+            "label": "Send usage analytics",
+            "description": "Send anonymous feature usage statistics to improve the product. Clipboard content is never collected."
+          },
+          "notice": {
+            "title": "Help improve UniClipboard",
+            "body": "UniClipboard collects anonymous diagnostics and usage data to help improve the app. Your clipboard content is never collected or transmitted. You can change these choices anytime in Settings > General > Privacy.",
+            "accept": "OK",
+            "optOut": "Disable"
+          }
+        },
+        "logsDirectory": {
+          "title": "Logs",
+          "label": "Log directory",
+          "description": "Open the folder where application logs are stored",
+          "button": "Open in file manager"
+        },
+        "logs": {
+          "capture": {
+            "label": "Capture detailed logs",
+            "tooltip": "About {{minutes}} minutes remaining. You can turn this off manually.",
+            "loading": "Checking log recording status…",
+            "standard": "Record detailed logs temporarily. Stops automatically after 10 minutes.",
+            "active": "Recording detailed logs. Stops automatically in about {{minutes}} minutes.",
+            "unavailable": "Background service diagnostics are unavailable.",
+            "error": "Failed to change detailed capture"
+          },
+          "debug": {
+            "label": "Debug mode",
+            "description": "Increase local diagnostic log detail after the app and daemon are restarted.",
+            "confirmTitle": "Enable Debug mode?",
+            "confirmDescription": "Debug mode increases local log volume and may include more runtime context. Clipboard content should still not be actively logged. Confirming will immediately restart the app and daemon to apply the change. Turn it off when no longer needed and restart the app or daemon to return fully to normal logging.",
+            "confirm": "Enable & Restart",
+            "cancel": "Cancel",
+            "restartToast": "Restart the app or daemon for the logging change to fully take effect.",
+            "error": "Failed to change Debug mode",
+            "restartingTitle": "Restarting…",
+            "restartingDescription": "Restarting the app and background daemon to apply Debug mode. Please wait and do not close this window."
+          },
+          "export": {
+            "label": "Export logs",
+            "description": "Create a ZIP with recent app and Engine diagnostics plus a coverage report in Downloads.",
+            "button": "Export logs",
+            "exporting": "Exporting...",
+            "success": "Logs exported",
+            "offlineSuccess": "The background service was unavailable. Existing logs were exported without a live flush confirmation.",
+            "partialSuccess": "The package was exported with incomplete refresh or file coverage. See its manifest for details.",
+            "error": "Failed to export logs",
+            "copyPath": "Copy path",
+            "copySuccess": "Export path copied",
+            "copyError": "Failed to copy export path"
+          }
+        }
+      },
+      "appearance": {
+        "title": "Appearance",
+        "themeMode": {
+          "title": "Appearance",
+          "light": "Light",
+          "dark": "Dark",
+          "system": "System"
+        },
+        "themeColor": {
+          "title": "Theme color"
+        },
+        "themePreview": {
+          "title": "Theme",
+          "lightLabel": "Light",
+          "darkLabel": "Dark",
+          "followSystem": "Follow system",
+          "setAsLight": "Switch to light",
+          "setAsDark": "Switch to dark",
+          "currentLight": "Light",
+          "currentDark": "Dark"
+        },
+        "lightTheme": {
+          "title": "Light theme",
+          "preset": "Preset",
+          "accent": "Accent",
+          "background": "Background",
+          "foreground": "Foreground",
+          "border": "Border"
+        },
+        "darkTheme": {
+          "title": "Dark theme",
+          "preset": "Preset",
+          "accent": "Accent",
+          "background": "Background",
+          "foreground": "Foreground",
+          "border": "Border"
+        },
+        "tokenPicker": {
+          "openPicker": "Pick color",
+          "reset": "Reset to preset",
+          "modified": "Custom",
+          "hexInputLabel": "Hex color value"
+        },
+        "windowFrame": {
+          "title": "Window title bar",
+          "description": "Automatic hides the title bar on niri and Hyprland. Your selection applies to this device, including during startup.",
+          "auto": "Automatic",
+          "custom": "App title bar",
+          "system": "System title bar",
+          "none": "No title bar"
+        },
+        "zoom": {
+          "title": "Interface Scale",
+          "description": "Scale applies to both the main window and quick panel, and stays in sync with the shortcuts.",
+          "current": "Current scale: {{value}}",
+          "reset": "Reset to 100%"
+        }
+      },
+      "sync": {
+        "title": "Sync",
+        "syncEnabled": {
+          "label": "Enable sync",
+          "description": "Allow content to be synchronized between devices."
+        },
+        "autoSync": {
+          "label": "Auto sync",
+          "description": "Automatically send new clipboard content to your other devices."
+        },
+        "syncOnRestore": {
+          "label": "Sync on restore",
+          "description": "When you restore a past clipboard entry, make it the active clipboard on your other devices too. Off by default."
+        },
+        "syncFrequency": {
+          "label": "Sync frequency",
+          "description": "Control how often uniClipboard checks for new content",
+          "realtime": "Real-time",
+          "30s": "Every 30s",
+          "1m": "Every minute",
+          "5m": "Every 5 minutes",
+          "15m": "Every 15 minutes"
+        },
+        "loadError": "Failed to load settings:",
+        "fileSync": {
+          "title": "File Sync",
+          "enable": {
+            "label": "Enable file sync",
+            "description": "Sync copied files between devices over LAN"
+          },
+          "smallFileThreshold": {
+            "label": "Immediate transfer threshold",
+            "description": "Files smaller than this are transferred immediately; larger files sync metadata only",
+            "unit": "MB",
+            "errors": {
+              "invalid": "Must be a positive number",
+              "range": "Must be between 1 and 1000 MB",
+              "exceedsMax": "Must be less than max file size"
+            }
+          },
+          "maxFileSize": {
+            "label": "Maximum file size",
+            "description": "Files larger than this will not be synced",
+            "unit": "MB",
+            "errors": {
+              "invalid": "Must be a positive number",
+              "range": "Must be between 1 and 10240 MB (10 GB)"
+            }
+          },
+          "cacheQuota": {
+            "label": "Per-device cache quota",
+            "description": "Maximum disk space for cached files from each device",
+            "unit": "MB",
+            "errors": {
+              "invalid": "Must be a positive number",
+              "range": "Must be between 50 and 10240 MB"
+            }
+          },
+          "retentionPeriod": {
+            "label": "File retention period",
+            "description": "Cached files are removed after this duration",
+            "unit": "hours",
+            "errors": {
+              "invalid": "Must be a positive number",
+              "range": "Must be between 1 and 720 hours (30 days)"
+            }
+          },
+          "autoCleanup": {
+            "label": "Auto-cleanup",
+            "description": "Automatically remove expired cached files on startup"
+          },
+          "autoSaveDir": {
+            "label": "File storage location",
+            "description": "Set a custom directory for storing files. When unset, they stay in managed storage.",
+            "managed": "Managed storage (default)",
+            "choose": "Choose folder",
+            "clear": "Reset to default"
+          }
+        }
+      },
+      "security": {
+        "title": "Security & Privacy",
+        "endToEndEncryption": {
+          "label": "End-to-end encryption",
+          "description": "Enable end-to-end encryption for all synced content"
+        },
+        "encryptionPassword": {
+          "label": "Encryption password",
+          "description": "Used to encrypt and decrypt data",
+          "modify": "Modify",
+          "cancel": "Cancel",
+          "save": "Save",
+          "placeholder": "Enter new encryption password"
+        },
+        "autoUnlock": {
+          "label": "Auto unlock",
+          "description": "Automatically unlock from keychain on startup"
+        },
+        "loadError": "Failed to load settings:"
+      },
+      "network": {
+        "groups": {
+          "connection": "Connection",
+          "relays": "Relay servers",
+          "performance": "Transfer performance",
+          "builtInRelays": "Built-in relays"
+        },
+        "loadError": "Failed to load settings:",
+        "lanOnly": {
+          "label": "LAN-only Mode",
+          "description": "Disable public-relay fallback. Devices sync only over the same local network. Takes effect after restart.",
+          "infoIconAriaLabel": "View the list of requests that still reach the internet when LAN-only Mode is on",
+          "saveError": "Save failed: {{message}}. Reverted to the previous setting.",
+          "disclosure": {
+            "title": "Requests that still reach the internet with LAN-only Mode on",
+            "intro": "The following 4 request types are controlled by independent modules and are not affected by LAN-only Mode:",
+            "rendezvous": {
+              "title": "First-pairing rendezvous",
+              "description": "Pairing a new device still requires reaching rendezvous.uniclipboard.app to exchange NodeIds. Once paired, day-to-day sync no longer uses rendezvous."
+            },
+            "telemetry": {
+              "title": "Telemetry",
+              "description": "Telemetry is controlled independently by General → Telemetry, not by LAN-only Mode. To disable it, go to the General section."
+            },
+            "pkarr": {
+              "title": "pkarr DHT NodeId resolution",
+              "description": "Cross-subnet connections resolve peer NodeIds via the public pkarr DHT, similar in nature to DNS. Disabling it would drop cross-subnet connection rate from ~90% to near zero."
+            },
+            "autoUpdate": {
+              "title": "Auto-update GitHub check",
+              "description": "Controlled independently by General → Auto-update, which queries the GitHub Release API for new versions."
+            }
+          }
+        },
+        "allowOverlayAddrs": {
+          "label": "Allow overlay network addresses",
+          "description": "Off by default. Enable when both peers share the same VPN (e.g. Tailscale) so connections can use that overlay network. Takes effect after restart.",
+          "infoIconAriaLabel": "Learn what overlay network addresses are and when to enable this option",
+          "saveError": "Save failed: {{message}}. Reverted to the previous setting.",
+          "disclosure": {
+            "title": "About overlay network addresses",
+            "intro": "When establishing direct connections, your machine has multiple IP addresses (real LAN, VPN tunnels, etc.). \"Overlay network addresses\" refers to virtual NIC IPs created by VPN software:",
+            "covered": {
+              "title": "What this affects",
+              "description": "Specifically the CGNAT range 100.64.0.0/10 (Tailscale's default IPv4) and the Tailscale IPv6 ULA fd7a:115c:a1e0::/48. Clash fake-ip (198.18.0.0/15) and link-local (169.254.0.0/16) are always filtered regardless of this setting."
+            },
+            "whyOff": {
+              "title": "Why off by default",
+              "description": "When two peers are not in the same VPN, publishing virtual-NIC IPs as connection candidates wastes path-validation budget on dead candidates and slows the real direct connection."
+            },
+            "whenOn": {
+              "title": "When to turn on",
+              "description": "Turn on if both peers are in the same Tailscale tailnet (or another shared overlay) and direct LAN/Internet paths are blocked, but the overlay route works. iroh will then use the overlay path as a connection candidate."
+            },
+            "tradeoff": {
+              "title": "Trade-off",
+              "description": "If only one peer has the VPN — or peers are in different tailnets — turning this on makes connections slower but doesn't outright break them (relay fallback still works). If unsure, leave it off."
+            }
+          }
+        },
+        "customRelays": {
+          "label": "Custom relay nodes",
+          "description": "Add one or more iroh relay URLs. Leave empty to use the default relays. LAN-only Mode preserves this list but does not use it. Takes effect after restart.",
+          "rowLabel": "Relay node {{index}}",
+          "urlLabel": "Address",
+          "tokenLabel": "Access token (optional)",
+          "placeholder": "https://relay.example.com.",
+          "addButton": "Add relay node",
+          "testButton": "Test availability",
+          "testHint": "The test uses the access token currently entered, without saving it.",
+          "saveButton": "Save relay node",
+          "removeSavedToken": "Remove saved access token",
+          "cancelRemoveSavedToken": "Keep saved access token",
+          "pendingTokenRemoval": "The access token will be removed when you save this relay.",
+          "itemAriaLabel": "Custom relay node {{index}}",
+          "removeAriaLabel": "Remove relay node {{index}}",
+          "saveError": "Failed to save custom relays: {{message}}. Reverted to the previous setting.",
+          "invalidUrl": "Invalid relay URL: {{url}}. Enter an http or https URL.",
+          "duplicateUrl": "Relay URL already exists: {{url}}.",
+          "notFound": "This relay no longer exists: {{url}}. The list has been refreshed.",
+          "deleteCredentialAfterAddress": "Save the new relay address first, then remove its saved access token.",
+          "loadError": "Could not load custom relays.",
+          "loading": "Loading custom relays…",
+          "retry": "Retry",
+          "testAriaLabel": "Test relay node {{index}}",
+          "testing": "Testing relay node…",
+          "testSuccess": "Handshake succeeded ({{latencyMs}} ms)",
+          "testErrors": {
+            "invalidUrl": "Invalid relay URL: {{message}}",
+            "dns": "Cannot resolve relay host: {{message}}",
+            "tls": "TLS handshake failed: {{message}}",
+            "handshake": "iroh-relay handshake failed: {{message}}",
+            "timeout": "Probe timed out after 5 seconds",
+            "other": "Probe failed: {{message}}",
+            "unavailable": "Relay testing is not available in this runtime."
+          },
+          "credentials": {
+            "loading": "Checking access token…",
+            "configured": "Access token saved",
+            "notConfigured": "No access token saved",
+            "placeholder": "Enter a new access token",
+            "inputAriaLabel": "Relay access token {{index}}",
+            "saveAriaLabel": "Save access token {{index}}",
+            "deleteAriaLabel": "Delete access token {{index}}",
+            "toggleVisibility": "Show or hide access token",
+            "loadError": "Could not check the access token: {{message}}",
+            "saveError": "Could not save the access token: {{message}}",
+            "deleteError": "Could not delete the access token: {{message}}"
+          }
+        },
+        "congestionController": {
+          "label": "Congestion controller",
+          "description": "Algorithm for network flow control. CUBIC works best on local and well-provisioned networks; BBR3 may perform better on long-distance or lossy links. Takes effect after restart.",
+          "recommended": "recommended"
+        },
+        "restartBanner": {
+          "message": "Network settings changed. A background service restart is needed to apply.",
+          "errorMessage": "Background service restart failed. Please retry or restart the app manually."
+        },
+        "builtInRelays": {
+          "description": "Relay servers shipped with the app. They are read-only here and are never written to your custom relay settings.",
+          "loading": "Loading built-in relays…",
+          "loadError": "Could not load the built-in relay list.",
+          "retry": "Retry",
+          "routing": {
+            "builtIn": "Built-in relays are used for relaying.",
+            "custom": "Custom relays are set and replace the built-in relays. Built-in relays are not used.",
+            "disabled": "Relays are off (LAN-only Mode). Built-in relays are not used."
+          },
+          "changePending": "Saved settings differ from the running network node. They apply the next time the node is rebuilt, such as after restarting the app; reconnecting an existing session does not necessarily apply them.",
+          "applied": "The running network node uses the saved relay settings. This does not mean a relay is connected.",
+          "notStarted": "The network node has not started yet, so the applied configuration is not known.",
+          "source": "Built-in",
+          "status": {
+            "configured": "Configured on the running node",
+            "notConfigured": "Not configured on the running node",
+            "notUsed": "Not used"
+          },
+          "regions": {
+            "na-east": "North America East",
+            "na-west": "North America West",
+            "eu": "Europe",
+            "asia-pacific": "Asia Pacific"
+          }
+        }
+      },
+      "storage": {
+        "title": "Storage",
+        "autoClearHistory": {
+          "label": "Auto-clear history",
+          "description": "Automatically clean up old clipboard entries based on retention rules"
+        },
+        "storageUsage": {
+          "label": "Storage usage",
+          "usage": "{{percentage}}% used",
+          "database": "Database",
+          "blobVault": "Blob vault",
+          "cache": "Cache",
+          "logs": "Logs",
+          "total": "Total"
+        },
+        "historyRetention": {
+          "label": "History retention",
+          "description": "Maximum retention time for clipboard history",
+          "days": "{{days}} days"
+        },
+        "maxHistoryItems": {
+          "label": "Max history items",
+          "description": "Maximum number of clipboard entries to keep",
+          "items": "{{count}} items",
+          "unlimited": "Unlimited"
+        },
+        "skipPinned": {
+          "label": "Skip pinned items",
+          "description": "Pinned items are excluded from automatic cleanup"
+        },
+        "confirmBeforeDelete": {
+          "label": "Confirm before deleting",
+          "description": "Ask for confirmation before deleting a single history item"
+        },
+        "clearHistory": {
+          "label": "Clear history",
+          "description": "Delete all clipboard history and free up storage space",
+          "button": "Clear all",
+          "confirm": "Are you sure? This action cannot be undone.",
+          "cleared": "History cleared",
+          "clearing": "Clearing...",
+          "dialogTitle": "Confirm clear history",
+          "dialogDescription": "This will delete all clipboard history and cannot be undone.",
+          "dialogConfirm": "Clear history"
+        },
+        "clearCache": {
+          "label": "Clear cache",
+          "description": "Remove cached thumbnails and temporary files",
+          "button": "Clear cache",
+          "cleared": "Cache cleared",
+          "clearing": "Clearing..."
+        },
+        "dataDirectory": {
+          "label": "Data directory",
+          "description": "Open the folder where application data is stored",
+          "button": "Open in file manager"
+        },
+        "upgradeBackups": {
+          "label": "Upgrade backups",
+          "description": "A backup is created before a data upgrade. The latest 5 are kept automatically, and older ones are removed.",
+          "count": "{{count}} of 5 backups",
+          "loading": "Loading backups…",
+          "loadFailed": "Backups could not be loaded.",
+          "retry": "Retry",
+          "empty": "No upgrade backups yet.",
+          "unknownVersion": "Unknown version",
+          "versionChange": "Version {{source}} → {{target}}",
+          "deleteLabel": "Delete backup from {{date}}",
+          "confirmTitle": "Delete this upgrade backup?",
+          "confirmDescription": "This removes the backup permanently. Your current data will not be changed.",
+          "cancel": "Cancel",
+          "delete": "Delete backup",
+          "deleting": "Deleting…",
+          "deleted": "Backup deleted",
+          "deleteFailed": "Failed to delete backup"
+        },
+        "configBackup": {
+          "label": "Config backup & migration",
+          "export": {
+            "label": "Export config",
+            "description": "Pack all of your config, history, and device identity into one encrypted file to move to another computer. It's protected by your Space passphrase — no extra password needed",
+            "button": "Export config…",
+            "exporting": "Exporting…",
+            "success": "Config exported",
+            "lockedError": "Unlock first, then export the config",
+            "genericError": "Failed to export config"
+          },
+          "import": {
+            "label": "Import config",
+            "description": "Restore config from an exported file. This is a device move: this machine becomes that exported device, replacing whatever is here now",
+            "button": "Import config…",
+            "passwordTitle": "Enter your Space passphrase",
+            "passwordDescription": "Enter the Space passphrase of the device this file was exported from — that's what unlocks it.",
+            "passwordLabel": "Space passphrase",
+            "passwordPlaceholder": "Space passphrase of the exported device",
+            "passwordConfirmButton": "Continue",
+            "confirmTitle": "Confirm import: this is a device move",
+            "confirmDescription": "Importing makes this machine join under the exported device's identity and replaces the config currently on it. Review carefully — this cannot be undone.",
+            "warningMove": "This machine will become that exported device, taking over its identity and pairings.",
+            "warningNoDualOnline": "After this, do not bring the original device back online. Two devices sharing one identity online will conflict with each other on the device network.",
+            "warningReplace": "Any config and history currently on this machine will be replaced by the imported one. If this machine is already in use, make sure there's nothing on it you want to keep.",
+            "metaTitle": "Config to import",
+            "metaAppVersion": "Exported from version",
+            "metaSourceMode": "Source type",
+            "metaSourcePortable": "Portable",
+            "metaSourceInstalled": "Installed",
+            "metaFingerprint": "Device fingerprint",
+            "confirmButton": "I understand, start import",
+            "cancelButton": "Cancel",
+            "staging": "Importing…",
+            "restartingTitle": "Restarting to finish import",
+            "restartingDescription": "Please wait — the app will restart and apply the imported config. Do not close it.",
+            "restartingUnlockHint": "After the restart you'll need to enter your Space passphrase to unlock.",
+            "invalidPasswordError": "Wrong passphrase, or the file is corrupted",
+            "incompatibleError": "This config bundle's version is not compatible with the current app",
+            "genericError": "Failed to import config"
+          }
+        },
+        "searchIndex": {
+          "label": "Search index",
+          "status": "Index status",
+          "statusDescription": "Current state of the full-text search index",
+          "ready": "Ready",
+          "rebuilding": "Rebuilding…",
+          "unavailable": "Unavailable",
+          "lastRebuilt": "Last rebuilt",
+          "lastRebuiltDescription": "Time of the last successful index rebuild",
+          "never": "Never",
+          "rebuild": "Rebuild index",
+          "rebuildDescription": "Manually trigger a full rebuild of the search index",
+          "rebuildButton": "Rebuild",
+          "rebuildingButton": "Rebuilding…"
+        },
+        "loadError": "Failed to load storage settings:",
+        "placeholder": "Storage settings are not yet available."
+      },
+      "shortcuts": {
+        "title": "Shortcuts",
+        "description": "Customize keyboard shortcuts",
+        "scope": {
+          "quickPanel": "Quick Panel",
+          "global": "Global",
+          "clipboard": "Clipboard",
+          "settings": "Settings",
+          "devices": "Devices",
+          "modal": "Modal"
+        },
+        "actions": {
+          "quickPanelWindowIncrease": "Increase window size",
+          "quickPanelWindowDecrease": "Decrease window size",
+          "quickPanelTextIncrease": "Increase text size",
+          "quickPanelTextDecrease": "Decrease text size",
+          "goSettings": "Go to settings",
+          "toggleQuickPanel": "Toggle quick panel",
+          "favoriteClipboardItem": "Favorite current clipboard item",
+          "searchHistory": "Search history",
+          "zoomIn": "Zoom in",
+          "zoomOut": "Zoom out",
+          "toggleSidebar": "Show or hide the sidebar"
+        },
+        "issues": {
+          "sameScope": "Shortcut conflict in same scope: {{key}}",
+          "sameLayer": "Same key used in another scope on this layer: {{key}}",
+          "shadowedByHigher": "Will be shadowed when a higher layer is active: {{key}}",
+          "shadowsLower": "Will shadow shortcuts on lower layers: {{key}}"
+        },
+        "edit": "Edit",
+        "reset": "Reset to default",
+        "resetAll": "Reset All Shortcuts",
+        "recording": "Press keys...",
+        "chordHint": "Press another combo for a second step (press the same combo twice for a \"double tap\"), or confirm",
+        "rerecord": "Re-record",
+        "save": "Save",
+        "conflict": "Conflicts with: {{name}}",
+        "confirmOverride": "Apply anyway (clears conflict)",
+        "confirm": "Confirm",
+        "cancel": "Cancel",
+        "modified": "Modified"
+      },
+      "quickPanel": {
+        "compositorShortcuts": "Wayland activation shortcuts are managed by your desktop. Bind the following command in your compositor settings.",
+        "title": "Quick Panel",
+        "featureTitle": "Feature",
+        "shortcutTitle": "Shortcut",
+        "enable": {
+          "label": "Enable quick panel",
+          "description": "Registers a global shortcut and creates the quick panel window in the background. Disabling unregisters the shortcut immediately."
+        },
+        "position": {
+          "label": "Position",
+          "description": "Choose where the quick panel appears when you press the shortcut.",
+          "center": "Screen center",
+          "followCursor": "Follow cursor"
+        },
+        "doubleTap": {
+          "label": "Double-tap modifier",
+          "description": "Open the quick panel by tapping a modifier key twice. The recorded shortcut remains active.",
+          "checking": "Checking whether this desktop session supports modifier double-tap.",
+          "permissionRequired": "macOS Accessibility permission is required. Grant access in System Settings, then return to UniClipboard.",
+          "unsupported": "Modifier double-tap is unavailable in this display session, including Wayland sessions. The recorded shortcut remains active.",
+          "openSettings": "Open Accessibility settings",
+          "openSettingsError": "Could not open Accessibility settings. Open System Settings > Privacy & Security > Accessibility manually.",
+          "disabled": "Off",
+          "option": "Option",
+          "alt": "Alt",
+          "control": "Control",
+          "command": "Command",
+          "windows": "Windows",
+          "super": "Super"
+        },
+        "restartHint": "Quick panel is now off. Restart the app to fully release the background processes."
+      },
+      "about": {
+        "title": "About",
+        "appName": "UniClipboard",
+        "version": "Version {{version}}",
+        "checkUpdate": "Check for updates",
+        "checkingUpdate": "Checking...",
+        "updatesTitle": "Updates",
+        "updatesSelfMaintained": "This build is distributed by its maintainer — automatic updates are not available.",
+        "autoCheckUpdate": {
+          "label": "Auto-check for updates",
+          "description": "Automatically check for new versions when the app starts"
+        },
+        "autoDownloadUpdate": {
+          "label": "Download updates in background",
+          "description": "Pre-fetch the installer when a new version is detected, so installing is instant.",
+          "disabledHint": "Enable \"Auto-check for updates\" first"
+        },
+        "updateChannel": {
+          "label": "Update Channel",
+          "description": "Choose which release channel to receive updates from",
+          "auto": "Auto-detect",
+          "stable": "Stable",
+          "beta": "Beta",
+          "alpha": "Alpha",
+          "rc": "Release Candidate",
+          "alphaWarning": {
+            "title": "Switch to Alpha?",
+            "description": "Alpha builds may include features and regressions that have not been fully validated. UniClipboard will check the alpha channel immediately after switching.",
+            "cancel": "Cancel",
+            "confirm": "Switch"
+          }
+        },
+        "sponsors": {
+          "title": "Sponsors",
+          "thanks": "Thanks to these wonderful people whose sponsorship keeps UniClipboard moving forward.",
+          "goldBadge": "Gold",
+          "becomeSponsor": "Become a sponsor →",
+          "githubStar": "Star on GitHub →"
+        },
+        "copyright": "© 2025 UniClipboard. All rights reserved.",
+        "links": {
+          "privacyPolicy": "Privacy Policy",
+          "termsOfService": "Terms of Service",
+          "aboutMaintainers": "About & Maintainers"
+        }
+      }
+    }
+  },
+  "passphraseChange": {
+    "entry": {
+      "label": "Reset space passphrase",
+      "description": "Choose a new passphrase without deleting your history.",
+      "button": "Reset"
+    },
+    "availability": {
+      "checking": "Checking whether this space can be reset…",
+      "multipleDevices": "Remove the other devices from this space before resetting the passphrase.",
+      "unavailable": "Passphrase reset is unavailable until the device list can be verified."
+    },
+    "title": "Reset space passphrase",
+    "description": "Choose a new passphrase. Your history and local data will be kept.",
+    "passphraseLabel": "New space passphrase",
+    "passphrasePlaceholder": "Enter a new passphrase",
+    "confirmationLabel": "Confirm new passphrase",
+    "confirmationPlaceholder": "Enter the new passphrase again",
+    "show": "Show passphrase",
+    "hide": "Hide passphrase",
+    "cancel": "Cancel",
+    "submit": "Reset passphrase",
+    "submitting": "Resetting…",
+    "success": "Space passphrase reset",
+    "errors": {
+      "mismatch": "The two passphrases do not match.",
+      "multipleDevices": "Remove the other devices before resetting the passphrase.",
+      "locked": "Unlock this space before resetting the passphrase.",
+      "recovery": "Resolve the device recovery issue before resetting the passphrase.",
+      "unavailable": "Passphrase reset is temporarily unavailable. Please try again.",
+      "internal": "Could not reset the passphrase. Please try again."
+    },
+    "invitationAction": "Forgot the old passphrase? Reset it"
+  },
+  "unlock": {
+    "title": "Unlock",
+    "description": "Your data is encrypted. Please unlock to continue.",
+    "lockedStatus": "Locked",
+    "button": "Unlock",
+    "unlocking": "Unlocking...",
+    "autoUnlock": {
+      "label": "Auto Unlock",
+      "description": "Automatically unlock when application starts"
+    },
+    "macOSNote": "On macOS, you can choose \"Always Allow\" in the keychain prompt to enable seamless auto-unlock.",
+    "keychainModal": {
+      "title": "Grant Keychain Access",
+      "description": "To enable auto-unlock, UniClipboard needs permanent access to your macOS Keychain.",
+      "step1": "A macOS Keychain access prompt will appear",
+      "step2": "Select \"Always Allow\" in the prompt",
+      "step3": "Enter your macOS password to confirm",
+      "note": "This is a macOS system dialog, not part of UniClipboard.",
+      "confirm": "I understand",
+      "cancel": "Cancel",
+      "verifying": "Verifying access...",
+      "error": "Keychain Always Allow permission not detected. Please try again and make sure to select \"Always Allow\" in the macOS Keychain prompt."
+    },
+    "passphraseModal": {
+      "title": "Enter your space passphrase",
+      "description": "Enter this space's encryption passphrase to view your content and manage settings.",
+      "passphraseLabel": "Passphrase",
+      "passphrasePlaceholder": "Enter your passphrase",
+      "submit": "Unlock",
+      "submitting": "Unlocking...",
+      "cancel": "Cancel",
+      "show": "Show passphrase",
+      "hide": "Hide passphrase",
+      "hint": "Use your space's encryption passphrase, not your computer's login password."
+    },
+    "errors": {
+      "wrongPassphrase": "Wrong passphrase. Please try again.",
+      "corruptedKeyMaterial": "The local key material is corrupted. You'll need to reset this space and re-join from another device to recover.",
+      "setupNotCompleted": "Setup is not complete on this device yet. Please run setup first.",
+      "spaceNotInitialized": "No space exists on this device. Please initialize a new space or join from another device.",
+      "facadeUnavailable": "The app is still starting up. Please wait a moment and try again.",
+      "internal": "Unlock failed unexpectedly. Please try again or restart the application."
+    },
+    "factoryReset": {
+      "link": "Forgot your passphrase? Reset and start over",
+      "modal": {
+        "title": "Reset and start over",
+        "warning": "Once reset, the encrypted clipboard history stored on this device cannot be recovered.",
+        "confirmPrompt": "Type RESET to confirm",
+        "confirmPlaceholder": "RESET",
+        "confirm": "Reset",
+        "resetting": "Resetting...",
+        "restarting": "Restarting...",
+        "cancel": "Cancel"
+      },
+      "errors": {
+        "keyMaterialWipeFailed": "Failed to wipe key material; reset did not complete. Please try again or restart the application.",
+        "storageFailed": "Key material was cleared but the status could not be saved. Please restart the application to finish resetting.",
+        "restartRequired": "The space was reset, but the automatic restart failed. Please restart the application to finish resetting.",
+        "facadeUnavailable": "The app is still starting up. Please wait a moment and try again.",
+        "internal": "Reset failed unexpectedly. Please try again or restart the application."
+      }
+    }
+  },
+  "language": {
+    "zh-CN": "简体中文",
+    "zh-TW": "繁體中文",
+    "en-US": "English",
+    "ru-RU": "Русский",
+    "pt-BR": "Português (Brasil)",
+    "ja-JP": "日本語"
+  },
+  "history": {
+    "title": "History",
+    "subtitle_one": "{{count}} item",
+    "subtitle_other": "{{count}} items",
+    "searchPlaceholder": "Search clipboard…",
+    "listSearchPlaceholder": "Search, or type # @ / on:",
+    "listSearchPlaceholderMore": "Add words or another filter…",
+    "list": {
+      "selectItem": "Select {{title}}",
+      "selected_one": "{{count}} selected",
+      "selected_other": "{{count}} selected",
+      "bulkActions": "Bulk actions",
+      "sendTo": "Send to…"
+    },
+    "loadMore": "Load more",
+    "unknownFile": "Unknown file",
+    "filter": {
+      "all": "All",
+      "favorited": "Favorites",
+      "text": "Text",
+      "richtext": "Rich Text",
+      "code": "Code",
+      "link": "Links",
+      "image": "Images",
+      "file": "Files"
+    },
+    "timeRange": {
+      "label": "Time range",
+      "all_time": "All time",
+      "today": "Today",
+      "yesterday": "Yesterday",
+      "last_7d": "Last 7 days",
+      "last_30d": "Last 30 days",
+      "this_week": "This week",
+      "this_month": "This month"
+    },
+    "source": {
+      "label": "Source",
+      "all": "All sources"
+    },
+    "type": {
+      "text": "Text",
+      "richtext": "Rich Text",
+      "code": "Code",
+      "link": "Link",
+      "favorited": "Favorites",
+      "image": "Image",
+      "directory": "Folder",
+      "file": "File",
+      "unknown": "Unknown"
+    },
+    "detail": {
+      "capturedAt": "Captured",
+      "size": "Size",
+      "fileCount": "Files",
+      "urlCount": "URLs",
+      "fileMissing": "(missing)",
+      "aria": "Item detail",
+      "emptyTitle": "Nothing selected",
+      "emptyHint": "Pick an item to preview, tag or send it.",
+      "from": "From <strong>{{device}}</strong>",
+      "copied": "Copied",
+      "pin": "Pin",
+      "unpin": "Unpin",
+      "sendToDevice": "Send to device…",
+      "imageFit": "Fit",
+      "imageActual": "100%",
+      "imageZoom": "Image zoom",
+      "quickLook": "Quick Look",
+      "quickLookClose": "Close preview",
+      "saveAs": "Save as…",
+      "openInPreview": "Open in Preview",
+      "imageFileName": "Clipboard image",
+      "imageActionFailed": "Couldn’t export the image.",
+      "shortcutHint": "C copy · T tag · F pin · D delete"
+    },
+    "composite": {
+      "title": "Search and filter",
+      "dimension": {
+        "type": "Type",
+        "tag": "Tag",
+        "source": "Device",
+        "time": "Time",
+        "extension": "Extension"
+      },
+      "noMatches": "No matches",
+      "header": {
+        "startingWith": "{{dimension}} starting with “{{partial}}”",
+        "all": "{{dimension}}",
+        "dimension": {
+          "type": "Types",
+          "tag": "Tags",
+          "source": "Devices",
+          "time": "Times",
+          "extension": "Extensions"
+        }
+      },
+      "inContext_one": "{{count}} {{context}}",
+      "inContext_other": "{{count}} {{context}}",
+      "noneInContext": "none {{context}}",
+      "removeFilter": "Remove filter: {{filter}}",
+      "keyboardHint": "↑↓ choose · ↵ or ⇥ turn into chip · ⌫ on an empty field edits the last chip",
+      "relaxTitle": "Try removing one filter",
+      "relaxTitleAll_one": "No items match the filter",
+      "relaxTitleAll_other": "No items match all {{count}} filters",
+      "relaxPrompt": "Drop one to widen the search:",
+      "relaxWithout": "Without <strong>{{filter}}</strong>",
+      "moreFilters": "Show {{count}} more filters",
+      "clearAll": "Clear all",
+      "close": "Close search panel",
+      "filterCategories": "Filter categories",
+      "results_one": "{{count}} result",
+      "results_other": "{{count}} results",
+      "done": "Done"
+    },
+    "sidebar": {
+      "library": "Library",
+      "allItems": "All items",
+      "pinned": "Pinned",
+      "recentlyDeleted": "Recently deleted",
+      "smartViews": "Smart Views",
+      "smartViewsEmpty": "No views yet",
+      "tags": "Tags",
+      "devices": "Devices",
+      "devicesOnline": "{{online}} of {{total}} online",
+      "devicesEmpty": "No paired devices",
+      "manageDevices": "Manage",
+      "settings": "Settings",
+      "show": "Show sidebar",
+      "hide": "Hide sidebar"
+    },
+    "tags": {
+      "unreadable": "Unreadable tag",
+      "title": "Tags",
+      "add": "Add tag",
+      "inputLabel": "Tag name",
+      "suggestions": "Tag suggestions",
+      "create": "Create",
+      "similar": "Similar tags",
+      "hint": "Type a new name to create it. Tags stay in this device's history.",
+      "remove": "Remove {{name}}",
+      "failed": "Couldn't update tags",
+      "selectionTitle": "Tags on the selection",
+      "tagAll": "Tag all {{n}}",
+      "tagEllipsis": "Tag…",
+      "addToAll": "Add {{name}} to all {{n}}",
+      "onAll": "{{name}} is on all {{n}}",
+      "removeFromAllHint": "⌥-click removes it from all",
+      "selectionHint": "Click a partial tag to add it to all. ⌥-click removes a tag from all.",
+      "manage": "Manage tags",
+      "managerTitle": "Tags · {{n}}",
+      "filterLabel": "Filter tags",
+      "filterPlaceholder": "Filter {{n}} tags",
+      "newTag": "New tag",
+      "newTagLabel": "New tag name",
+      "columnName": "Name",
+      "columnItems": "Items",
+      "unused": "unused",
+      "actionsFor": "Actions for {{name}}",
+      "rename": "Rename…",
+      "renameLabel": "Rename {{name}}",
+      "mergeInto": "Merge into…",
+      "showItems": "Show items",
+      "delete": "Delete tag (items stay)",
+      "nameTaken": "{{name}} already exists.",
+      "mergeIntoName": "Merge into {{name}}",
+      "cancel": "Cancel",
+      "managerEmpty": "No tags yet. Press T on an item to add one.",
+      "managerFooter": "{{n}} tags · {{sidebar}} in sidebar · {{unused}} unused",
+      "managerHint": "Select several to merge or delete at once",
+      "sidebarEmpty": "Add a tag to any item — it shows up here.",
+      "allTags": "All tags · {{n}}",
+      "createNamed": "+ Create #{{name}}",
+      "createHint": "New tag — the filter shows 0 until you tag items",
+      "libraryTitle": "Library",
+      "sortLabel": "Sort tags",
+      "sort": {
+        "mostUsed": "Most used",
+        "name": "Name",
+        "newest": "Newest"
+      },
+      "bulkActions": "Actions for the selected tags",
+      "checkedCount": "{{n}} selected",
+      "deleteChecked": "Delete {{n}} (items stay)",
+      "checkTag": "Select {{name}}",
+      "similarTo": "similar to {{name}}",
+      "suggested": "Suggested",
+      "color": "Color",
+      "colors": {
+        "orange": "Orange",
+        "blue": "Blue",
+        "green": "Green",
+        "purple": "Purple",
+        "gray": "Gray"
+      },
+      "columnInSidebar": "In sidebar",
+      "showInSidebar": "Show {{name}} in the sidebar",
+      "frequent": "Most used",
+      "customColor": "Custom color",
+      "customColorEllipsis": "Custom…",
+      "hexColor": "Hex color",
+      "currentColor": "current",
+      "builtin": "built-in",
+      "builtinHint": "A built-in tag follows the content type, so it can't be renamed, merged or deleted."
+    }
+  },
+  "dashboard": {
+    "logs": {
+      "loadingClipboard": "Loading clipboard records and statistics...",
+      "filterChanged": "Filter changed, updating ref value:",
+      "settingGlobalListener": "Setting up global listener...",
+      "startingBackendListener": "Starting backend clipboard new content listener...",
+      "backendListenerStarted": "Backend clipboard new content listener started",
+      "listeningToClipboardEvents": "Starting to listen for clipboard new content events...",
+      "clearingPreviousListener": "Clearing previous listener",
+      "newClipboardEvent": "Received new clipboard content event:",
+      "ignoringDuplicateEvent": "Ignoring duplicate events within short time",
+      "listenerAlreadyActive": "Listener is already active, skipping setup",
+      "globalListenerExists": "Global listener already exists, no need to set up again",
+      "setupListenerFailed": "Failed to set up listener:",
+      "componentUnmounting": "Component unmounting, but keeping global listener active"
+    },
+    "constants": {
+      "debounceDelay": "Debounce delay (milliseconds)"
+    },
+    "errors": {
+      "loadFailed": "Failed to load clipboard data",
+      "listenerSetupFailed": "Failed to setup clipboard listener",
+      "unknown": "An unknown error occurred"
+    }
+  },
+  "header": {
+    "searchPlaceholder": "Search by keywords...",
+    "resultsCount": "{{count}} results",
+    "filters": {
+      "all": "All",
+      "favorited": "Favorites",
+      "text": "Text",
+      "richtext": "Rich Text",
+      "image": "Image",
+      "link": "Link",
+      "file": "File",
+      "code": "Code"
+    },
+    "timeRange": {
+      "all_time": "All time",
+      "today": "Today",
+      "yesterday": "Yesterday",
+      "last_7d": "Last 7 days",
+      "last_30d": "Last 30 days",
+      "this_week": "This week",
+      "this_month": "This month"
+    }
+  },
+  "clipboard": {
+    "search": {
+      "noResults": "No results for \"{{query}}\"",
+      "noResultsFiltered": "No items match the current filters",
+      "noResultsSub": "Try a full word or a different keyword",
+      "empty": "Your clipboard history is empty",
+      "emptySub": "Copy something to get started",
+      "resultsCount": "results",
+      "searching": "Searching…",
+      "degraded": "Search index is rebuilding — showing a recent browse. Filters and keyword search resume shortly."
+    },
+    "content": {
+      "filterCondition": "Filter condition:",
+      "queryResults": "Query results:",
+      "convertedItems": "Converted display items:",
+      "noItemsFound": "No items found",
+      "noClipboardItems": "No clipboard items",
+      "emptyDescription": "Connect another device, then copy something to start syncing.",
+      "emptyHint": "Try copying some text or images!",
+      "logs": {
+        "copyItem": "Copy item ID:",
+        "copyToClipboardFailed": "Failed to copy to clipboard",
+        "convertingItem": "Converting to display item:"
+      }
+    },
+    "source": {
+      "local": "This device"
+    },
+    "errors": {
+      "copyFailed": "Failed to copy to clipboard",
+      "favoriteFailed": "Failed to update favorite status",
+      "openLocationFailed": "Failed to open file location",
+      "fileLocationUnavailable": "This file is no longer available locally.",
+      "loadDetailFailed": "Failed to load details",
+      "unknown": "An unknown error occurred",
+      "unavailableBadge": "Content unavailable",
+      "unavailableTooltip": "This content is no longer available (bytes lost). Cannot paste. Consider deleting it from history.",
+      "fileSourceMissing": "The source file is no longer at its original location — it may have been deleted or moved. Restore it to retry."
+    },
+    "item": {
+      "characters": "characters",
+      "link": "link",
+      "image": "image",
+      "unknownContent": "Unknown content",
+      "expand": "Expand",
+      "collapse": "Collapse",
+      "loading": "Loading...",
+      "actions": {
+        "copy": "Copy",
+        "copied": "Copied",
+        "favorite": "Favorite",
+        "unfavorite": "Unfavorite",
+        "delete": "Delete",
+        "more": "More"
+      },
+      "altText": {
+        "clipboardImage": "Clipboard Image",
+        "copyButton": "Copy",
+        "favoriteButton": "Favorite"
+      },
+      "largeImageTitle": "Large image",
+      "largeImageHint": "{{size}} — not loaded automatically",
+      "loadLargeImage": "Load image"
+    },
+    "time": {
+      "justNow": "Just now",
+      "minutesAgo": "{{minutes}}m ago",
+      "hoursAgo": "{{hours}}h ago",
+      "daysAgo": "{{days}}d ago"
+    },
+    "dateGroup": {
+      "today": "Today",
+      "yesterday": "Yesterday",
+      "earlier": "Earlier"
+    },
+    "preview": {
+      "selectItem": "Select an item to preview",
+      "information": "Information",
+      "contentType": "Content Type",
+      "characters": "Characters",
+      "charactersCount": "{{count}} chars",
+      "linesCount": "{{count}} lines",
+      "words": "Words",
+      "size": "Size",
+      "dimensions": "Dimensions",
+      "filesCount": "{{count}} files",
+      "imageFilesAriaLabel": "Image files",
+      "imagesCount": "{{count}} images",
+      "sourceDevice": "Source device"
+    },
+    "contextMenu": {
+      "copy": "Copy",
+      "copyFilePaths": "Copy File Paths",
+      "pasteFilePaths": "Paste File Paths",
+      "favorite": "Favorite",
+      "unfavorite": "Unfavorite",
+      "send": "Send to",
+      "sendAll": "All devices",
+      "sendNoDevices": "No paired devices",
+      "fileDeleted": "File deleted",
+      "openFileLocation": "Open File Location",
+      "resend": "Resend",
+      "resending": "Resending...",
+      "delete": "Delete"
+    },
+    "actionBar": {
+      "title": "Clipboard History",
+      "copy": "Copy",
+      "favorite": "Favorite",
+      "unfavorite": "Unfavorite",
+      "delete": "Delete"
+    },
+    "notification": {
+      "syncStartSingle": "File syncing to {{device}}",
+      "syncStartBatch": "Syncing {{count}} files to {{device}}",
+      "syncCompleteSingle": "File synced successfully",
+      "syncCompleteBatch": "All {{count}} files synced",
+      "syncFailed": "File sync failed",
+      "syncFailedDetail": "Failed to sync file: {{reason}}"
+    },
+    "transfer": {
+      "sending": "Sending",
+      "receiving": "Receiving",
+      "progress": "{{transferred}} / {{total}} ({{percent}}%)",
+      "speedValue": "{{speed}}",
+      "speedPending": "Calculating speed",
+      "remainingValue": "{{time}} remaining",
+      "remainingPending": "Calculating remaining time",
+      "completed": "Transfer complete",
+      "failed": "Transfer failed",
+      "cancelled": "Cancelled",
+      "pending": "Pending transfer",
+      "transferring": "Transferring...",
+      "incoming": "Receiving...",
+      "incomingWithSize": "Receiving ({{size}})...",
+      "cancel": "Cancel transfer",
+      "cancelReason": {
+        "local_user": "You cancelled this transfer",
+        "remote_peer": "The other side cancelled this transfer",
+        "replaced": "Replaced by newer content",
+        "timeout": "Transfer timed out and was cancelled",
+        "unknown": "Transfer cancelled"
+      },
+      "statusBadge": {
+        "pending": "File transfer pending",
+        "transferring": "File transfer in progress",
+        "completed": "File transfer complete",
+        "failed": "File transfer failed",
+        "cancelled": "File transfer cancelled"
+      },
+      "copyDisabled": {
+        "pending": "File transfer pending",
+        "transferring": "File transfer in progress",
+        "failed": "File transfer failed",
+        "cancelled": "File transfer cancelled"
+      }
+    },
+    "confirmDeleteTitle": "Confirm Delete",
+    "skipDeleteConfirmationLabel": "Don't ask again",
+    "confirmDeleteDescription_one": "Are you sure you want to delete the selected item? This action cannot be undone.",
+    "confirmDeleteDescription_other": "Are you sure you want to delete the {{count}} selected items? This action cannot be undone.",
+    "cancelLabel": "Cancel",
+    "deleteLabel": "Delete",
+    "deletingLabel": "Deleting..."
+  },
+  "devices": {
+    "title": "Device Management",
+    "addNew": "Invite New Device",
+    "thisDevice": {
+      "title": "This Device",
+      "syncActive": "Sync active",
+      "syncPaused": "Sync paused",
+      "pairedCount_zero": "No paired devices",
+      "pairedCount_one": "{{count}} paired",
+      "pairedCount_other": "{{count}} paired",
+      "onlineCount": "{{count}} online"
+    },
+    "connectionRefresh": {
+      "action": "Refresh connections",
+      "checking": "Checking connections",
+      "failed": "Refresh failed. Please try again.",
+      "summary": "Checked {{total}} devices: {{online}} online, {{offline}} offline",
+      "errors": "{{count}} could not be checked; connection status is unconfirmed",
+      "listFailed": "Connection check complete. Could not update the device list. Please try again."
+    },
+    "pairedDevices": {
+      "title": "Paired devices"
+    },
+    "inboundPairings": {
+      "title": "Pairing history",
+      "unnamed": "Unfinished pairing",
+      "status": {
+        "awaiting_confirmation": "Finishing pairing",
+        "confirmation_missed": "Confirmation was not received; waiting to finish safely",
+        "needs_attention": "Needs attention: this pairing result cannot be confirmed",
+        "failed": "Pairing did not finish"
+      }
+    },
+    "convergence": {
+      "converging": "Connecting to other devices in this space",
+      "waitingForOfflineMember": "Waiting for offline devices to update their space data",
+      "recoveryRequired": "Space data needs recovery"
+    },
+    "networkRecovery": {
+      "recovering": "Restoring the connection",
+      "retryScheduled": "The connection will be tried again automatically",
+      "failed": "The connection could not be restored",
+      "retry": "Try again",
+      "errors": {
+        "statusFailed": "Connection recovery status is temporarily unavailable",
+        "requestFailed": "Could not start connection recovery"
+      }
+    },
+    "spaceDeviceUpdate": {
+      "completed": "Space device status updated",
+      "updating": {
+        "title": "Updating space device status",
+        "description": "This refreshes automatically. You do not need to keep this page open."
+      },
+      "retrying": {
+        "title": "Updating space device status",
+        "description": "Not finished yet. It will retry automatically."
+      },
+      "attention": {
+        "title": "Space device status needs attention",
+        "description": "This cannot finish automatically. Keep your existing data and check again later.",
+        "reasons": {
+          "device_state_rejected": "Some device status could not be updated. Keep your existing data and check again later.",
+          "device_relationship_conflict": "Device relationships conflict. Choose which devices to keep in the action window.",
+          "device_security_update_rejected": "Security settings could not be updated. Check the affected devices and try again.",
+          "device_upgrade_required": "A device is using an older version. Update UniClipboard and try again.",
+          "local_identity_mismatch": "This device's identity no longer matches its space membership. Keep your existing data and check again later."
+        }
+      },
+      "unavailable": {
+        "title": "Space device status is temporarily unavailable",
+        "description": "Your existing devices remain listed. You can check again."
+      },
+      "unlockRequired": {
+        "title": "Unlock to view space device status",
+        "description": "Your existing devices remain listed. Unlock this space, then check again."
+      },
+      "recoveryRequired": {
+        "title": "Space device status needs recovery",
+        "description": "Your existing devices remain listed. Checking again will not fix this. Keep your existing data."
+      }
+    },
+    "addDevice": {
+      "title": "Invite a new device",
+      "subtitle": "Enter this code on the computer or phone you're adding",
+      "expiresIn": "Expires in {{remaining}}",
+      "expired": "Invitation expired",
+      "passphraseHint": "The joining device also needs the space passphrase to finish pairing",
+      "rePairing": {
+        "title": "Confirm your space passphrase",
+        "subtitle": "This is required once after upgrading an older profile",
+        "description": "Your history is safe. Confirm the original space passphrase before creating a new invitation.",
+        "passphraseLabel": "Space passphrase",
+        "passphrasePlaceholder": "Enter the original passphrase",
+        "submit": "Confirm and generate code",
+        "submitting": "Checking passphrase…",
+        "wrongPassphrase": "That passphrase is incorrect.",
+        "failed": "The passphrase could not be confirmed. Please try again."
+      },
+      "loading": "Generating invitation code…",
+      "actions": {
+        "cancel": "Cancel",
+        "regenerate": "Regenerate",
+        "close": "Close",
+        "copy": "Copy",
+        "copied": "Copied"
+      },
+      "errors": {
+        "issueFailed": "Failed to generate invitation. Please try again."
+      },
+      "success": {
+        "title": "Device joined",
+        "subtitle": "The other device has successfully joined this space"
+      },
+      "failed": {
+        "title": "Pairing failed",
+        "unknown": "The other device couldn't join",
+        "fallback": "Pairing failed: {{reason}}",
+        "networkHint": "Make sure both devices have a working network connection, then try again",
+        "reasons": {
+          "cancelled": "Invitation was cancelled",
+          "expired": "Invitation expired",
+          "timeout": "Timed out — the other device didn't complete pairing in time",
+          "passphrase_mismatch": "The other device entered the wrong passphrase",
+          "user_rejected": "You declined this pairing request",
+          "proof_mismatch": "Identity verification failed",
+          "joiner_disconnected": "The other device disconnected mid-pairing"
+        }
+      }
+    },
+    "unpair": {
+      "confirmTitle": "Unpair Device",
+      "confirmDescription": "Are you sure you want to unpair {{deviceName}}? You will need to pair again to sync clipboard content.",
+      "cancelling": "Unpairing..."
+    },
+    "protection": {
+      "label": "Protection",
+      "upgradePeerHelp": "Update UniClipboard on the other device to the latest version.",
+      "bootstrap": {
+        "awaiting_readmission": "Security upgrade is waiting for {{count}} member to be readmitted.",
+        "recovery_required": "Security upgrade needs recovery before members can sync."
+      },
+      "errors": {
+        "removeFailed": "Could not remove the device.",
+        "statusFailed": "Could not load space protection status."
+      },
+      "status": {
+        "legacy_unprotected": "Security upgrade required",
+        "protected": "Protected",
+        "awaiting_readmission": "Awaiting readmission",
+        "requires_readmission": "Readmission required",
+        "recovery_required": "Recovery required"
+      }
+    },
+    "memberRemoval": {
+      "removedDevices": "Removed devices",
+      "removed": {
+        "title": "Device removed",
+        "description": "This device is no longer a member of this space."
+      },
+      "notificationPending": {
+        "title": "Removed from this device",
+        "description": "Other devices are being notified. No action is needed."
+      },
+      "deviceRemoved": {
+        "title": "This device was removed",
+        "description": "This device is no longer part of the space. Re-pair with an invitation to rejoin."
+      },
+      "errors": {
+        "statusFailed": "Could not load device-removal progress.",
+        "removeFailed": "Could not remove the device."
+      },
+      "converging": {
+        "title": "Removing device",
+        "description": "The removal is propagating to all retained devices. This can take a while when some devices are offline."
+      },
+      "recoveryRequired": {
+        "title": "Space recovery required",
+        "description": "Member removal could not be verified safely. Rebuild the space from a trusted device to continue."
+      }
+    },
+    "tabs": {
+      "connected": "Connected Devices",
+      "requests": "Pairing Requests"
+    },
+    "sections": {
+      "requests": "Pairing Requests",
+      "noRequests": "No pairing requests"
+    },
+    "list": {
+      "empty": {
+        "title": "No paired devices yet"
+      },
+      "status": {
+        "online": "Online",
+        "offline": "Offline"
+      },
+      "channel": {
+        "lan": "Direct",
+        "relay": "Relayed",
+        "offline": "Disconnected",
+        "unknown": "—",
+        "outOfLan": "Off local network",
+        "tooltip": {
+          "lan": "Sent over a direct IP path, which may be local network or a VPN such as Tailscale.",
+          "relay": "Sent through an encrypted relay server. Content is encrypted, but connection info is visible to the relay.",
+          "offline": "No active connection right now.",
+          "unknown": "Detecting how this device is reachable.",
+          "outOfLan": "Local-network-only sync is on, but this device isn't on the same network. It will reconnect once back on the same network."
+        }
+      },
+      "labels": {
+        "unknownDevice": "Unknown Device"
+      },
+      "actions": {
+        "retry": "Retry",
+        "unpair": "Unpair",
+        "settings": "Settings",
+        "addDevice": "Invite Device",
+        "addAnotherDevice": "Invite another device"
+      }
+    },
+    "syncPaused": {
+      "message": "Clipboard sync is paused. All devices are currently not syncing.",
+      "goToSettings": "Go to Settings"
+    },
+    "connectMobile": {
+      "title": "Connect phone",
+      "method": "Sync method",
+      "regular": "Regular sync",
+      "direct": "Device connection",
+      "experimental": "Experimental",
+      "regularDescription": "Sync your clipboard with your phone on the same local network using connection settings.",
+      "directDescription": "Pair with an invitation code to sync your phone directly as a device in your space.",
+      "loadFailed": "Could not load sync settings. Try again.",
+      "enableFailed": "Could not enable regular sync. Check settings and try again."
+    },
+    "mobileSync": {
+      "title": "LAN Mobile Sync",
+      "description": "Sync your clipboard with mobile devices (iOS / Android) over LAN using the SyncClipboard protocol",
+      "deprecated": "Deprecating",
+      "deprecatedTooltip": "This channel will be removed in a future version. For full functionality, install the mobile app and pair your device.",
+      "configure": "Configure",
+      "statusBar": {
+        "bindFailed": "Failed to start listener: {{reason}}"
+      },
+      "enableConfirm": {
+        "title": "Enable mobile sync",
+        "body": "Mobile sync will turn on and start listening on port {{port}} over LAN HTTP. Use only on trusted networks — anyone on the same LAN with the credentials can read/write this clipboard.",
+        "confirm": "Enable and continue",
+        "enabling": "Enabling…",
+        "cancel": "Cancel"
+      },
+      "feedback": {
+        "applied": "Applied immediately",
+        "applyFailed": "Failed to apply settings: {{message}}"
+      },
+      "settingsSheet": {
+        "title": "Mobile sync configuration",
+        "description": "Adjust the switches and network parameters that let mobile devices reach this machine over LAN",
+        "close": "Done"
+      },
+      "enabled": {
+        "label": "Enable mobile sync",
+        "description": "When off, all sync requests from mobile devices are immediately rejected"
+      },
+      "lanListener": {
+        "label": "LAN listener",
+        "description": "Listens for cleartext HTTP on the chosen network interface; required to receive mobile requests",
+        "currentUrl": {
+          "label": "Current listening address",
+          "unavailable": "—",
+          "copy": "Copy",
+          "copied": "Copied",
+          "auto": {
+            "label": "Auto",
+            "hint": "Daemon listens on all interfaces. Copy the one your mobile device can reach."
+          }
+        },
+        "bindIp": {
+          "label": "Bind IP",
+          "placeholder": "Choose a network interface",
+          "empty": "No usable LAN IPv4 addresses detected",
+          "auto": "Auto (0.0.0.0)"
+        },
+        "port": {
+          "label": "Port",
+          "placeholder": "42720"
+        },
+        "warning": {
+          "title": "Network exposure warning",
+          "body": "Anyone on this LAN can read or write your clipboard once they obtain this machine's URL and a paired credential. Only enable on trusted Wi-Fi.",
+          "confirm": "I understand",
+          "cancel": "Cancel"
+        },
+        "disabledHint": "Enable the LAN listener before adding a device"
+      },
+      "list": {
+        "title": "Paired devices",
+        "addButton": "Add device",
+        "lastSeen": {
+          "never": "Never active",
+          "justNow": "just now",
+          "label": "Last active · {{rel}}"
+        }
+      },
+      "add": {
+        "title": "Add device",
+        "subtitle": "Generate a long-lived credential pair. The same pair works on iOS Shortcut and any Android client that speaks the SyncClipboard protocol.",
+        "labelField": {
+          "label": "Device label",
+          "placeholder": "My phone"
+        },
+        "advanced": {
+          "title": "Advanced options",
+          "description": "Leave empty to auto-generate a random credential pair"
+        },
+        "username": {
+          "label": "Custom username",
+          "placeholder": "Leave empty to auto-generate",
+          "help": "6–32 chars, must start with a letter, only A-Z a-z 0-9 _"
+        },
+        "password": {
+          "label": "Custom password",
+          "placeholder": "Leave empty to auto-generate",
+          "help": "At least 8 chars; no complexity requirement"
+        },
+        "submit": "Add",
+        "submitting": "Adding…",
+        "cancel": "Cancel"
+      },
+      "credential": {
+        "pair": {
+          "qrAlt": "QR code that auto-fills the sync credentials"
+        },
+        "baseUrl": {
+          "selectAria": "Select server URL"
+        },
+        "noClient": {
+          "title": "Haven't installed a client?",
+          "tabs": {
+            "ios": "iOS",
+            "android": "Android"
+          },
+          "ios": {
+            "scanLabel": "Scan to install UniClipboard App (TestFlight)",
+            "scanQrAlt": "QR code for the TestFlight invite link",
+            "openInBrowser": "Open TestFlight in browser",
+            "shortcutFallback": "Don't want the App? Scan to install the Shortcut as fallback",
+            "shortcutQrAria": "Show iOS shortcut install QR",
+            "shortcutQrAlt": "QR code to install the iOS shortcut"
+          },
+          "android": {
+            "scanLabel": "Scan to download APK (GitHub Releases)",
+            "scanQrAlt": "QR code for the GitHub Releases APK download page",
+            "openInBrowser": "Open GitHub Releases in browser"
+          }
+        },
+        "credentials": {
+          "title": "Credentials",
+          "warning": "won't be visible after closing",
+          "backup": "Backup",
+          "backupCopied": "Backed up"
+        },
+        "username": {
+          "label": "Username"
+        },
+        "password": {
+          "label": "Password",
+          "show": "Show password",
+          "hide": "Hide password"
+        },
+        "copy": "Copy",
+        "copied": "Copied",
+        "copyFailed": "Copy failed"
+      },
+      "revoke": {
+        "confirmTitle": "Revoke {{label}}",
+        "confirmDescription": "Once revoked, this device can no longer sync. To reconnect you must add it again (the password cannot be recovered).",
+        "confirm": "Revoke",
+        "cancel": "Cancel"
+      },
+      "edit": {
+        "button": "Edit device",
+        "title": "Edit device",
+        "subtitle": "Change the name, username, or reset the password",
+        "cancel": "Cancel",
+        "save": "Save",
+        "saving": "Saving...",
+        "label": {
+          "label": "Device label",
+          "placeholder": "My phone"
+        },
+        "username": {
+          "label": "Username",
+          "placeholder": "mobile_phone",
+          "help": "6-32 chars, must start with a letter, only A-Z a-z 0-9 _",
+          "renameNotice": "Changing the username generates a new password and requires re-pairing the device."
+        },
+        "password": {
+          "label": "Password",
+          "placeholder": "Leave blank to keep the current password",
+          "autoPlaceholder": "A new password will be generated",
+          "help": "Leave blank to keep it unchanged. Enter a new password (at least 8 characters) to replace it.",
+          "autoHelp": "A new password will be generated and shown once after saving.",
+          "regenerate": "Regenerate"
+        },
+        "result": {
+          "warning": "These credentials are shown only once. Save them before closing this dialog.",
+          "warningReissued": "The old password no longer works. The mobile client must use this new password to keep syncing. These credentials are shown only once — save them before closing this dialog."
+        }
+      },
+      "rotate": {
+        "button": "Change password",
+        "dialog": {
+          "title": "Change password for {{label}}",
+          "subtitle": "The server only stores a password hash, so the current one cannot be shown. After rotating, update the password field in your mobile client.",
+          "passwordLabel": "New password (optional)",
+          "passwordPlaceholder": "Leave empty to auto-generate",
+          "passwordHelp": "Empty → auto-generated strong password. Custom must be 8–256 chars.",
+          "warning": "The old password is invalidated immediately. The mobile client won't sync until its password field is updated.",
+          "submit": "Generate new password",
+          "submitting": "Working...",
+          "cancel": "Cancel"
+        },
+        "result": {
+          "title": "New password generated",
+          "subtitle": "Here is the new password — shown only this once. Copy it now and paste it into the password field of your mobile client.",
+          "usernameLabel": "Username",
+          "passwordLabel": "New password",
+          "copy": "Copy password",
+          "copied": "Copied",
+          "warning": "The old password no longer works. The mobile client must use this new password to keep syncing.",
+          "confirmSaved": "I have saved the new password",
+          "close": "Close",
+          "closeBlocked": "Confirm \"I have saved the new password\" first"
+        }
+      },
+      "deviceDialog": {
+        "sections": {
+          "serverAddress": "Connection",
+          "pairing": "Scan to pair",
+          "info": "Device info"
+        },
+        "status": {
+          "online": "Online",
+          "offline": "Offline",
+          "neverSeen": "Never connected"
+        },
+        "connectTitle": "Connect {{label}}",
+        "connectSubtitle": "Scan with your phone — paired in seconds",
+        "scanInstruction": "Open UniClipboard on your phone and scan this code to connect",
+        "wifiSameNetwork": "Make sure your phone is on the same Wi-Fi as this computer",
+        "manualEntry": {
+          "title": "Can't scan? Enter the username and password manually",
+          "oneTimeHint": "Password shown once"
+        },
+        "repair": {
+          "title": "Need to re-pair this phone?",
+          "description": "For security the server only keeps a password hash, so the QR code can't be regenerated. Reset the password to get a fresh pairing QR code.",
+          "action": "Reset password"
+        },
+        "fields": {
+          "createdAt": "Added at",
+          "lastSeen": "Last active",
+          "lastSeenIp": "Last source IP",
+          "reportedName": "Client name",
+          "reportedOs": "Client OS"
+        }
+      },
+      "errors": {
+        "facadeUnavailable": "Mobile sync is not enabled in this build",
+        "labelEmpty": "Device label cannot be empty",
+        "labelTooLong": "Device label is too long (max {{max}} chars)",
+        "lanListenerDisabled": "Enable the LAN listener first",
+        "usernameTaken": "Username \"{{username}}\" is already taken",
+        "usernameTooShort": "Username is too short (min {{min}} chars, got {{got}})",
+        "usernameTooLong": "Username is too long (max {{max}} chars, got {{got}})",
+        "usernameMustStartWithLetter": "Username must start with an ASCII letter",
+        "usernameContainsForbiddenChars": "Username may only contain letters, digits, and underscore",
+        "passwordTooShort": "Password is too short (min {{min}} chars)",
+        "passwordTooLong": "Password is too long (max {{max}} chars)",
+        "passwordHashFailed": "Password hashing failed: {{message}}",
+        "deviceNotFound": "Device no longer exists; please refresh the list",
+        "invalidLanParameter": "Invalid LAN parameter: {{reason}}",
+        "settingsLoadFailed": "Failed to load settings: {{message}}",
+        "settingsSaveFailed": "Failed to save settings: {{message}}",
+        "endpointInfoFailed": "Failed to probe current LAN address: {{message}}",
+        "lanProbeFailed": "Failed to list network interfaces: {{message}}",
+        "noLanInterfaceAvailable": "No usable LAN IPv4 address detected. Connect to a LAN, or pick a specific address under Configure → Bind IP, then try again.",
+        "persistenceFailed": "Save failed: {{message}}",
+        "qrRenderFailed": "QR rendering failed: {{message}}",
+        "unknown": "Error: {{message}}",
+        "loadFailed": "Load failed: {{message}}"
+      }
+    },
+    "panel": {
+      "danger": {
+        "title": "Danger zone",
+        "description": "Keep local history and clear this device’s pairings.",
+        "reset": "Rebuild space",
+        "failed": "Could not rebuild the space. Try again or restart the app.",
+        "modal": {
+          "title": "Rebuild space",
+          "warning": "Create a new space containing only this device. Local history and settings are kept. Old space memberships, security state, and pending invitations are cleared. Pair other devices again to sync.",
+          "confirmPrompt": "Type RESET to confirm",
+          "confirmPlaceholder": "RESET",
+          "confirm": "Rebuild space",
+          "resetting": "Rebuilding...",
+          "cancel": "Cancel"
+        }
+      },
+      "listTitle": "Devices",
+      "counts": "{{online}}/{{total}} online · {{mobile}} mobile",
+      "localBadge": "This device",
+      "fields": {
+        "peerId": "Peer ID"
+      },
+      "profile": {
+        "title": "Profile",
+        "platform": "Platform",
+        "version": "App version",
+        "space": "Space",
+        "memberCount_one": "{{count}} member",
+        "memberCount_other": "{{count}} members",
+        "copy": "Copy peer ID",
+        "copied": "Copied",
+        "copyFailed": "Failed to copy to clipboard"
+      },
+      "policies": {
+        "title": "Global sync policies",
+        "syncEnabled": {
+          "title": "Enable sync",
+          "description": "Allow content to be synchronized between devices"
+        },
+        "autoSync": {
+          "title": "Auto-sync clipboard",
+          "description": "Push new clipboard content to all paired devices automatically"
+        },
+        "fileSync": {
+          "title": "File sync",
+          "description": "Allow transferring files between devices"
+        }
+      },
+      "addMenu": {
+        "trigger": "Invite Device",
+        "otherWays": "Other ways to add",
+        "mobile": "Connect a phone over LAN"
+      }
+    },
+    "settings": {
+      "readOnly": "Locked",
+      "sections": {
+        "connection": "Connection"
+      },
+      "fields": {
+        "channel": "Channel",
+        "address": "Address"
+      },
+      "badges": {
+        "mvp": "MVP",
+        "comingSoon": "Coming Soon",
+        "notEditable": "Not Editable",
+        "globalFileSyncOff": "File sync off",
+        "experimental": "Experimental",
+        "experimentalTooltip": "This feature is experimental — its behavior may change or be unstable in future releases."
+      },
+      "sync": {
+        "title": "Sync Settings",
+        "syncWithDevice": "Sync with {{deviceName}}",
+        "enabledDescription": "Copied content syncs automatically between both devices.",
+        "disabledDescription": "Sync with this device is off.",
+        "customize": "Customize synced content",
+        "allBoth": "All in both directions",
+        "customized": "Customized",
+        "customizeDescription": "Choose a sync direction for each content type.",
+        "directionLabel": "Sync direction for {{contentType}}",
+        "modes": {
+          "both": "Both directions",
+          "sendOnly": "Only send to {{deviceName}}",
+          "receiveOnly": "Only receive from {{deviceName}}",
+          "off": "Do not sync"
+        },
+        "helpLabel": "About send and receive",
+        "help": "Send controls what this computer can sync to this device. Receive controls what this computer can accept from this device.",
+        "restoreDefaults": "Restore defaults",
+        "updateFailed": "Couldn't update sync settings. Try again.",
+        "contentTypes": "Content types",
+        "columns": {
+          "send": "Send",
+          "receive": "Receive"
+        },
+        "typeLabels": {
+          "text": "Text",
+          "image": "Images",
+          "file": "Files",
+          "link": "Links",
+          "richText": "Rich text"
+        },
+        "toggleLabel": "{{direction}}: {{contentType}}",
+        "rules": {
+          "sendEnabled": {
+            "title": "Send to this device",
+            "description": "When on, clipboard content from this computer is sent to the selected device."
+          },
+          "receiveEnabled": {
+            "title": "Receive from this device",
+            "description": "When on, new clipboard content from the selected device can be received on this computer."
+          },
+          "syncText": {
+            "title": "Sync Text",
+            "description": "Allow syncing text content"
+          },
+          "syncImage": {
+            "title": "Sync Images",
+            "description": "Allow syncing image content (may use more bandwidth)"
+          },
+          "syncFile": {
+            "title": "Sync Files",
+            "description": "Allow syncing file content (up to 10MB)"
+          },
+          "syncLink": {
+            "title": "Sync Links",
+            "description": "Allow syncing URL/link content"
+          },
+          "syncRichText": {
+            "title": "Sync Rich Text",
+            "description": "Allow syncing rich text content (HTML, RTF)"
+          }
+        }
+      },
+      "permissions": {
+        "title": "Access Permissions",
+        "items": {
+          "readClipboard": "Read clipboard",
+          "writeClipboard": "Write clipboard",
+          "historyAccess": "Access history",
+          "fileTransfer": "File transfer"
+        }
+      }
+    },
+    "switchSpace": {
+      "button": "Join another space",
+      "title": "Switch to another space",
+      "subtitle": "Existing clipboard history will be re-encrypted under the new master key.",
+      "warning": "All local clipboard data is re-encrypted in 4 phases. Don't quit the app until it finishes — a crash mid-flight will auto-resume on next launch.",
+      "labels": {
+        "code": "Invitation code",
+        "newPassphrase": "New space passphrase"
+      },
+      "placeholders": {
+        "newPassphrase": "Passphrase the new sponsor chose"
+      },
+      "actions": {
+        "switch": "Switch",
+        "switching": "Switching…",
+        "cancel": "Cancel",
+        "close": "Close",
+        "retry": "Retry",
+        "useNewCode": "Enter a new code",
+        "preserveAndContinue": "Keep unreadable history and continue"
+      },
+      "migrating": {
+        "title": "Migrating clipboard history",
+        "phase": {
+          "preparing": "Phase 1: backing up history",
+          "prepared": "Phase 2: handshaking with new sponsor",
+          "handshakeDone": "Phase 3: re-encrypting under new key",
+          "swapped": "Phase 4: finalising"
+        },
+        "recordsHint": "{{count}} records in backup table"
+      },
+      "pending": {
+        "title": "Waiting for confirmation",
+        "subtitle": "Waiting for the other device to confirm this switch."
+      },
+      "processing": {
+        "title": "Completing the switch",
+        "subtitle": "The final confirmation is in progress. It will retry automatically if the connection fails."
+      },
+      "success": {
+        "title": "Switched space",
+        "subtitle_one": "Migrated 1 clipboard record under the new master key.",
+        "subtitle_other": "Migrated {{count}} clipboard records under the new master key.",
+        "subtitle_zero": "No clipboard history needed migration.",
+        "preservedUnreadable_one": "Kept {{count}} encrypted record that cannot be read in the new space.",
+        "preservedUnreadable_other": "Kept {{count}} encrypted records that cannot be read in the new space."
+      },
+      "failed": {
+        "title": "Switch space failed",
+        "fallback": "Switch space failed: {{reason}}",
+        "reasons": {
+          "not_setup": "This device hasn't completed first-time setup. Use \"Initialize\" or \"Join\" first.",
+          "pending_migration": "A previous migration is still in flight. Restart the app to auto-resume.",
+          "not_unlocked": "Space session is locked. Restart the app so the keychain re-unlocks it.",
+          "sponsor_rejected": "Sponsor did not recognise the invitation code. Ask them to issue a fresh one.",
+          "sponsor_declined": "Sponsor declined the pairing.",
+          "sponsor_upgrade_required": "The other device is using an older version. Update UniClipboard on that device, then create a new invitation code.",
+          "unreadable_history_confirmation_required": "Some local history cannot be read with the current key. Continue only if you want to keep those encrypted records without making them available in the new space.",
+          "invitation_not_found": "Invitation code has already been used or is no longer valid. Ask the sponsor to issue a fresh one.",
+          "invitation_expired": "Invitation expired. Ask the sponsor to issue a fresh one.",
+          "passphrase_mismatch": "Wrong passphrase — please retry.",
+          "device_name_required": "Device name is required.",
+          "sponsor_unreachable": "Sponsor is not reachable. Check NAT / relay.",
+          "service_unavailable": "Pairing service is unreachable. Try again later.",
+          "timeout": "Handshake timed out.",
+          "connection_lost": "Connection lost mid-handshake.",
+          "corrupted_key_material": "Local key material is corrupted.",
+          "invalid_ciphertext": "Backup record could not be decrypted. Restart the app to auto-resume.",
+          "internal": "Internal error — see daemon logs."
+        }
+      }
+    },
+    "deviceTrustUnavailable": "Device status is temporarily unavailable. Try again shortly."
+  },
+  "pairing": {
+    "globalRequest": {
+      "title": "Device Pairing Request",
+      "description": "{{deviceName}} wants to pair with you",
+      "warning": "Make sure you initiated this pairing"
+    },
+    "requests": {
+      "accept": "Accept",
+      "accepting": "Accepting...",
+      "reject": "Reject"
+    },
+    "steps": {
+      "discovery": "Discover Devices",
+      "connecting": "Connecting...",
+      "pinVerify": "Security Verification",
+      "success": "Pairing Successful",
+      "failed": "Pairing Failed"
+    },
+    "discovery": {
+      "description": "Please ensure both devices are on the same local network",
+      "searching": "Searching for devices...",
+      "noDevices": "No connectable devices discovered",
+      "reScan": "Rescan",
+      "foundCount": "Found {{count}} devices",
+      "unknownDevice": "Unknown Device",
+      "connect": "Connect"
+    },
+    "connecting": {
+      "title": "Connecting to {{deviceName}}",
+      "pleaseWait": "Please wait..."
+    },
+    "pinVerify": {
+      "description": "Please confirm if the PIN codes on both devices match",
+      "initiatorTitle": "Verify PIN Code",
+      "initiatorDescription": "Check if this PIN matches the one shown on {{deviceName}}",
+      "responderTitle": "Your PIN Code",
+      "responderDescription": "Compare this PIN with the one on {{deviceName}} and confirm the match on the initiating device.",
+      "verifying": "Verifying...",
+      "pleaseWait": "Please wait...",
+      "pinLabel": "Pairing PIN Code",
+      "warning": "Please ensure both devices show the same PIN code",
+      "notMatch": "Not a Match",
+      "match": "Confirm Match",
+      "timeout": "Time remaining: {{time}}"
+    },
+    "success": {
+      "title": "Pairing Successful!"
+    },
+    "failed": {
+      "title": "Pairing Failed",
+      "retry": "Retry",
+      "errors": {
+        "loadPeers": "Failed to get device list",
+        "reject": "Connection request rejected",
+        "initiate": "Failed to initiate pairing",
+        "verifyPin": "Failed to verify PIN",
+        "activeSession": "Another pairing session is already in progress",
+        "noParticipant": "No local device is ready to confirm pairing",
+        "sessionExpired": "The pairing session expired or was already closed",
+        "daemonUnavailable": "The pairing daemon is unavailable. Start the desktop service and try again"
+      }
+    }
+  },
+  "connectionRequest": {
+    "title": "Device Connection Request",
+    "status": {
+      "idle": "Device {{name}} is requesting to connect to this device",
+      "processing": "Processing...",
+      "accepted": "Connection request accepted",
+      "rejected": "Connection request rejected",
+      "error": "Processing failed: {{message}}",
+      "establishing": "Processing connection request...",
+      "connected": "Connection established",
+      "rejectedResult": "Connection rejected"
+    },
+    "info": {
+      "device": "Device {{id}}",
+      "ip": "IP: {{ip}}",
+      "platform": "Platform: {{platform}}"
+    },
+    "timeout": "Automatically reject after {{time}} seconds",
+    "actions": {
+      "reject": "Reject",
+      "accept": "Accept",
+      "close": "Close",
+      "retry": "Retry"
+    }
+  },
+  "feedback": {
+    "modal": {
+      "title": "Send Feedback",
+      "description": "Your feedback helps us improve UniClipboard. Please describe your issue or suggestion below.",
+      "label": {
+        "content": "Feedback Content",
+        "email": "Email Address (Optional)"
+      },
+      "placeholder": {
+        "content": "Please enter your feedback here...",
+        "email": "your@email.com"
+      },
+      "submit": "Submit Feedback",
+      "useSavedEmail": "Use saved email",
+      "success": "Feedback sent successfully. Thank you!",
+      "error": "Failed to send feedback. Please try again later."
+    }
+  },
+  "lifecycle": {
+    "watcherFailed": "Clipboard listener failed to start",
+    "networkFailed": "Network failed to start",
+    "retry": "Retry",
+    "retrying": "Retrying..."
+  },
+  "previewPanel": {
+    "title": "Preview",
+    "error": "Failed to load preview",
+    "imageUnavailable": "Image not available",
+    "empty": "Hover over an item to preview",
+    "imageAlt": "Clipboard image",
+    "deleteHint": "{{modifier}}⌫ delete",
+    "largeImageTitle": "Large image",
+    "largeImageHint": "{{size}} — not loaded automatically",
+    "loadLargeImage": "Load image"
+  },
+  "delivery": {
+    "section": {
+      "aria": "Entry sync status"
+    },
+    "source": {
+      "label": "From:",
+      "local": "this device",
+      "remote": "{{device}}",
+      "historical": "local history (legacy)",
+      "localShort": "This device",
+      "remoteShort": "From {{device}}",
+      "historicalShort": "Legacy entry"
+    },
+    "list": {
+      "title": "Sync status",
+      "historical": "Created before sync tracking; no delivery records",
+      "noPeers": "No paired devices yet"
+    },
+    "status": {
+      "delivered": "delivered",
+      "duplicate": "delivered (duplicate)",
+      "pending": "not attempted",
+      "unreachable": "peer offline",
+      "superseded": "replaced by newer content",
+      "failedWithReason": "failed · {{reason}}"
+    },
+    "summary": {
+      "synced": "Synced",
+      "partial": "Partially synced",
+      "syncing": "Syncing",
+      "failed": "Sync failed",
+      "waiting": "Peer offline",
+      "superseded": "Replaced by newer content",
+      "pending": "Awaiting sync"
+    },
+    "popover": {
+      "title": "Sync status",
+      "ariaTrigger": "View per-device sync details"
+    },
+    "failureReason": {
+      "localPolicy": "blocked by local policy",
+      "peerRejected": "peer rejected",
+      "peerIncompatible": "peer version is incompatible",
+      "io": "network error",
+      "internal": "internal error"
+    },
+    "resend": {
+      "button": {
+        "entry": "Resend",
+        "entryAria": "Resend to all eligible peers",
+        "entryDisabled": "Already delivered to every paired device",
+        "peer": "Resend",
+        "peerAria": "Resend to {{device}}",
+        "pending": "Resending…"
+      },
+      "success": {
+        "summary": "Resend dispatched · {{accepted}}/{{total}} accepted",
+        "bulk": "Sent {{sent}} of {{total}} items"
+      },
+      "error": {
+        "synchronizationDisabled": "Sync is disabled. Turn it on to resend content.",
+        "notResendable": {
+          "remoteOrigin": "Entry {{entryIdShort}} originated on another device and cannot be resent from here.",
+          "payloadLost": "Entry {{entryIdShort}} is no longer available on this device."
+        },
+        "targetNotTrusted": "Device {{device}} is no longer paired.",
+        "noEligibleTargets": "No eligible peers to resend to.",
+        "entryNotFound": "Entry {{entryIdShort}} not found.",
+        "internal": "Resend failed: {{message}}"
+      }
+    }
+  },
+  "quickPanel": {
+    "scaleText": "Text",
+    "scaleWindow": "Window",
+    "loading": "Connecting clipboard history...",
+    "unavailable": "Clipboard history is unavailable right now.",
+    "history": {
+      "searchPlaceholder": "Search clipboard history…",
+      "advancedPlaceholder": "Filter…",
+      "searchAriaLabel": "Search clipboard history",
+      "filterMenuLabel": "Open filter menu",
+      "listAriaLabel": "Clipboard history items",
+      "filters": {
+        "all": "All",
+        "text": "Text",
+        "richtext": "Rich Text",
+        "image": "Image",
+        "link": "Link",
+        "file": "File",
+        "code": "Code"
+      },
+      "timeRange": {
+        "all_time": "All time",
+        "today": "Today",
+        "yesterday": "Yesterday",
+        "last_7d": "Last 7 days",
+        "last_30d": "Last 30 days",
+        "this_week": "This week",
+        "this_month": "This month"
+      },
+      "locked": {
+        "title": "Clipboard is locked",
+        "description": "Unlock to access your clipboard history",
+        "action": "Unlock",
+        "openFailed": "Could not open the unlock window. Try again from the main window.",
+        "unlocking": "Unlocking..."
+      },
+      "status": {
+        "close": "esc close",
+        "loading": "Loading…",
+        "searching": "Searching…",
+        "navigatePaste": "↑↓ navigate · ⇥ type · ⏎ paste"
+      },
+      "empty": {
+        "title": "No results found",
+        "description": "Try different keywords or filters"
+      }
+    }
+  },
+  "setup": {
+    "invitationIssue": {
+      "errors": {
+        "networkNotStarted": "The desktop service is still starting. Wait a moment, then try again.",
+        "noPublishableAddress": "This device has no usable network connection for pairing. Connect it to a network, then try again.",
+        "localPublicationFailed": "This device could not make the invitation available on the local network. Check its network connection, then try again.",
+        "directoryTransportFailed": "The invitation service could not be reached, and local pairing is unavailable. Check the network, then try again.",
+        "directoryRejected": "The invitation service declined this request. Do not keep retrying; export diagnostics and contact support.",
+        "directoryInvalidResponse": "The invitation service returned an invalid response. Try again once; if it continues, export diagnostics and contact support.",
+        "serviceUnavailable": "Pairing is temporarily unavailable. Wait a moment, then try again.",
+        "internal": "The invitation could not be created. If this continues, export diagnostics and contact support."
+      }
+    },
+    "page": {
+      "processing": "Processing...",
+      "processingJoinSpace": {
+        "title": "Connecting to device…",
+        "subtitle": "A pairing request has been sent. Please wait for the other device to respond.",
+        "hint": "Go to the other device and approve the pairing request"
+      },
+      "unknownState": "Unknown setup state: {{state}}",
+      "errors": {
+        "loadSetupStateFailed": "Failed to load setup state",
+        "refreshPeersFailed": "Failed to refresh device list",
+        "operationFailed": "Operation failed. Please try again."
+      },
+      "badges": {
+        "e2ee": "End-to-end encrypted",
+        "localKeys": "Local key custody",
+        "lanDiscovery": "LAN discovery"
+      }
+    },
+    "common": {
+      "unknownDevice": "Unknown device",
+      "back": "Back",
+      "refresh": "Refresh",
+      "cancel": "Cancel",
+      "encryptPassphraseLabel": "Encryption passphrase",
+      "encryptPassphrasePlaceholder": "Enter the passphrase shown on the host device"
+    },
+    "brand": {
+      "headline": "Your clipboard, everywhere.",
+      "tagline": "End-to-end encrypted. Your keys never leave your devices."
+    },
+    "welcome": {
+      "title": "Get started",
+      "subtitle": "First, tell us where this device fits.",
+      "create": {
+        "title": "This is my first device",
+        "description": "Create an encrypted space, then connect another device to start syncing.",
+        "cta": "Start new space"
+      },
+      "join": {
+        "title": "I already use UniClipboard elsewhere",
+        "description": "Get an invitation code from that device and connect this one.",
+        "cta": "Join via pairing"
+      },
+      "import": {
+        "divider": "Move or recover",
+        "title": "Move a device backup",
+        "description": "Take over the backed-up device identity; the original device must stay offline."
+      },
+      "footer": "No account required. Clipboard content stays on your own devices."
+    },
+    "importConfig": {
+      "title": "Import configuration",
+      "subtitle": "Set up this device from a config file you exported on another device.",
+      "confirmSubtitle": "Review what you're importing, then confirm.",
+      "fileLabel": "Config bundle",
+      "chooseFile": "Choose a .ucbundle file…",
+      "changeFile": "Change",
+      "passwordLabel": "Space passphrase",
+      "passwordPlaceholder": "Passphrase of the exported device",
+      "passwordHint": "Use the Space passphrase from the device this file was exported from - that's what unlocks it.",
+      "note": "This device will take over the exported device's identity and pairings. After importing, don't bring the original device back online - two devices sharing one identity will conflict on the device network.",
+      "metaTitle": "Config to import",
+      "metaAppVersion": "Exported from version",
+      "metaSourceMode": "Source type",
+      "metaSourcePortable": "Portable",
+      "metaSourceInstalled": "Installed",
+      "metaFingerprint": "Device fingerprint",
+      "restartingTitle": "Restarting to finish import",
+      "restartingDescription": "Please wait - the app will restart and apply the imported config. Do not close it.",
+      "restartingUnlockHint": "After the restart you'll need your Space passphrase to unlock.",
+      "errors": {
+        "invalidPassword": "Wrong passphrase, or the file is corrupted",
+        "incompatible": "This config bundle's version is not compatible with the current app",
+        "generic": "Failed to import config. Please try again."
+      },
+      "actions": {
+        "back": "Back",
+        "continue": "Continue",
+        "staging": "Importing…",
+        "import": "Start import"
+      }
+    },
+    "initializeSpace": {
+      "title": "Create your space",
+      "subtitle": "Set a name for this device and choose a passphrase to protect the encrypted space.",
+      "labels": {
+        "deviceName": "Device name",
+        "passphrase": "Passphrase",
+        "passphraseConfirm": "Confirm passphrase"
+      },
+      "placeholders": {
+        "deviceName": "e.g. MacBook Pro",
+        "passphrase": "Enter a strong passphrase",
+        "passphraseConfirm": "Re-enter your passphrase"
+      },
+      "errors": {
+        "passphraseMismatch": "Passphrases do not match",
+        "deviceNameRequired": "Device name is required",
+        "alreadyInitialized": "This device is already set up.",
+        "serviceUnavailable": "Daemon is not ready yet. Please try again in a moment.",
+        "generic": "Failed to create the space. Please try again."
+      },
+      "actions": {
+        "back": "Back",
+        "creating": "Creating...",
+        "submit": "Create space"
+      },
+      "hint": "Save this passphrase somewhere safe — you'll need it on every device that joins this space."
+    },
+    "showInvitation": {
+      "status": "Space created",
+      "title": "Invite a new device",
+      "subtitle": "Type this code on the joining device to add it to the space.",
+      "expiresIn": "Expires in {{remaining}}",
+      "expired": "Invitation expired",
+      "hint": "Both devices must remain online while pairing.",
+      "hintExpired": "The code is no longer valid. Cancel and start a new invitation.",
+      "actions": {
+        "cancel": "Cancel invitation"
+      }
+    },
+    "redeemInvitation": {
+      "title": "Join an existing space",
+      "subtitle": "Enter the invitation code shown on the other device, then provide the same passphrase used to create the space.",
+      "labels": {
+        "code": "Invitation code",
+        "passphrase": "Space passphrase"
+      },
+      "placeholders": {
+        "passphrase": "Enter the passphrase from the host device"
+      },
+      "errors": {
+        "invitationNotFound": "This invitation code has already been used or is no longer valid. Ask the host to issue a new one.",
+        "invitationExpired": "This invitation has expired. Ask the host to issue a new one.",
+        "passphraseMismatch": "The passphrase doesn't match. This invitation has been used; ask the host to issue a new one.",
+        "sponsorUnreachable": "The host device is not reachable right now. Make sure both devices are online.",
+        "sponsorRejected": "The host did not recognise this code. Ask them to issue a new one.",
+        "sponsorDeclined": "The host declined the pairing request.",
+        "sponsorUpgradeRequired": "The other device is using an older version. Update UniClipboard on that device, then create a new invitation code.",
+        "timeout": "The pairing handshake timed out. Please try again.",
+        "connectionLost": "The connection dropped mid-handshake. Please try again.",
+        "serviceUnavailable": "The daemon is not ready yet. Please try again in a moment.",
+        "deviceNameRequired": "This device needs a display name before it can join.",
+        "generic": "Could not join the space. Please try again."
+      },
+      "hint": "The code is short-lived — ask the host to keep it on screen until pairing completes.",
+      "actions": {
+        "back": "Back",
+        "joining": "Joining...",
+        "submit": "Join space"
+      }
+    },
+    "joinPending": {
+      "processing": {
+        "title": "Updating space device status",
+        "subtitle": "Finishing the join. It will continue automatically if the connection is interrupted."
+      },
+      "title": "Waiting for confirmation",
+      "subtitle": "Waiting for the join result.",
+      "actions": {
+        "cancel": "Cancel join",
+        "back": "Back"
+      },
+      "ended": {
+        "title": "Could not join the space",
+        "reasons": {
+          "invitation_unavailable": "The invitation is no longer available.",
+          "authentication_rejected": "The passphrase or identity was not accepted.",
+          "identity_conflict": "This device identity conflicts with the space.",
+          "base_history_changed": "The host space changed. Get a new invitation and try again.",
+          "joiner_history_ahead": "This device history cannot join the space.",
+          "history_conflict": "The two histories cannot be merged.",
+          "completion_invalid": "The final confirmation was invalid, so the unfinished pairing stopped.",
+          "membership_history_invalid": "The membership history was invalid, so the unfinished pairing stopped.",
+          "security_material_invalid": "The security material was invalid, so the unfinished pairing stopped.",
+          "relationship_conflict": "The device relationship conflicted, so the unfinished pairing stopped.",
+          "activation_state_invalid": "The activation state was invalid, so the unfinished pairing stopped.",
+          "outcome_cannot_be_proven": "The pairing result cannot be confirmed safely. Keep existing data and contact support.",
+          "peer_upgrade_required": "The other device must update UniClipboard.",
+          "cancelled": "This join was cancelled.",
+          "expired": "This join expired, so the unfinished pairing ended automatically.",
+          "superseded": "A newer pairing replaced this join.",
+          "removed_before_activation": "The other device removed this device before confirmation."
+        }
+      }
+    },
+    "spaceReady": {
+      "title": "All set",
+      "subtitle": "Your space is ready. Connect another device now to start syncing.",
+      "issueFailed": "Couldn't create an invitation. Please try again.",
+      "actions": {
+        "invite": "Connect a device",
+        "inviting": "Creating invitation...",
+        "later": "Do this later"
+      }
+    },
+    "pairingComplete": {
+      "title": "Pairing successful",
+      "connected": "Connected",
+      "devices": {
+        "thisDevice": "This device",
+        "local": "Local",
+        "peer": "New device",
+        "joined": "Just joined",
+        "direct": "Direct on local network"
+      },
+      "points": {
+        "encrypted": "Content stays encrypted and can only be read by paired devices.",
+        "sync": "Copied content syncs automatically while both devices are online."
+      },
+      "actions": {
+        "done": "Done"
+      }
+    }
+  },
+  "profileAdmissionRecovery": {
+    "category": "Local data needs attention",
+    "title": "Your existing data could not be opened safely",
+    "description": "UniClipboard could not confirm that the saved local data was safe to open, so it did not start history, clipboard monitoring, or device sync.",
+    "issue": "Issue",
+    "stage": "Found while reading",
+    "nextStep": "Recommended next step",
+    "preserved": "Your existing data has not been deleted or replaced.",
+    "help": "Keep this profile and any backups unchanged. Export diagnostics before trying another copy or asking for help.",
+    "export": "Export diagnostics",
+    "exporting": "Exporting diagnostics…",
+    "exported": "Diagnostics exported.",
+    "exportFailed": "Diagnostics could not be exported. Check the save location and available space, then try again.",
+    "categories": {
+      "credential_missing": "A required membership credential is missing",
+      "authentication_mismatch": "The saved credential does not match the membership data",
+      "current_metadata_invalid": "The current membership metadata is invalid",
+      "legacy_fallback_invalid": "The earlier membership metadata is also invalid",
+      "legacy_migration_failed": "Earlier membership data could not be upgraded safely",
+      "record_relation_incomplete": "Related membership records are incomplete",
+      "derived_summary_invalid": "The saved membership summary is invalid",
+      "generation_mismatch": "Membership records belong to different generations",
+      "other_storage_error": "The membership data could not be read"
+    },
+    "stages": {
+      "credential": "the saved credential",
+      "repository_metadata": "current membership metadata",
+      "legacy_repository": "earlier membership metadata",
+      "repository_record": "membership records",
+      "recovery_summary": "the membership summary",
+      "storage": "local storage"
+    },
+    "actions": {
+      "restore_credential": "Restore the credential from a trusted copy",
+      "choose_backup": "Use a known-good backup of this profile",
+      "rebuild_derived_state": "Rebuild the derived membership summary with a supported recovery tool",
+      "export_diagnostics": "Export diagnostics and ask for help before changing the profile"
+    }
+  }
+}

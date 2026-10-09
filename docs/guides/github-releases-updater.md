@@ -1,16 +1,18 @@
 # GitHub Releases Updater
 
+> **历史文档（已退役）**：本文描述的 Tauri 宿主（Tauri 适配 crate 与 `src-tauri` 打包壳）已被 Go/Wails 宿主取代，内容仅供追溯，不再随代码更新。当前桌面宿主见 `apps/gui-go/README.md`，退役记录见 `docs/architecture/gui-go-tauri-retirement.md`。
+
 This guide documents how UniClipboard publishes Tauri updater artifacts to GitHub Releases and serves `latest.json` for auto-updates.
 
 ## Prerequisites
 
-- Tauri updater plugin enabled in `src-tauri/tauri.conf.json`.
+- Tauri updater plugin enabled in `apps/gui/src-tauri/tauri.conf.json`.
 - `createUpdaterArtifacts` enabled so `.sig` files are generated.
 - A signing keypair generated with `cargo tauri signer generate`.
 
 ## Required Tauri Configuration
 
-Update `src-tauri/tauri.conf.json`:
+Update `apps/gui/src-tauri/tauri.conf.json`:
 
 ```json
 {

@@ -12,8 +12,9 @@ path = "src/lib.rs"
 [dependencies]
 uc-daemon-contract = { path = "../uc-daemon-contract" }
 uc-daemon-local = { path = "../uc-daemon-local" }
+uc-daemon-process = { path = "../uc-daemon-process" }
 uc-engine = { workspace = true, features = ["lan-compat"] }
-uc-observability = { path = "../uc-observability" }
+uc-observability = { path = "../uc-observability", features = ["analytics"] }
 anyhow = "1.0"
 async-trait = "0.1"
 axum = { version = "0.7", features = ["ws", "tokio", "http1", "http2", "multipart"] }
@@ -24,8 +25,9 @@ jsonwebtoken = { version = "10", default-features = false, features = ["rust_cry
 rand = "0.8"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+tempfile = "3"
 thiserror = "2.0"
-tokio = { version = "1", features = ["full", "test-util"] }
+tokio = { version = "1", features = ["full"] }
 tokio-util = "0.7"
 tracing = "0.1"
 url = "2"
@@ -35,6 +37,8 @@ uuid = { version = "1.10.0", features = ["v4"] }
 zeroize = "1"
 
 [dev-dependencies]
+# Paused-clock tests only; production builds must not carry tokio test-util.
+tokio = { version = "1", features = ["test-util"] }
 tracing-subscriber = "0.3"
 tower = { version = "0.5", features = ["util"] }
 # The /healthz load benchmark only: it drives a real listener over real TCP and
@@ -45,6 +49,7 @@ argon2 = "0.5.3"
 libc = "0.2"
 reqwest = { version = "0.12", default-features = false }
 tokio-tungstenite = "0.24"
+tempfile = "3"
 
 [features]
 e2e-rendezvous = ["uc-engine/dev-tools"]

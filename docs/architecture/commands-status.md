@@ -1,5 +1,7 @@
 # Tauri Commands Architecture Status
 
+> **历史文档（已退役）**：本文描述的 Tauri 宿主（Tauri 适配 crate 与 `src-tauri` 打包壳）已被 Go/Wails 宿主取代，内容仅供追溯，不再随代码更新。当前桌面宿主见 `apps/gui-go/README.md`，退役记录见 `docs/architecture/gui-go-tauri-retirement.md`。
+
 ## Overview
 
 This document tracks the current status of all Tauri commands in the uniclipboard-desktop
@@ -19,12 +21,12 @@ Commands are **Driving Adapters** in Hexagonal Architecture:
 
 | Command                  | File                                                                                      | Registered | Uses UseCases | Status   |
 | ------------------------ | ----------------------------------------------------------------------------------------- | ---------- | ------------- | -------- |
-| `get_clipboard_entries`  | [clipboard.rs:12-39](../../src-tauri/crates/uc-tauri/src/commands/clipboard.rs#L12-L39)   | ✅         | ✅            | Complete |
-| `delete_clipboard_entry` | [clipboard.rs:59-74](../../src-tauri/crates/uc-tauri/src/commands/clipboard.rs#L59-L74)   | ✅         | ✅            | Complete |
-| `capture_clipboard`      | [clipboard.rs:76-96](../../src-tauri/crates/uc-tauri/src/commands/clipboard.rs#L76-L96)   | ✅         | ❌            | Complex  |
-| `initialize_encryption`  | [encryption.rs:21-31](../../src-tauri/crates/uc-tauri/src/commands/encryption.rs#L21-L31) | ✅         | ✅            | Complete |
-| `get_settings`           | [settings.rs:17-25](../../src-tauri/crates/uc-tauri/src/commands/settings.rs#L17-L25)     | ✅         | ✅            | Complete |
-| `update_settings`        | [settings.rs:35-45](../../src-tauri/crates/uc-tauri/src/commands/settings.rs#L35-L45)     | ✅         | ✅            | Complete |
+| `get_clipboard_entries`  | [clipboard.rs:12-39](../../crates/uc-tauri/src/commands/clipboard.rs#L12-L39)   | ✅         | ✅            | Complete |
+| `delete_clipboard_entry` | [clipboard.rs:59-74](../../crates/uc-tauri/src/commands/clipboard.rs#L59-L74)   | ✅         | ✅            | Complete |
+| `capture_clipboard`      | [clipboard.rs:76-96](../../crates/uc-tauri/src/commands/clipboard.rs#L76-L96)   | ✅         | ❌            | Complex  |
+| `initialize_encryption`  | [encryption.rs:21-31](../../crates/uc-tauri/src/commands/encryption.rs#L21-L31) | ✅         | ✅            | Complete |
+| `get_settings`           | [settings.rs:17-25](../../crates/uc-tauri/src/commands/settings.rs#L17-L25)     | ✅         | ✅            | Complete |
+| `update_settings`        | [settings.rs:35-45](../../crates/uc-tauri/src/commands/settings.rs#L35-L45)     | ✅         | ✅            | Complete |
 
 ## Plugin Commands (External Dependencies)
 

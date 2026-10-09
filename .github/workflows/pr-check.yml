@@ -6,44 +6,24 @@ on:
     branches:
       - main
     types: [opened, synchronize, reopened]
-    paths:
-      - 'src/**'
-      - 'crates/**'
-      - 'apps/**'
-      - 'src-tauri/**'
-      - 'tests/e2e/**'
-      - 'vendor/**'
-      - 'Cargo.toml'
-      - 'Cargo.lock'
-      - 'rust-toolchain.toml'
-      - 'clippy.toml'
-      - 'package.json'
-      - 'bun.lock'
-      - 'tsconfig*.json'
-      - 'vite.config.ts'
-      - 'tailwind.config.js'
-      - '.oxlintrc.json'
-      - '.oxfmtrc.json'
-      - 'index.html'
-      - 'quick-panel.html'
-      - 'public/**'
-      - '.github/docker/build-bookworm.Dockerfile'
-      - '.github/workflows/pr-check.yml'
-      - '.github/workflows/membership-e2e.yml'
-      - 'scripts/e2e/run-membership-matrix.sh'
 
 permissions:
   contents: read
   packages: read
   pull-requests: read
 
+# 本 workflow 对每个目标为 main 的 PR 都运行（没有 workflow 级 paths）：workflow 级 paths 不命中时检查根本不会出现，
+# 若把某个作业设为必需检查，这样的 PR 会一直 pending。路径判断放在 changes 作业里，不相关的 PR 上各作业显示为 Skipped，
+# 这对必需检查算通过。建议的必需检查名称：「Go Host Compile Check」（job gui-go）。
 # 拆 frontend / frontend-tests / rust 三个 job：
 # - changes: 检测 PR 是否改到 Rust 相关路径，供 rust job 判断是否需要运行
 # - frontend: bun install + tsc + vite build (类型检查 + 产物构建)
 # - frontend-tests: bun install + vitest run (前端单元测试)
 # - rust: cargo check --workspace --locked (不再带 --all-targets --all-features，
 #   PR 阶段不为 test/bench/全 feature 编译。test 在 coverage.yml 跑)
-# 完整的 tauri build / 签名 / 公证 仍只在 release 工作流跑。
+# 桌面 GUI（Go/Wails，apps/gui-go）的打包、签名与公证不在 PR 阶段跑；见
+# docs/architecture/gui-go-tauri-retirement.md。PR 阶段只做 gui-go job 的编译门禁
+# （Linux vet/link，Windows amd64/arm64 交叉编译，docs/architecture/gui-go-distribution-channels.md）。
 jobs:
   changes:
     name: Detect Changed Paths
@@ -51,6 +31,8 @@ jobs:
 
     outputs:
       rust: ${{ steps.filter.outputs.rust }}
+      gui_go: ${{ steps.filter.outputs.gui_go }}
+      code: ${{ steps.filter.outputs.code }}
 
     steps:
       - name: Detect Rust changes
@@ -58,10 +40,41 @@ jobs:
         uses: dorny/paths-filter@v4
         with:
           filters: |
+            code:
+              - 'crates/**'
+              - 'apps/**'
+              - 'tools/**'
+              - 'packages/**'
+              - 'tests/e2e/**'
+              - 'vendor/**'
+              - 'Cargo.toml'
+              - 'Cargo.lock'
+              - 'rust-toolchain.toml'
+              - 'clippy.toml'
+              - 'package.json'
+              - 'bun.lock'
+              - '.oxlintrc.json'
+              - '.oxfmtrc.json'
+              - '.github/docker/build-bookworm.Dockerfile'
+              - '.github/workflows/pr-check.yml'
+              - '.github/workflows/membership-e2e.yml'
+              - 'scripts/ci/check-gui-go.sh'
+              - 'scripts/e2e/run-membership-matrix.sh'
+              - 'scripts/architecture/**'
+            gui_go:
+              - 'apps/gui-go/**'
+              - 'apps/gui/src/**'
+              - 'packages/**'
+              - 'Cargo.toml'
+              - 'package.json'
+              - 'bun.lock'
+              - 'crates/uc-daemon-contract/**'
+              - '.github/workflows/pr-check.yml'
+              - 'scripts/ci/check-gui-go.sh'
             rust:
               - 'crates/**'
               - 'apps/**'
-              - 'src-tauri/**'
+              - 'tools/**'
               - 'tests/e2e/**'
               - 'vendor/**'
               - 'Cargo.toml'
@@ -72,9 +85,12 @@ jobs:
               - '.github/workflows/pr-check.yml'
               - '.github/workflows/membership-e2e.yml'
               - 'scripts/e2e/run-membership-matrix.sh'
+              - 'scripts/architecture/**'
 
   frontend:
     name: Frontend Type Check
+    needs: changes
+    if: ${{ needs.changes.outputs.code == 'true' }}
     runs-on: ubuntu-latest
 
     steps:
@@ -99,25 +115,32 @@ jobs:
       - name: Install frontend dependencies
         run: bun install --frozen-lockfile
 
-      - name: Type check & build frontend
-        run: bun run build
+      - name: Type check shared frontend
+        run: bun run typecheck
+
+      # The shipped frontend is the Wails host's bundle (apps/gui-go/vite.config.ts), which
+      # also runs the macOS 12.5 compatibility check over the built JavaScript.
+      - name: Build shipped frontend
+        run: bun --bun run --cwd apps/gui-go build
 
       # @hey-api generated client drift check (ADR-008 P5) —— `bun run gen:client`
-      # 从 committed 的 schema/openapi.json 重新生成 src/api/generated/。如果 schema
+      # 从 committed 的 schema/openapi.json 重新生成 apps/gui/src/api/generated/。如果 schema
       # 变了但没重新生成客户端，diff 会非零退出。本地修复: `bun run gen:client` 后
-      # git add src/api/generated/。
+      # git add apps/gui/src/api/generated/。
       - name: Verify generated API client is up to date
         run: |
-          cp -r src/api/generated /tmp/api-generated.committed
+          cp -r apps/gui/src/api/generated /tmp/api-generated.committed
           bun run gen:client
-          if ! diff -r -q /tmp/api-generated.committed src/api/generated; then
-            echo "::error::Generated API client drift detected. Run 'bun run gen:client' locally and commit src/api/generated/."
-            diff -r -u /tmp/api-generated.committed src/api/generated || true
+          if ! diff -r -q /tmp/api-generated.committed apps/gui/src/api/generated; then
+            echo "::error::Generated API client drift detected. Run 'bun run gen:client' locally and commit apps/gui/src/api/generated/."
+            diff -r -u /tmp/api-generated.committed apps/gui/src/api/generated || true
             exit 1
           fi
 
   frontend-tests:
     name: Frontend Tests
+    needs: changes
+    if: ${{ needs.changes.outputs.code == 'true' }}
     runs-on: ubuntu-latest
 
     steps:
@@ -144,6 +167,62 @@ jobs:
 
       - name: Run frontend tests
         run: bun run test -- --run
+
+  # Compile gate for the Go/Wails host: a regression in a Linux-only (cgo, GTK) or Windows-only file cannot be seen
+  # by the macOS developer build or by the frontend job. Same build image as the Rust job, which carries the GTK3 and
+  # WebKitGTK 4.1 development packages. Evidence (linked binaries, SHA256SUMS, source head) is uploaded; nothing is shipped.
+  gui-go:
+    name: Go Host Compile Check
+    needs: changes
+    if: ${{ needs.changes.outputs.gui_go == 'true' }}
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/uniclipboard/build-bookworm:latest
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Restore Bun dependencies
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
+
+      - name: Install frontend dependencies
+        run: bun install --frozen-lockfile
+
+      # apps/gui-go/main.go embeds frontend/dist.
+      - name: Build shipped frontend
+        run: bun --bun run --cwd apps/gui-go build
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: apps/gui-go/go.mod
+          # PRs only read caches that the default branch wrote (see cache-warmup).
+          cache: false
+
+      - name: Vet and link the Go host (Linux, Windows amd64 and arm64)
+        run: scripts/ci/check-gui-go.sh all
+
+      - name: Upload compile evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: gui-go-compile-${{ github.run_id }}-${{ github.run_attempt }}
+          path: target/gui-go-gate
+          if-no-files-found: warn
+          retention-days: 14
 
   rust:
     name: Rust Check
@@ -180,44 +259,31 @@ jobs:
           save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Check Rust workspace
-        env:
-          # ADR-008 D13 added `externalBin: ["binaries/uniclipd"]` to
-          # tauri.conf.json, so `tauri_build::build()` hard-fails unless
-          # `src-tauri/binaries/uniclipd-<triple>` exists. Real bundles stage it
-          # via prepare-daemon-sidecar.mjs (build.yml / alpha-build.yml); this
-          # `cargo check` neither bundles nor spawns the sidecar. Override the
-          # config to drop the sidecar for this build (tauri-build merges
-          # TAURI_CONFIG as a JSON Merge Patch; an empty array replaces the list).
-          TAURI_CONFIG: '{"bundle":{"externalBin":[]}}'
         run: cargo check --workspace --locked
 
+      # Compile the native quick panel (the only Rust GUI) on its own. The workspace
+      # check above unifies features across members, so a GUI dependency that only
+      # the daemon side enables (e.g. `uc-observability/analytics`) would be hidden there.
+      - name: Check quick panel without workspace feature unification
+        run: cargo check -p quick-panel --locked
+
+      # Also resolves the quick panel package on its own with `cargo tree` and fails
+      # if it links any Engine package. The workspace `cargo check` above cannot
+      # catch this: feature unification lets the daemon side enable
+      # `uc-observability/analytics` for every member.
       - name: Verify Engine repository extraction rules
         run: bun run check:engine-repository
 
       - name: Verify cargo audit exception assumptions
         run: bun run check:cargo-audit-exceptions
 
-      # IPC schema drift check (issue #698) —— `cargo test --test specta_export`
-      # 用同一个 `tauri_specta::Builder` 构造命令清单，把 TypeScript binding
-      # 写到 `src/lib/ipc-bindings.generated.ts`。如果 PR 改了任何
-      # `#[tauri::command]` / DTO / error enum 的形状但没把这个文件一起提交，
-      # `cmp` 会以非零退出，CI 拒绝合并。开发者本地修复:
-      # `cargo test -p uc-tauri --test specta_export` 重新生成后 `git add`。
-      #
-      # 不用 `git diff` 是因为 actions/checkout@v4 只在 host runner 配置
-      # `safe.directory`,容器内 git 看不到,会把 workspace 当成非仓库,导致
-      # `git diff <file>` 误判为 `--no-index` 模式并打印 usage 报错。
-      - name: Snapshot committed IPC bindings
-        run: cp src/lib/ipc-bindings.generated.ts /tmp/ipc-bindings.committed.ts
-      - name: Generate IPC bindings
-        run: cargo test -p uc-tauri --test specta_export --locked
-      - name: Verify IPC bindings are up to date
+      # The retired Tauri host must not come back: no host crate, tooling, config or
+      # path reference in manifests, workflows, scripts or live documentation.
+      - name: Verify the Tauri host stays retired
+        # The checkout is configured as a safe directory on the host runner only.
         run: |
-          if ! cmp -s /tmp/ipc-bindings.committed.ts src/lib/ipc-bindings.generated.ts; then
-            echo "::error::IPC schema drift detected. Run 'cargo test -p uc-tauri --test specta_export' locally and commit the regenerated src/lib/ipc-bindings.generated.ts."
-            diff -u /tmp/ipc-bindings.committed.ts src/lib/ipc-bindings.generated.ts || true
-            exit 1
-          fi
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          bun run check:tauri-retired
 
       # OpenAPI schema drift check (ADR-008) —— `cargo run --bin gen-openapi`
       # 物化 ApiDoc::openapi() 写到仓库根 schema/openapi.json。如果 PR 改了任何
@@ -258,11 +324,51 @@ jobs:
           shared-key: e2e-macos
           save-if: ${{ github.ref == 'refs/heads/main' }}
 
-      - name: Build daemon and CLI binaries
-        run: cargo build -p uc-daemon -p uc-cli --features uc-daemon/e2e-rendezvous
+      - name: Build daemon
+        run: cargo build -p uc-daemon --features uc-daemon/e2e-rendezvous
 
-      - name: Build development CLI for shared-device E2E tests
-        run: CARGO_TARGET_DIR=target/e2e-dev cargo build -p uc-cli --features uc-cli/dev-tools
+      - name: Run native clipboard startup recovery E2E
+        env:
+          CLIPBOARD_E2E_TOOLS: ${{ runner.temp }}/clipboard-startup-tools
+          CLIPBOARD_E2E_ARTIFACTS: ${{ runner.temp }}/e2e-evidence/clipboard-startup
+        shell: bash
+        run: |
+          mkdir -p "$CLIPBOARD_E2E_TOOLS"
+          clang -fobjc-arc -framework AppKit -DPRIVATE_PASTEBOARD_TOOL scripts/e2e/clipboard-startup/private-pasteboard.m -o "$CLIPBOARD_E2E_TOOLS/private-pasteboard"
+          clang -fobjc-arc -dynamiclib -framework AppKit scripts/e2e/clipboard-startup/private-pasteboard.m -o "$CLIPBOARD_E2E_TOOLS/private-pasteboard.dylib"
+          python3 scripts/e2e/clipboard-startup/real-daemon-clipboard-e2e.py --daemon target/debug/uniclipd --tools "$CLIPBOARD_E2E_TOOLS" --artifacts "$CLIPBOARD_E2E_ARTIFACTS"
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: apps/cli-go/go.mod
+          cache-dependency-path: apps/cli-go/go.sum
+
+      - name: Build the user-facing CLI
+        # The suites resolve the CLI (Go, apps/cli-go) from target/debug/uniclip.
+        run: scripts/e2e/build-cli.sh
+
+      # Same package and features as the daemon build above, so the Engine
+      # and daemon dependencies are reused rather than rebuilt. The daemon is
+      # the only build that links both the Engine and Desktop's local log-name
+      # parser used by diagnostic export.
+      - name: Run Engine log-file-name contract test
+        env:
+          UC_E2E_EVIDENCE_DIR: ${{ runner.temp }}/e2e-evidence
+        # Explicit `shell: bash` adds `-o pipefail`, so `tee` cannot mask a
+        # failing test (the implicit default shell runs without pipefail).
+        shell: bash
+        run: |
+          mkdir -p "$UC_E2E_EVIDENCE_DIR"
+          cargo test -p uc-daemon --features uc-daemon/e2e-rendezvous \
+            --test engine_log_file_name_contract 2>&1 \
+            | tee "$UC_E2E_EVIDENCE_DIR/engine_log_file_name_contract.log"
+
+      # The Rust development CLI serves only the `dev` commands that have no daemon
+      # API (history seeding). It builds into its own target directory so the
+      # dev-tools features never unify into the daemon build above.
+      - name: Build development CLI for the E2E tests that seed history
+        run: CARGO_TARGET_DIR=target/e2e-dev cargo build -p uc-dev-cli --features uc-dev-cli/dev-tools
 
       - name: Build Engine host for final-confirmation E2E test
         run: |
@@ -271,11 +377,63 @@ jobs:
           cargo build --manifest-path "$engine_root/Cargo.toml" -p uc-connectivity-host --locked
           echo "UC_E2E_SPACE_WORK_HOST=$engine_root/target/debug/uc-connectivity-host" >> "$GITHUB_ENV"
 
+      # `--no-fail-fast` runs every test binary even after one fails, so an
+      # unrelated failing suite cannot hide the result of the others; the step
+      # still fails if any test fails. The per-test results are kept with the
+      # evidence artifact.
       - name: Run E2E tests
-        run: >-
-          UC_E2E_DEV_CLI="$GITHUB_WORKSPACE/target/e2e-dev/debug/uniclip"
-          cargo test --manifest-path tests/e2e/Cargo.toml -- --ignored
-          --skip bad_metadata_stays_read_only_across_three_restricted_starts
-          --skip cli_auto_start_exposes_restricted_recovery
-          --skip healthy_saved_profile_stays_healthy_after_restart
-          --skip abandoned_pairings_red_green
+        env:
+          # Tests that support it write redacted evidence here (see
+          # tests/e2e/tests/update_analytics_capture.rs).
+          UC_E2E_EVIDENCE_DIR: ${{ runner.temp }}/e2e-evidence
+          UC_E2E_DEV_CLI: ${{ github.workspace }}/target/e2e-dev/debug/uc-dev-cli
+        # See above: `shell: bash` keeps the step failing when a test fails.
+        shell: bash
+        run: |
+          mkdir -p "$UC_E2E_EVIDENCE_DIR"
+          cargo test --manifest-path tests/e2e/Cargo.toml --no-fail-fast -- --ignored \
+            --skip bad_metadata_stays_read_only_across_three_restricted_starts \
+            --skip cli_auto_start_exposes_restricted_recovery \
+            --skip healthy_saved_profile_stays_healthy_after_restart \
+            --skip abandoned_pairings_red_green 2>&1 \
+            | tee "$UC_E2E_EVIDENCE_DIR/e2e-suite.log"
+
+      - name: Record E2E evidence source
+        if: always()
+        env:
+          UC_E2E_EVIDENCE_DIR: ${{ runner.temp }}/e2e-evidence
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          mkdir -p "$UC_E2E_EVIDENCE_DIR"
+          {
+            echo "head_sha=$HEAD_SHA"
+            echo "base_sha=$BASE_SHA"
+            echo "tested_merge_sha=$GITHUB_SHA"
+            echo "run=$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/attempts/$GITHUB_RUN_ATTEMPT"
+            echo "runner=$RUNNER_OS-$RUNNER_ARCH"
+            rustc --version
+            cargo --version
+            echo "rerun: cargo build -p uc-daemon --features uc-daemon/e2e-rendezvous"
+            echo "rerun: scripts/e2e/build-cli.sh"
+            echo "rerun: cargo test -p uc-daemon --features uc-daemon/e2e-rendezvous --test engine_log_file_name_contract"
+            echo "rerun: UC_E2E_EVIDENCE_DIR=<dir> cargo test --manifest-path tests/e2e/Cargo.toml --test update_analytics_capture -- --ignored"
+          } > "$UC_E2E_EVIDENCE_DIR/source.txt"
+          # Per-test outcomes of the full suite (test names and ok/FAILED only).
+          if [ -f "$UC_E2E_EVIDENCE_DIR/e2e-suite.log" ]; then
+            sed 's/\x1b\[[0-9;]*m//g' "$UC_E2E_EVIDENCE_DIR/e2e-suite.log" \
+              | grep -E '^(test .* \.\.\. |     Running |test result: )' \
+              > "$UC_E2E_EVIDENCE_DIR/e2e-results.txt" || true
+            # The raw suite log embeds test-daemon diagnostics on failure; it
+            # stays in the job log and is not uploaded.
+            rm -f "$UC_E2E_EVIDENCE_DIR/e2e-suite.log"
+          fi
+
+      - name: Upload E2E evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: e2e-evidence-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/e2e-evidence
+          if-no-files-found: warn
+          retention-days: 14

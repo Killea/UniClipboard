@@ -13,13 +13,13 @@ use uc_engine::error_codes::{
     ENCRYPTION_PASSPHRASE_MEMBERSHIP_RECOVERY_CODE, ENCRYPTION_PASSPHRASE_MISMATCH_CODE,
     ENCRYPTION_PASSPHRASE_MULTIPLE_DEVICES_CODE, ENCRYPTION_PASSPHRASE_UNAVAILABLE_CODE,
     FACTORY_RESET_FAILED_CODE, FACTORY_RESET_KEY_MATERIAL_FAILED_CODE,
-    FACTORY_RESET_STORAGE_FAILED_CODE, FACTORY_RESET_UNAVAILABLE_CODE, LOCK_ENCRYPTION_FAILED_CODE,
-    PROFILE_RECOVERY_PARTIAL_CODE, PROFILE_RECOVERY_PERSISTENCE_FAILED_CODE,
-    PROFILE_RECOVERY_REQUIRED_CODE, PROFILE_RECOVERY_UNSUPPORTED_CODE,
-    QUERY_ENCRYPTION_STATE_FAILED_CODE, RECOVER_SESSION_RECEIVE_UNAVAILABLE_CODE,
-    UNLOCK_SPACE_CORRUPTED_CODE, UNLOCK_SPACE_NOT_INITIALIZED_CODE,
-    UNLOCK_SPACE_SETUP_NOT_COMPLETED_CODE, UNLOCK_SPACE_UNAUTHORIZED_CODE,
-    VERIFY_SECURE_STORAGE_ACCESS_FAILED_CODE,
+    FACTORY_RESET_RESTART_REQUIRED_CODE, FACTORY_RESET_STORAGE_FAILED_CODE,
+    FACTORY_RESET_UNAVAILABLE_CODE, LOCK_ENCRYPTION_FAILED_CODE, PROFILE_RECOVERY_PARTIAL_CODE,
+    PROFILE_RECOVERY_PERSISTENCE_FAILED_CODE, PROFILE_RECOVERY_REQUIRED_CODE,
+    PROFILE_RECOVERY_UNSUPPORTED_CODE, QUERY_ENCRYPTION_STATE_FAILED_CODE,
+    RECOVER_SESSION_RECEIVE_UNAVAILABLE_CODE, UNLOCK_SPACE_CORRUPTED_CODE,
+    UNLOCK_SPACE_NOT_INITIALIZED_CODE, UNLOCK_SPACE_SETUP_NOT_COMPLETED_CODE,
+    UNLOCK_SPACE_UNAUTHORIZED_CODE, VERIFY_SECURE_STORAGE_ACCESS_FAILED_CODE,
 };
 use uc_engine::{
     ChangeEncryptionPassphraseInput, EngineError, EngineErrorCategory, Operation, OperationResult,
@@ -168,6 +168,15 @@ fn map_factory_reset_engine_err(error: EngineError) -> ApiError {
                 status: StatusCode::INTERNAL_SERVER_ERROR,
                 code: "INTERNAL".to_string(),
                 message: "factory reset failed".to_string(),
+                details: None,
+            },
+        ),
+        FACTORY_RESET_RESTART_REQUIRED_CODE => (
+            "restart_required",
+            ApiError {
+                status: StatusCode::SERVICE_UNAVAILABLE,
+                code: "RESTART_REQUIRED".to_string(),
+                message: "key material was cleared but the engine could not rebuild its runtime; restart the daemon".to_string(),
                 details: None,
             },
         ),
@@ -449,6 +458,16 @@ async fn get_encryption_state_handler(
 async fn unlock_handler(
     State(state): State<DaemonApiState>,
 ) -> Result<Json<ApiEnvelope<EncryptionActionResponse>>, ApiError> {
+    let resumed = resume_session_from_keyring(&state).await?;
+    Ok(Json(ApiEnvelope::now(EncryptionActionResponse {
+        success: resumed,
+    })))
+}
+
+/// Resumes the encryption session from the OS keychain. Returns whether a session is ready
+/// afterwards (`false` when the space is not initialised). Shared by `POST /encryption/unlock`
+/// and `POST /content-lock/unlock-keyring`, so both behave the same way.
+pub(crate) async fn resume_session_from_keyring(state: &DaemonApiState) -> Result<bool, ApiError> {
     let result = state
         .execute(Operation::RecoverSession(RecoverSessionInput {
             allow_secure_storage_unlock: true,
@@ -459,18 +478,14 @@ async fn unlock_handler(
     match result {
         OperationResult::SessionRecovered { unlocked: true, .. } => {
             info!("encryption session auto-unlocked via keyring");
-            broadcast_session_ready(&state);
-            Ok(Json(ApiEnvelope::now(EncryptionActionResponse {
-                success: true,
-            })))
+            broadcast_session_ready(state);
+            Ok(true)
         }
         OperationResult::SessionRecovered {
             unlocked: false, ..
         } => {
             info!("encryption not initialized, skipping auto-unlock");
-            Ok(Json(ApiEnvelope::now(EncryptionActionResponse {
-                success: false,
-            })))
+            Ok(false)
         }
         _ => Err(ApiError::internal(
             "engine returned an unexpected recovery result",
@@ -506,9 +521,20 @@ async fn unlock_with_passphrase_handler(
     State(state): State<DaemonApiState>,
     Json(req): Json<UnlockSpaceRequest>,
 ) -> Result<Json<ApiEnvelope<UnlockSpaceResponse>>, ApiError> {
+    let space_id = unlock_space_with_passphrase(&state, req.passphrase).await?;
+    Ok(Json(ApiEnvelope::now(UnlockSpaceResponse { space_id })))
+}
+
+/// Verifies the passphrase against the space and unlocks it. Shared by
+/// `POST /encryption/unlock-with-passphrase` and `POST /content-lock/unlock`. The passphrase is
+/// never logged.
+pub(crate) async fn unlock_space_with_passphrase(
+    state: &DaemonApiState,
+    passphrase: String,
+) -> Result<String, ApiError> {
     let result = state
         .execute(Operation::UnlockSpace(UnlockSpaceInput {
-            passphrase: SecretString::new(req.passphrase),
+            passphrase: SecretString::new(passphrase),
         }))
         .await
         .map_err(map_unlock_engine_err)?;
@@ -519,9 +545,8 @@ async fn unlock_with_passphrase_handler(
     };
 
     info!("space unlocked via passphrase");
-    broadcast_session_ready(&state);
-
-    Ok(Json(ApiEnvelope::now(UnlockSpaceResponse { space_id })))
+    broadcast_session_ready(state);
+    Ok(space_id)
 }
 
 /// POST /encryption/passphrase
@@ -616,6 +641,8 @@ async fn lock_handler(
     }
 
     info!("encryption session cleared (locked)");
+    // Losing the session takes content visibility with it; tell content-lock subscribers.
+    crate::api::content_lock::notify_facts_changed(&state);
     Ok(Json(ApiEnvelope::now(EncryptionActionResponse {
         success: true,
     })))
@@ -648,6 +675,7 @@ async fn factory_reset_handler(
     }
 
     info!("space factory-reset completed");
+    crate::api::content_lock::notify_facts_changed(&state);
     Ok(Json(ApiEnvelope::now(EncryptionActionResponse {
         success: true,
     })))
@@ -951,5 +979,20 @@ mod tests {
             assert_eq!(api.message, message);
             assert!(api.details.is_none());
         }
+    }
+
+    /// The engine's post-reset runtime-rebuild failure (#136) surfaces as its
+    /// own semantic code so the frontend can tell the user to restart the app,
+    /// instead of folding into the generic unexpected-engine-error branch.
+    #[test]
+    fn map_factory_reset_engine_err_maps_restart_required() {
+        let api = map_factory_reset_engine_err(EngineError::new(
+            FACTORY_RESET_RESTART_REQUIRED_CODE,
+            EngineErrorCategory::Unavailable,
+            false,
+        ));
+        assert_eq!(api.status, StatusCode::SERVICE_UNAVAILABLE);
+        assert_eq!(api.code, "RESTART_REQUIRED");
+        assert!(api.details.is_none());
     }
 }

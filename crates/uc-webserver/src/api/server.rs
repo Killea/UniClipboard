@@ -129,6 +129,23 @@ pub struct DaemonApiState {
     /// in this slice: only an Oneshot daemon's restart endpoint calls `request()`,
     /// and no Oneshot daemon exists until L8d.
     pub restart: crate::api::restart::RestartCoordinator,
+    /// The content-lock grant: whether GUI-class clients may read history-derived content.
+    /// In memory only, shared by every clone of this state, reset when the daemon restarts.
+    pub content_lock: crate::api::content_lock::ContentLock,
+    /// Reverse crash-detection marker for THIS run (`uc-daemon-local::crash_marker`).
+    /// `POST /lifecycle/graceful-stop` calls `mark_clean_exit()` on it immediately,
+    /// before the shutdown sequence runs, so a caller-requested restart is never
+    /// misreported as an abnormal exit even if a slow shutdown is later force-killed.
+    /// `None` for assembly paths / tests that don't wire a real run marker.
+    pub run_marker: Option<uc_daemon_local::crash_marker::DaemonRunMarker>,
+    /// Woken by `POST /lifecycle/graceful-stop` to tell the daemon's main select
+    /// loop to begin the same orderly shutdown sequence used for an OS shutdown
+    /// signal. `Arc`-backed so every `DaemonApiState` clone shares the same
+    /// notifier as the host's main loop.
+    pub graceful_stop_requested: Arc<tokio::sync::Notify>,
+    /// The History sidebar's tags and each tag's color. In memory unless the
+    /// daemon injects its file-backed store via [`Self::with_tag_layout`].
+    pub tag_layout: Arc<crate::api::tag_layout::TagLayoutStore>,
 }
 
 /// Max concurrent full-buffer blob pulls (D6 interim RSS guard; see
@@ -168,6 +185,10 @@ impl DaemonApiState {
             lease_registry: ControlLeaseRegistry::new(),
             quiescing: quiescing.clone(),
             restart: crate::api::restart::RestartCoordinator::new(quiescing),
+            content_lock: crate::api::content_lock::ContentLock::default(),
+            run_marker: None,
+            graceful_stop_requested: Arc::new(tokio::sync::Notify::new()),
+            tag_layout: Arc::new(crate::api::tag_layout::TagLayoutStore::in_memory()),
         }
     }
 
@@ -182,6 +203,12 @@ impl DaemonApiState {
     /// daemon assembly boundary.
     pub fn with_residency(mut self, residency: DaemonResidency) -> Self {
         self.residency = residency;
+        self
+    }
+
+    /// Inject the daemon's file-backed tag layout store.
+    pub fn with_tag_layout(mut self, store: Arc<crate::api::tag_layout::TagLayoutStore>) -> Self {
+        self.tag_layout = store;
         self
     }
 
@@ -386,6 +413,16 @@ impl DaemonApiState {
 
     pub fn with_deferred_ready_notify(mut self, notify: Arc<tokio::sync::Notify>) -> Self {
         self.deferred_ready_notify = Some(notify);
+        self
+    }
+
+    /// Inject this run's crash-detection marker so `POST /lifecycle/graceful-stop`
+    /// can mark it clean immediately on request.
+    pub fn with_run_marker(
+        mut self,
+        run_marker: uc_daemon_local::crash_marker::DaemonRunMarker,
+    ) -> Self {
+        self.run_marker = Some(run_marker);
         self
     }
 
@@ -654,6 +691,10 @@ fn apply_cors_headers(headers: &mut HeaderMap, origin: Option<&str>) {
 
 fn is_allowed_cors_origin(origin: &str) -> bool {
     origin == "tauri://localhost"
+        || origin == "wails://localhost"
+        // The Go GUI's development mode serves the frontend from a local dev server,
+        // and Wails puts that port in the WebView origin.
+        || origin.starts_with("wails://localhost:")
         || origin == "http://tauri.localhost"
         || origin == "https://tauri.localhost"
         || origin.starts_with("http://localhost:")
@@ -844,6 +885,11 @@ pub async fn run_http_server(
     // the socket address will be a default value (127.0.0.1:0) since there's no real
     // TCP connection. The SlidingWindowRateLimiter unit tests cover rate limiting logic
     // independently. IP-based rate limiting works correctly in production.
+    // Follows encryption events and revokes the content grant when its holder is gone.
+    tokio::spawn(crate::api::content_lock::run_watcher(
+        state.clone(),
+        cancel.clone(),
+    ));
     let make_service = build_router(state).into_make_service_with_connect_info::<SocketAddr>();
 
     axum::serve(listener, make_service)

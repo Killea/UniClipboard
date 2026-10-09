@@ -1,0 +1,217 @@
+import { Clipboard } from 'lucide-react'
+import React from 'react'
+import { useTranslation } from 'react-i18next'
+import { ScrollArea } from '@/components/ui/scroll-area'
+import { useCancelEntryTransfer } from '@/hooks/useCancelEntryTransfer'
+import { useClipboardPreviewState } from '@/hooks/useClipboardPreviewState'
+import { useEntryDelivery } from '@/hooks/useEntryDelivery'
+import type {
+  ClipboardImageItem,
+  ClipboardTextItem,
+  DisplayClipboardItem,
+} from '@/lib/clipboard-entry'
+import { linkItemFromTextContent } from '@/lib/clipboard-utils'
+import { cn } from '@/lib/utils'
+import ClipboardPreviewInfo from './ClipboardPreviewInfo'
+import CodePreview, { type CodePreviewVariant } from './preview-renderers/CodePreview'
+import FilePreview from './preview-renderers/FilePreview'
+import ImagePreview from './preview-renderers/ImagePreview'
+import LinkPreview from './preview-renderers/LinkPreview'
+import TextPreview from './preview-renderers/TextPreview'
+import { isLargeTextPreview } from './preview-renderers/textPreviewUtils'
+import TransferProgressBar from './TransferProgressBar'
+
+interface ClipboardPreviewProps {
+  item: DisplayClipboardItem | null
+  actions?: (delivery: ReturnType<typeof useEntryDelivery>['delivery']) => React.ReactNode
+}
+
+interface PreviewContentProps {
+  item: DisplayClipboardItem
+  loading: boolean
+  preview: ReturnType<typeof useClipboardPreviewState>['preview']
+  effectiveStatus: ReturnType<typeof useClipboardPreviewState>['effectiveStatus']
+  entryStatus: ReturnType<typeof useClipboardPreviewState>['entryStatus']
+  transfer: ReturnType<typeof useClipboardPreviewState>['transfer']
+  setImageDimensions: ReturnType<typeof useClipboardPreviewState>['setImageDimensions']
+  codeVariant?: CodePreviewVariant
+  /** Fit images into the parent's box instead of letting them scroll. */
+  imageFit?: boolean
+  imageActualSize?: boolean
+  onImageType?: (mime: string) => void
+}
+
+export const PreviewContent: React.FC<PreviewContentProps> = ({
+  item,
+  loading,
+  preview,
+  effectiveStatus,
+  entryStatus,
+  transfer,
+  setImageDimensions,
+  codeVariant,
+  imageFit,
+  imageActualSize,
+  onImageType,
+}) => {
+  const { t } = useTranslation()
+  const textItem = item.content as ClipboardTextItem | null
+  const hasCodeTag = item.contentTags?.includes('code') ?? false
+  const hasLinkTag = item.contentTags?.includes('link') ?? false
+  if ((item.type === 'text' || item.type === 'richtext') && !textItem) {
+    return (
+      <div className="p-8 text-center font-medium italic text-muted-foreground opacity-40">
+        {t(
+          item.isUnavailable ? 'clipboard.errors.unavailableBadge' : 'clipboard.item.unknownContent'
+        )}
+      </div>
+    )
+  }
+  switch (item.type) {
+    case 'text': {
+      if (hasCodeTag && textItem) {
+        return (
+          <CodePreview
+            item={{ code: textItem.display_text, char_count: textItem.char_count }}
+            preview={preview}
+            variant={codeVariant}
+          />
+        )
+      }
+      if (hasLinkTag && textItem) {
+        const linkItem = linkItemFromTextContent(textItem)
+        if (linkItem) return <LinkPreview item={linkItem} />
+      }
+      return (
+        <TextPreview item={item.content as ClipboardTextItem} loading={loading} preview={preview} />
+      )
+    }
+    case 'richtext': {
+      return (
+        <TextPreview item={item.content as ClipboardTextItem} loading={loading} preview={preview} />
+      )
+    }
+    case 'image': {
+      return (
+        <ImagePreview
+          item={item.content as ClipboardImageItem}
+          loading={loading}
+          preview={preview}
+          setImageDimensions={setImageDimensions}
+          fit={imageFit}
+          actualSize={imageActualSize}
+          onImageType={onImageType}
+        />
+      )
+    }
+    case 'file': {
+      return (
+        <FilePreview
+          effectiveStatus={effectiveStatus}
+          entryStatus={entryStatus}
+          item={item}
+          preview={preview}
+          transfer={transfer}
+        />
+      )
+    }
+    default:
+      return (
+        <div className="p-8 text-center font-medium italic text-muted-foreground opacity-40">
+          {t('clipboard.item.unknownContent')}
+        </div>
+      )
+  }
+}
+
+const ClipboardPreview: React.FC<ClipboardPreviewProps> = ({ item, actions }) => {
+  const { t } = useTranslation()
+  const {
+    effectiveStatus,
+    entryStatus,
+    imageDimensions,
+    loading,
+    preview,
+    setImageDimensions,
+    transfer,
+  } = useClipboardPreviewState(item)
+  const { delivery } = useEntryDelivery(item?.id ?? null)
+  const { cancelling, cancel: handleCancelTransfer } = useCancelEntryTransfer(item?.id, transfer)
+
+  if (!item) {
+    return (
+      <div className="flex h-full flex-1 min-h-0 flex-col items-center justify-center gap-3 bg-card text-muted-foreground">
+        <Clipboard className="size-10 text-muted-foreground/20" />
+        <span className="text-ui-body font-medium opacity-50">
+          {t('clipboard.preview.selectItem')}
+        </span>
+      </div>
+    )
+  }
+
+  const isLargeText =
+    (item.type === 'text' || item.type === 'richtext') &&
+    item.content !== null &&
+    isLargeTextPreview(item.content as ClipboardTextItem, preview, loading)
+  const isCode = item.contentTags?.includes('code') === true
+  // Code renders as an editor-like pane that fills the available height and owns
+  // its own scrolling, so it skips the auto-height ScrollArea wrapper.
+  const fillsParent = isLargeText || isCode
+
+  const content = (
+    <PreviewContent
+      item={item}
+      loading={loading}
+      preview={preview}
+      effectiveStatus={effectiveStatus}
+      entryStatus={entryStatus}
+      transfer={transfer}
+      setImageDimensions={setImageDimensions}
+    />
+  )
+
+  return (
+    <div
+      className={cn(
+        'relative flex h-full flex-1 min-h-0 flex-col',
+        isCode ? 'bg-muted/15' : 'bg-card'
+      )}
+      data-testid="clipboard-detail"
+    >
+      <ClipboardPreviewInfo
+        item={item}
+        preview={preview}
+        imageDimensions={imageDimensions}
+        delivery={delivery}
+      />
+      {effectiveStatus === 'transferring' && transfer?.status === 'active' && (
+        <div className="mx-6 mb-2 max-w-sm">
+          <TransferProgressBar
+            progress={transfer}
+            variant="compact"
+            onCancel={handleCancelTransfer}
+            cancelling={cancelling}
+          />
+        </div>
+      )}
+      <div className="relative flex-1 min-h-0">
+        {actions && (
+          <div className="pointer-events-none absolute inset-x-4 bottom-4 z-10 flex flex-col items-center gap-2">
+            <div className="pointer-events-auto flex max-w-full items-center justify-center gap-1 rounded-full border border-border/60 bg-card/90 p-1 backdrop-blur-xl">
+              <div className="flex min-w-0 max-w-full items-center gap-1">{actions(delivery)}</div>
+            </div>
+          </div>
+        )}
+        {fillsParent ? (
+          <div className="absolute inset-0">{content}</div>
+        ) : (
+          <ScrollArea className="h-full [&_[data-slot=scroll-area-viewport]>div]:!block">
+            <div className="min-h-full">{content}</div>
+          </ScrollArea>
+        )}
+      </div>
+    </div>
+  )
+}
+
+export default ClipboardPreview

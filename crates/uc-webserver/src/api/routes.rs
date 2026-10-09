@@ -90,6 +90,7 @@ pub fn router_l2_plus(state: DaemonApiState) -> Router<DaemonApiState> {
     let router = Router::new()
         .merge(crate::api::clipboard::router())
         .merge(crate::api::search::router())
+        .merge(crate::api::history_tags::router())
         .merge(crate::api::device::router())
         .merge(crate::api::member::router())
         .merge(crate::api::mobile_sync::router())
@@ -97,6 +98,7 @@ pub fn router_l2_plus(state: DaemonApiState) -> Router<DaemonApiState> {
         .merge(crate::api::diagnostics::router())
         .merge(crate::api::v2::router())
         .merge(crate::api::encryption::router())
+        .merge(crate::api::content_lock::router())
         .merge(crate::api::storage::router())
         .merge(crate::api::config::router())
         .merge(crate::api::pairing::router())
@@ -137,6 +139,12 @@ pub fn router_l2_plus(state: DaemonApiState) -> Router<DaemonApiState> {
     // auth_extractor runs before rate_limit and sets client_id in extensions.
     let state_for_middleware = Arc::new(state);
     router
+        // Innermost: it needs the claims the auth layer stores, and `MatchedPath`, which only
+        // exists for a matched route (`route_layer`). See `content_lock` for what it decides.
+        .route_layer(middleware::from_fn_with_state(
+            state_for_middleware.clone(),
+            crate::api::content_lock::content_gate_middleware,
+        ))
         .layer(middleware::from_fn_with_state(
             state_for_middleware.clone(),
             rate_limit_middleware,

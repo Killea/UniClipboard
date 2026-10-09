@@ -172,7 +172,11 @@ fn default_manager() -> Result<&'static DaemonPidManager> {
 /// byte-for-byte. Data-root only — daemon-process does not require the cache dir
 /// (the benign P5-0 divergence, preserved).
 fn resolve_pid_path_from_root() -> Result<PathBuf> {
-    let root = app_data_root().context("the system data-local directory is unavailable")?;
+    let root = app_data_root().ok_or_else(|| {
+        anyhow::anyhow!(uc_app_paths::unavailable_reason(
+            "the system data-local directory is unavailable"
+        ))
+    })?;
     Ok(root.join(DAEMON_PID_FILE_NAME))
 }
 
@@ -644,10 +648,27 @@ mod tests {
             let temp = TempDir::new().unwrap();
             let executable = temp.path().join(name);
             fs::copy("/bin/sleep", &executable).unwrap();
-            let mut child = std::process::Command::new(&executable)
-                .arg("30")
-                .spawn()
-                .unwrap();
+            // Waiting strategy for ETXTBSY (errno 26, "Text file busy"): CI once failed at this spawn right after
+            // the copy. `fs::copy` closes its write descriptor before returning, so the cause is NOT established;
+            // a descriptor duplicated by a concurrent fork in another test thread is only a hypothesis (a
+            // 25 s Python reproduction with 6 forking threads produced no ETXTBSY in 3179 spawns). Retry that
+            // one errno briefly and fail loudly on anything else.
+            let mut child = {
+                let mut attempts = 0;
+                loop {
+                    match std::process::Command::new(&executable).arg("30").spawn() {
+                        Ok(child) => break child,
+                        Err(error)
+                            if error.kind() == std::io::ErrorKind::ExecutableFileBusy
+                                && attempts < 50 =>
+                        {
+                            attempts += 1;
+                            std::thread::sleep(std::time::Duration::from_millis(20));
+                        }
+                        Err(error) => panic!("spawn {name}: {error}"),
+                    }
+                }
+            };
             if unlink {
                 fs::remove_file(&executable).unwrap();
             }

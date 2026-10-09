@@ -1,0 +1,4 @@
+bin/
+frontend/dist/
+__pycache__/
+assets/

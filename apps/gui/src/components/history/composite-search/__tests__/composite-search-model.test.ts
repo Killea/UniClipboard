@@ -1,0 +1,251 @@
+import { Folder } from 'lucide-react'
+import { describe, expect, it, vi } from 'vitest'
+import { Filter } from '@/api/clipboardItems'
+import {
+  applyDimensionValue,
+  buildCandidateCountQueries,
+  buildCandidateTotalQueries,
+  buildCandidates,
+  buildChips,
+  buildRelaxationQueries,
+  buildSyntaxSuggestions,
+  buildTokenText,
+  parseBuffer,
+  resolveBuffer,
+  searchableTagsToOptions,
+  type FilterSnapshot,
+} from '../composite-search-model'
+
+const t = (key: string) => key
+const current: FilterSnapshot = {
+  type: Filter.All,
+  tag: null,
+  source: null,
+  time: 'all_time',
+  extension: null,
+}
+
+describe('composite search model', () => {
+  it('drops substring matches when only prefixes may match', () => {
+    const context = { t, sourceOptions: [], current, tagOptions: searchableTagsToOptions([]) }
+    // `directory` contains "re" but does not start with it.
+    expect(buildCandidates('tag', 're', context).map(c => c.value)).toContain('directory')
+    expect(
+      buildCandidates('tag', 're', { ...context, prefixOnly: true }).map(c => c.value)
+    ).not.toContain('directory')
+  })
+
+  it('counts each candidate on its own, ignoring the other filters', () => {
+    const candidates = buildCandidates('type', 'image', {
+      t,
+      sourceOptions: [],
+      current: { ...current, source: 'device-1' },
+      tagOptions: [],
+    })
+    expect(buildCandidateTotalQueries(candidates)).toEqual([{ query: '', tags: 'image' }])
+  })
+
+  it('represents every selected tag in the chip and suggestions', () => {
+    const context = {
+      t,
+      sourceOptions: [],
+      current: { ...current, tag: 'link,code' },
+      tagOptions: searchableTagsToOptions([]),
+    }
+    expect(buildChips(context)[0].label).toBe('#history.type.link, #history.type.code')
+    const candidates = buildCandidates('tag', '', context)
+    expect(candidates.find(item => item.value === 'link')?.isActive).toBe(true)
+    expect(candidates.find(item => item.value === 'code')?.isActive).toBe(true)
+    expect(candidates.find(item => item.value === 'directory')?.isActive).toBe(false)
+  })
+
+  it('toggles a tag in and out of a multi-tag selection', () => {
+    const onTagFilterChange = vi.fn()
+    const handlers = {
+      onContentFilterChange: vi.fn(),
+      onTagFilterChange,
+      onSourceFilterChange: vi.fn(),
+      onTimeRangeChange: vi.fn(),
+      onExtensionFilterChange: vi.fn(),
+    }
+    applyDimensionValue('tag', 'code', handlers, { ...current, tag: 'link' })
+    applyDimensionValue('tag', 'link', handlers, { ...current, tag: 'link,code' })
+    applyDimensionValue('tag', 'link', handlers, { ...current, tag: 'link' })
+    expect(onTagFilterChange.mock.calls).toEqual([['link,code'], ['code'], [null]])
+  })
+
+  it('counts a tag candidate as the selection that clicking it would produce', () => {
+    const snapshot = { ...current, tag: 'link' }
+    const candidates = buildCandidates('tag', '', {
+      t,
+      sourceOptions: [],
+      current: snapshot,
+      tagOptions: searchableTagsToOptions([]),
+    }).filter(c => c.value === 'link' || c.value === 'code')
+    expect(buildCandidateCountQueries(candidates, snapshot)).toEqual([
+      { query: '' },
+      { query: '', tags: 'link,code' },
+    ])
+  })
+
+  it('parses # as a tag token', () => {
+    expect(parseBuffer('#')).toEqual({
+      kind: 'token',
+      dimension: 'tag',
+      partial: '',
+      committed: false,
+    })
+    expect(parseBuffer('#lin')).toEqual({
+      kind: 'token',
+      dimension: 'tag',
+      partial: 'lin',
+      committed: false,
+    })
+  })
+
+  it('reads the quick panel sigils and leaves the old keywords and URLs as text', () => {
+    const token = (value: string) => {
+      const parsed = parseBuffer(value)
+      return parsed.kind === 'token' ? [parsed.dimension, parsed.partial] : null
+    }
+    expect(token('@iPhone')).toEqual(['source', 'iPhone'])
+    expect(token('  /image')).toEqual(['type', 'image'])
+    expect(token('/')).toEqual(['type', ''])
+    expect(token('on:today')).toEqual(['time', 'today'])
+    for (const text of ['type:image', 'from:phone', 'a@b.com', 'https://example.com']) {
+      expect(parseBuffer(text)).toEqual({ kind: 'query', text })
+    }
+  })
+
+  it('keeps a sigil word that names nothing as text search', () => {
+    const context = { t, sourceOptions: [], current, tagOptions: searchableTagsToOptions([]) }
+    expect(resolveBuffer('/tmp/build.log', context)).toEqual({
+      kind: 'query',
+      text: '/tmp/build.log',
+    })
+    expect(resolveBuffer('@home', context)).toEqual({ kind: 'query', text: '@home' })
+    expect(resolveBuffer('/im', context)).toMatchObject({ kind: 'token', dimension: 'type' })
+    expect(resolveBuffer('@', context)).toMatchObject({ kind: 'token', dimension: 'source' })
+    // Keyword tokens keep their candidates panel even when nothing matches.
+    expect(resolveBuffer('on:xyz', context)).toMatchObject({ kind: 'token', dimension: 'time' })
+  })
+
+  it('renders chips back into their typed prefix', () => {
+    expect(buildTokenText('type', 'image')).toBe('/image')
+    expect(buildTokenText('source', 'iPhone')).toBe('@iPhone')
+    expect(buildTokenText('tag', 'code')).toBe('#code')
+    expect(buildTokenText('extension', 'md')).toBe('ext:md')
+  })
+
+  it('hints only the keyword prefixes', () => {
+    expect(buildSyntaxSuggestions('o', t).map(s => s.hint)).toEqual(['on:'])
+    expect(buildSyntaxSuggestions('t', t)).toEqual([])
+  })
+
+  it('parses ext as a shared extension token', () => {
+    expect(parseBuffer('ext:md')).toEqual({
+      kind: 'token',
+      dimension: 'extension',
+      partial: 'md',
+      committed: false,
+    })
+  })
+
+  it('offers only physical content types under type', () => {
+    const values = buildCandidates('type', '', {
+      t,
+      sourceOptions: [],
+      current,
+      tagOptions: [],
+    }).map(c => c.value)
+
+    expect(values).toEqual([Filter.Text, Filter.RichText, Filter.Image, Filter.File])
+  })
+
+  it('converts searchable tags into tag candidates', () => {
+    const tagOptions = searchableTagsToOptions([
+      { tagId: 'link', count: 2, isBuiltin: true },
+      { tagId: 'code', count: 1, isBuiltin: true },
+    ])
+    const values = buildCandidates('tag', '', {
+      t,
+      sourceOptions: [],
+      current,
+      tagOptions,
+    }).map(c => c.value)
+
+    expect(values).toEqual(['link', 'code', 'favorited', 'image', 'directory'])
+  })
+
+  it('ranks unfiltered tags by the number of matching records', () => {
+    const values = buildCandidates('tag', '', {
+      t,
+      sourceOptions: [],
+      current,
+      tagOptions: [
+        { id: 'link', count: 2, isBuiltin: true },
+        { id: 'code', count: 8, isBuiltin: true },
+        { id: 'project', count: 5, isBuiltin: false },
+      ],
+    }).map(candidate => candidate.value)
+
+    expect(values).toEqual(['code', 'project', 'link'])
+  })
+
+  it('ranks exact and prefix tag matches ahead of more frequent partial matches', () => {
+    const values = buildCandidates('tag', 'code', {
+      t,
+      sourceOptions: [],
+      current,
+      tagOptions: [
+        { id: 'archive-code', count: 20, isBuiltin: false },
+        { id: 'codec', count: 5, isBuiltin: false },
+        { id: 'code', count: 1, isBuiltin: true },
+      ],
+    }).map(candidate => candidate.value)
+
+    expect(values).toEqual(['code', 'codec', 'archive-code'])
+  })
+
+  it('offers the builtin directory tag as a folder', () => {
+    const tagOptions = searchableTagsToOptions([])
+    const [candidate] = buildCandidates('tag', 'directory', {
+      t: key => (key === 'history.type.directory' ? '文件夹' : key),
+      sourceOptions: [],
+      current,
+      tagOptions,
+    })
+
+    expect(candidate.value).toBe('directory')
+    expect(candidate.label).toBe('文件夹')
+    expect(candidate.icon).toBe(Folder)
+  })
+
+  it('prefixes a selected tag chip with a hash while preserving its localized name', () => {
+    const [chip] = buildChips({
+      t: key => (key === 'history.type.link' ? '链接' : key),
+      sourceOptions: [],
+      tagOptions: [{ id: 'link', count: 2, isBuiltin: true }],
+      current: { ...current, tag: 'link' },
+    })
+
+    expect(chip.dimension).toBe('tag')
+    expect(chip.label).toBe('#链接')
+  })
+
+  it('builds one relaxation query per chip, dropping only that chip', () => {
+    const snapshot: FilterSnapshot = {
+      ...current,
+      type: Filter.Image,
+      time: 'today',
+      extension: 'png',
+    }
+    const chips = buildChips({ t, sourceOptions: [], current: snapshot, tagOptions: [] })
+
+    expect(buildRelaxationQueries(chips, snapshot, 'logo')).toEqual([
+      { query: 'logo', timePreset: 'today', extensions: 'png' },
+      { query: 'logo', tags: 'image', extensions: 'png' },
+      { query: 'logo', tags: 'image', timePreset: 'today' },
+    ])
+  })
+})

@@ -82,7 +82,8 @@ See [`SECURITY.md`](./SECURITY.md) for the disclosure process. We take cryptogra
 
 - **Rust** — stable toolchain (`rustup` recommended). The version is pinned via `rust-toolchain.toml` if present.
 - **Bun** — JavaScript package manager and runtime. Install from [bun.sh](https://bun.sh).
-- **Tauri prerequisites** — see the official [Tauri prerequisites guide](https://tauri.app/start/prerequisites/) for OS-specific build dependencies (WebView2 on Windows, `webkit2gtk` and friends on Linux, Xcode CLT on macOS).
+- **Go** — the desktop host in `apps/gui-go` is a Go/Wails module; use the version declared in `apps/gui-go/go.mod`.
+- **Wails prerequisites** — OS-specific build dependencies for the Wails v3 host (WebView2 on Windows, GTK3 and `webkit2gtk-4.1` on Linux, Xcode CLT on macOS). See `apps/gui-go/README.md`.
 
 Optional but useful:
 
@@ -92,18 +93,12 @@ Optional but useful:
 ### Clone and Install
 
 ```bash
-# `--recurse-submodules` pulls our `iroh-blobs` fork under
-# `src-tauri/vendor/iroh-blobs/`; without it `cargo build` fails.
-git clone --recurse-submodules https://github.com/UniClipboard/UniClipboard.git
+git clone https://github.com/UniClipboard/UniClipboard.git
 cd UniClipboard
 bun install
 ```
 
-Already cloned without submodules? Run:
-
-```bash
-git submodule update --init --recursive
-```
+The repository has no Git submodules. Cargo fetches the pinned `UniClipboard/Engine` and `iroh-blobs` Git dependencies declared in the root `Cargo.toml`.
 
 `bun install` triggers Husky hook installation via the `prepare` script. Pre-commit lint-staged checks will run automatically on `git commit`.
 
@@ -111,29 +106,21 @@ git submodule update --init --recursive
 
 ```bash
 # Single instance, dev profile (data lives under app.uniclipboard.desktop-dev)
-bun tauri:dev
+bun wails:dev
 ```
 
-To debug peer-to-peer sync locally, two isolated instances can run side by side on the same machine:
+To debug peer-to-peer sync locally, two isolated instances can run side by side on the same machine. Start each in its own terminal with a different profile:
 
 ```bash
-# Run two peers concurrently — peerA in full clipboard mode, peerB passive
-bun tauri:dev:dual
-
-# Or start them individually if you need to attach a debugger
-bun tauri:dev:peerA
-bun tauri:dev:peerB
+bun wails:dev:profile peerA
+bun wails:dev:profile peerB
 ```
 
 Each peer uses a different `UC_PROFILE` so their data, vault, and logs do not collide.
 
 ### Build a Release Bundle
 
-```bash
-bun tauri build
-```
-
-Bundles land in `src-tauri/target/release/bundle/`.
+Release packaging for the Go/Wails host is not rebuilt yet, so the release workflow is intentionally blocked (see [`docs/architecture/gui-go-tauri-retirement.md`](./docs/architecture/gui-go-tauri-retirement.md)). For a local macOS build and package, run `apps/gui-go/build.sh`. The Linux and Windows packagers are `apps/gui-go/e2e/package_linux.py` and `apps/gui-go/e2e/package_windows.py`. Daemon binaries for the packagers are staged with `node scripts/stage-daemon.mjs`.
 
 ### Release-time Secrets (Telemetry)
 
@@ -144,7 +131,7 @@ sink and the app boots normally.
 
 | Secret                  | Channel                                     | Compile-time read                                  | CI workflow source                              |
 | ----------------------- | ------------------------------------------- | -------------------------------------------------- | ----------------------------------------------- |
-| `SENTRY_DSN`            | Backend Sentry (errors / breadcrumbs)       | `uc-bootstrap/src/tracing.rs` — `option_env!`      | `.github/workflows/{build,alpha-build}.yml`     |
+| `SENTRY_DSN`            | Backend Sentry (errors / breadcrumbs)       | `uc-bootstrap/src/tracing.rs` — `option_env!`      | `.github/workflows/build.yml`     |
 | `VITE_SENTRY_DSN`       | Frontend Sentry (must be a separate project) | `import.meta.env.VITE_SENTRY_DSN` (Vite at build)  | same workflows                                  |
 | `POSTHOG_PROJECT_KEY`   | Product analytics (PostHog Cloud, US)       | `uc-bootstrap/src/analytics.rs` — `option_env!`    | same workflows (added as part of issue #549)    |
 
@@ -164,18 +151,17 @@ or to issue / PR text.
 
 ```text
 .
-├── src/                # React + TypeScript frontend (Tauri webview)
-├── src-tauri/          # Rust workspace (daemon, app shell, core, infra, platform crates)
+├── apps/gui/           # Desktop GUI: React + TypeScript sources of the desktop UI (src/); the Go/Wails host shell is in `apps/gui-go/`
+├── apps/, crates/      # Rust workspace members (daemon, CLI, quick panel, host and platform crates)
 ├── workers/            # Cloudflare Worker for the encrypted relay
 ├── docs/               # Architecture, agent rules, release workflow, UAT, etc.
 ├── scripts/            # Dev/release scripts (e.g. bump-version.js)
-├── public/             # Static assets served by Vite
 ├── assets/             # Marketing/icon assets
 ├── AGENTS.md           # Root navigation index for repository instructions
 └── README.md           # User-facing project introduction
 ```
 
-`AGENTS.md` is the canonical entry point for repository conventions. When working on a specific area, read the focused document it links to (frontend, Rust/Tauri, architecture, workflow, or project memory) instead of skimming everything.
+`AGENTS.md` is the canonical entry point for repository conventions. When working on a specific area, read the focused document it links to (frontend, Rust/daemon, architecture, workflow, or project memory) instead of skimming everything.
 
 ## Development Workflow
 
@@ -258,7 +244,7 @@ bun run format        # oxfmt --write .
 bun run format:check  # oxfmt --check .
 ```
 
-Rust (run inside `src-tauri/`):
+Rust (run from the repository root):
 
 ```bash
 cargo fmt --all
@@ -274,15 +260,15 @@ Pre-commit hooks (via Husky and lint-staged) automatically run `oxlint`, `oxfmt`
 - **No machine-specific absolute paths** in tracked files. Use repo-relative paths in docs and configuration.
 - **Markdown fenced code blocks must include a language identifier** (`bash`, `rust`, `ts`, `text`, etc.).
 - **Frontend code** follows the rules in [`docs/agent/frontend-ui-rules.md`](./docs/agent/frontend-ui-rules.md).
-- **Rust/Tauri code** follows the rules in [`docs/agent/rust-tauri-rules.md`](./docs/agent/rust-tauri-rules.md).
+- **Rust code** follows the rules in [`docs/agent/rust-rules.md`](./docs/agent/rust-rules.md).
 
 ## Testing
 
 ### Frontend
 
 ```bash
-bun test           # vitest, watch mode
-bun test --run     # single run, useful in CI
+bun run test       # vitest, shared frontend in apps/gui
+bun run typecheck  # type check the shared frontend
 ```
 
 Tests use Vitest with `@testing-library/react`. Place colocated tests next to the code they cover (e.g. `Component.test.tsx`).
@@ -290,14 +276,13 @@ Tests use Vitest with `@testing-library/react`. Place colocated tests next to th
 ### Rust
 
 ```bash
-cd src-tauri
 cargo test --workspace
 ```
 
 For coverage reports:
 
 ```bash
-bun run test:coverage   # produces an HTML report under src-tauri/target/llvm-cov
+bun run test:coverage   # produces an HTML report under target/llvm-cov
 ```
 
 ### Manual / UAT Verification

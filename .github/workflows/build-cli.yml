@@ -15,6 +15,16 @@ on:
           - 'windows-latest'
           - 'all'
         default: 'all'
+      channel:
+        description: '发布渠道(决定 uniclipd 编译期嵌入的 APP_ENV)'
+        required: false
+        type: choice
+        options:
+          - 'stable'
+          - 'alpha'
+          - 'beta'
+          - 'rc'
+        default: 'stable'
       save_cache:
         description: '是否保存构建缓存(用于手动验证 cache warmup)'
         required: false
@@ -32,6 +42,19 @@ on:
         required: false
         type: string
         default: ''
+      channel:
+        description: '发布渠道,决定 uniclipd 编译期嵌入的 APP_ENV'
+        required: false
+        type: string
+        default: 'stable'
+      linux_only:
+        description: >-
+          Build only the Linux musl targets. Release sets this because build.yml
+          packages the macOS and Windows x64 CLI archives from the app build's
+          uniclipd sidecar (same target triple, profile and telemetry env).
+        required: false
+        type: boolean
+        default: false
       save_cache:
         description: '是否保存构建缓存'
         required: false
@@ -42,7 +65,7 @@ jobs:
   setup-matrix:
     runs-on: ubuntu-latest
     outputs:
-      matrix: ${{ steps.set-matrix.outputs.matrix }}
+      matrix: ${{ steps.select-targets.outputs.matrix }}
       windows-runner: ${{ steps.select-windows-runner.outputs.runner }}
       windows-runner-source: ${{ steps.select-windows-runner.outputs.source }}
     steps:
@@ -62,7 +85,7 @@ jobs:
           WINDOWS_RUNNER: ${{ steps.select-windows-runner.outputs.runner }}
         run: |
           # CLI Linux target 选 musl 静态编译:
-          # uc-cli 走 ring + rustls (无 aws-lc-sys / 无 openssl-sys),依赖图
+          # uniclipd 走 ring + rustls (无 aws-lc-sys / 无 openssl-sys),依赖图
           # 里没有 C 库,musl 静态链可以一气呵成,glibc 完全无关。产物可直接
           # 在任意 Linux (包括 Ubuntu 20.04 / Alpine / 老 RHEL) 上跑。
           # 容器仍用 debian:bookworm 拿 musl-tools / cmake / clang 工具链。
@@ -77,16 +100,38 @@ jobs:
             echo 'matrix=[{"platform":"ubuntu-22.04","target":"x86_64-unknown-linux-musl","args":"--target x86_64-unknown-linux-musl","container":"ghcr.io/uniclipboard/build-bookworm:latest"}]' >> "$GITHUB_OUTPUT"
           elif [ "$PLATFORM" == "ubuntu-22.04-arm" ]; then
             echo 'matrix=[{"platform":"ubuntu-22.04-arm","target":"aarch64-unknown-linux-musl","args":"--target aarch64-unknown-linux-musl","container":"ghcr.io/uniclipboard/build-bookworm:latest"}]' >> "$GITHUB_OUTPUT"
-          elif [ "$PLATFORM" == "windows-latest" ]; then
+          elif [ "$PLATFORM" == "windows-latest" ] || [ "$PLATFORM" == "windows-x86_64" ]; then
             echo "matrix=[{\"platform\":\"windows-latest\",\"runner\":\"$WINDOWS_RUNNER\",\"target\":\"x86_64-pc-windows-msvc\",\"args\":\"\"}]" >> "$GITHUB_OUTPUT"
+          elif [ "$PLATFORM" == "windows-arm64" ]; then
+            # Release accepts the app's platform names; there is no Windows
+            # arm64 CLI archive, so this selection builds no CLI target.
+            echo 'matrix=[]' >> "$GITHUB_OUTPUT"
           else
-            echo "Error: Unknown platform '$PLATFORM'. Valid options: all, macos-aarch64, macos-x86_64, ubuntu-22.04, ubuntu-22.04-arm, windows-latest"
+            echo "Error: Unknown platform '$PLATFORM'. Valid options: all, macos-aarch64, macos-x86_64, ubuntu-22.04, ubuntu-22.04-arm, windows-latest, windows-x86_64, windows-arm64"
             exit 1
           fi
 
-  build-cli:
-    name: Build CLI ${{ matrix.target }}
+      - name: Select CLI targets
+        id: select-targets
+        # With linux_only, keep only the musl targets: Linux CLI builds are
+        # musl-static while the app ships glibc binaries, so they cannot reuse
+        # the app build's uniclipd. Every other target is packaged by build.yml.
+        env:
+          MATRIX: ${{ steps.set-matrix.outputs.matrix }}
+          LINUX_ONLY: ${{ inputs.linux_only }}
+        run: |
+          node -e '
+            const all = JSON.parse(process.env.MATRIX)
+            const keep = process.env.LINUX_ONLY === "true" ? all.filter(e => e.target.includes("-linux-musl")) : all
+            console.log("matrix=" + JSON.stringify(keep))
+          ' >> "$GITHUB_OUTPUT"
+
+  # The shipped `uniclipd` daemon is built first (static musl on Linux). The Go
+  # CLI job then packages it next to the CLI.
+  build-sidecar:
+    name: Build sidecar ${{ matrix.target }}
     needs: setup-matrix
+    if: needs.setup-matrix.outputs.matrix != '[]'
     runs-on: ${{ matrix.runner || matrix.platform }}
     container: ${{ matrix.container || null }}
     strategy:
@@ -151,7 +196,13 @@ jobs:
           # 只在 main 写缓存,tag/PR 只读。详见 build.yml 同名 step 的注释。
           save-if: ${{ inputs.save_cache || github.ref == 'refs/heads/main' }}
 
-      - name: build CLI binary
+      - name: resolve APP_ENV from channel
+        id: resolve-env
+        env:
+          UC_CHANNEL: ${{ inputs.channel || 'stable' }}
+        run: node scripts/ci/resolve-app-env.mjs
+
+      - name: build uniclipd
         # musl 链接器 + ring/cc-rs 的 C 编译器都指到 musl-gcc,产物完全静态,
         # 不再链 host glibc。其他 platform 这两个 env 是 noop。
         #
@@ -180,140 +231,144 @@ jobs:
           CFLAGS_aarch64_unknown_linux_musl: "-mno-outline-atomics"
           CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_RUSTFLAGS: "-C relocation-model=static"
           CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_RUSTFLAGS: "-C relocation-model=static"
+          # uniclipd embeds these at compile time (option_env!), exactly like the
+          # app's sidecar build in build.yml, so every shipped daemon reports to
+          # the same Sentry/PostHog projects and environment.
+          SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
+          POSTHOG_PROJECT_KEY: ${{ secrets.POSTHOG_PROJECT_KEY }}
+          APP_ENV: ${{ steps.resolve-env.outputs.app_env }}
         run: |
-          cargo build --release -p uc-cli ${{ matrix.args }} --timings
-          # ADR-008 D13: ship the standalone `uniclipd` daemon in the same
-          # tarball so `uniclip start` spawns it as a sibling. uniclipd shares
-          # uc-cli's iroh / aws-lc-sys subgraph, so the musl static-link
-          # toolchain configured above (musl-gcc + cmake/clang in the bookworm
-          # container, -mno-outline-atomics on aarch64) builds it the same way.
+          # ADR-008 D13: the standalone `uniclipd` daemon ships in the same
+          # tarball as the CLI so `uniclip start` spawns it as a sibling. The
+          # musl static-link toolchain configured above (musl-gcc +
+          # cmake/clang in the bookworm container, -mno-outline-atomics on
+          # aarch64) builds it fully static.
           cargo build --release -p uc-daemon --bin uniclipd ${{ matrix.args }} --timings
 
-      - name: import Apple certificate (macOS only)
-        if: matrix.platform == 'macos-latest'
-        env:
-          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-        run: |
-          CERTIFICATE_PATH=$RUNNER_TEMP/build_certificate.p12
-          KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
-          KEYCHAIN_PASSWORD=$(openssl rand -hex 12)
-
-          echo -n "$APPLE_CERTIFICATE" | base64 --decode -o $CERTIFICATE_PATH
-
-          security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
-          security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
-          security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
-
-          security import $CERTIFICATE_PATH -P "$APPLE_CERTIFICATE_PASSWORD" -A -t cert -f pkcs12 -k $KEYCHAIN_PATH
-          security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
-          security list-keychain -d user -s $KEYCHAIN_PATH
-
-          echo "KEYCHAIN_PATH=$KEYCHAIN_PATH" >> "$GITHUB_ENV"
-
-      - name: sign CLI binary (macOS only)
-        if: matrix.platform == 'macos-latest'
-        run: |
-          # Extract signing identity from imported certificate
-          IDENTITY=$(security find-identity -v -p codesigning "$KEYCHAIN_PATH" | grep "Developer ID Application" | head -1 | sed 's/.*"\(.*\)".*/\1/')
-          if [ -z "$IDENTITY" ]; then
-            echo "ERROR: No Developer ID Application identity found in keychain"
-            security find-identity -v -p codesigning "$KEYCHAIN_PATH"
-            exit 1
-          fi
-          echo "Signing with: $IDENTITY"
-
-          TARGET="${{ matrix.target }}"
-
-          # Sign both bundled binaries: the CLI and the daemon it spawns.
-          for BIN_NAME in uniclip uniclipd; do
-            BIN_PATH="target/${TARGET}/release/${BIN_NAME}"
-            if [ ! -f "$BIN_PATH" ]; then
-              BIN_PATH="target/release/${BIN_NAME}"
-            fi
-            echo "Signing $BIN_PATH"
-            codesign --force --options runtime --sign "$IDENTITY" --keychain "$KEYCHAIN_PATH" "$BIN_PATH"
-            codesign --verify --verbose "$BIN_PATH"
-          done
-
-      - name: notarize CLI binary (macOS only)
-        if: matrix.platform == 'macos-latest'
-        env:
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-        run: |
-          TARGET="${{ matrix.target }}"
-          BIN_DIR="target/${TARGET}/release"
-          if [ ! -f "${BIN_DIR}/uniclip" ]; then
-            BIN_DIR="target/release"
-          fi
-
-          # notarytool requires a zip archive; stage both binaries so the CLI
-          # and the daemon it spawns are notarized together.
-          STAGE="$RUNNER_TEMP/cli-notarize-stage"
-          rm -rf "$STAGE"
-          mkdir -p "$STAGE"
-          cp "${BIN_DIR}/uniclip" "${BIN_DIR}/uniclipd" "$STAGE/"
-          NOTARIZE_ZIP="$RUNNER_TEMP/cli-notarize.zip"
-          ditto -c -k "$STAGE" "$NOTARIZE_ZIP"
-
-          xcrun notarytool submit "$NOTARIZE_ZIP" \
-            --apple-id "$APPLE_ID" \
-            --password "$APPLE_PASSWORD" \
-            --team-id "$APPLE_TEAM_ID" \
-            --wait
-
-          # Note: stapler staple only works on .app/.dmg/.pkg bundles, not bare binaries.
-          # For standalone CLI binaries, Gatekeeper checks the notarization ticket online.
-
-      - name: package CLI binary
-        id: package
+      - name: Upload Sentry debug symbols
+        # uniclipd embeds the backend Sentry DSN, so its crashes need these
+        # symbols to be readable. Same upload as build.yml; skipped when the
+        # Sentry upload credentials are not configured.
         shell: bash
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
         run: |
-          VERSION=$(node -p "require('./package.json').version")
-          TARGET="${{ matrix.target }}"
-
-          # Ship `uniclipd` next to `uniclip` so `uniclip start` can spawn the
-          # daemon as a sibling binary (ADR-008 D13).
-          if [ "${{ matrix.platform }}" = "windows-latest" ]; then
-            BIN_SRC="target/release/uniclip.exe"
-            # Windows non-cross build puts binary in target/release/, not target/{target}/release/
-            if [ ! -f "$BIN_SRC" ]; then
-              BIN_SRC="target/${TARGET}/release/uniclip.exe"
-            fi
-            ARCHIVE="uniclipboard-cli-${VERSION}-${TARGET}.zip"
-            # 7z stores paths as given on the command line, so add the exes
-            # from inside their directory to keep the archive root flat
-            # (matching the tar.gz layout).
-            WORKDIR="$(pwd)"
-            (cd "$(dirname "$BIN_SRC")" && 7z a "${WORKDIR}/${ARCHIVE}" uniclip.exe uniclipd.exe)
-          else
-            BIN_DIR="target/${TARGET}/release"
-            # Fallback for non-cross builds
-            if [ ! -f "${BIN_DIR}/uniclip" ]; then
-              BIN_DIR="target/release"
-            fi
-            ARCHIVE="uniclipboard-cli-${VERSION}-${TARGET}.tar.gz"
-            tar -czf "$ARCHIVE" -C "$BIN_DIR" uniclip uniclipd
+          if [ -z "$SENTRY_AUTH_TOKEN" ] || [ -z "$SENTRY_PROJECT" ]; then
+            echo "::warning::SENTRY_AUTH_TOKEN/SENTRY_PROJECT not configured — skipping debug-files upload"
+            exit 0
           fi
-          echo "archive=$ARCHIVE" >> "$GITHUB_OUTPUT"
+          npm install -g @sentry/cli
+          if [ -n "${{ matrix.args }}" ]; then
+            TARGET_DIR="target/${{ matrix.target }}/release"
+          else
+            TARGET_DIR="target/release"
+          fi
+          echo "Uploading debug files from $TARGET_DIR"
+          sentry-cli debug-files upload --include-sources "$TARGET_DIR"
 
       - name: Upload Cargo timing reports
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: cargo-timings-cli-${{ matrix.target }}
+          name: cargo-timings-cli-sidecar-${{ matrix.target }}
           path: target/cargo-timings/*.html
           if-no-files-found: ignore
           retention-days: 14
+
+      - name: package sidecar artifact
+        # One tar keeps the executable bit through artifact upload/download.
+        shell: bash
+        run: |
+          # Windows builds with the host default target (args=""), landing in
+          # target/release; the other targets pass --target.
+          if [ -n "${{ matrix.args }}" ]; then
+            BIN_DIR="target/${{ matrix.target }}/release"
+          else
+            BIN_DIR="target/release"
+          fi
+          EXE=""
+          case "${{ matrix.target }}" in *windows*) EXE=".exe" ;; esac
+          mkdir -p sidecar-stage
+          cp "$BIN_DIR/uniclipd$EXE" sidecar-stage/
+          tar -cf sidecar.tar -C sidecar-stage .
+
+      - name: upload sidecar artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: cli-sidecar-${{ matrix.target }}
+          path: sidecar.tar
+          if-no-files-found: error
+          retention-days: 3
+
+  # User-facing CLI (Go, apps/cli-go): no Rust toolchain and no container, it
+  # only packages the daemon from build-sidecar. It never builds or links the
+  # Rust development CLI.
+  build-cli:
+    name: Build CLI ${{ matrix.target }}
+    needs: [setup-matrix, build-sidecar]
+    if: needs.setup-matrix.outputs.matrix != '[]'
+    runs-on: ${{ matrix.runner || matrix.platform }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.setup-matrix.outputs.matrix) }}
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.branch || github.ref }}
+          persist-credentials: false
+
+      - name: setup node
+        uses: actions/setup-node@v6
+        with:
+          node-version: lts/*
+
+      - name: setup Go
+        uses: actions/setup-go@v6
+        with:
+          # The module pins its Go version and toolchain.
+          go-version-file: apps/cli-go/go.mod
+          cache-dependency-path: apps/cli-go/go.sum
+
+      - name: download uniclipd sidecar
+        uses: actions/download-artifact@v6
+        with:
+          name: cli-sidecar-${{ matrix.target }}
+          path: sidecar-artifact
+
+      - name: stage uniclipd sidecar
+        shell: bash
+        run: |
+          mkdir -p sidecar
+          tar -xf sidecar-artifact/sidecar.tar -C sidecar
+
+      - name: build Go CLI
+        shell: bash
+        run: |
+          EXE=""
+          case "${{ matrix.target }}" in *windows*) EXE=".exe" ;; esac
+          mkdir -p target/go-cli
+          scripts/ci/build-go-cli.sh "${{ matrix.target }}" "target/go-cli/uniclip$EXE"
+
+      - name: package CLI binary
+        id: package
+        shell: bash
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          EXE=""
+          case "${{ matrix.target }}" in *windows*) EXE=".exe" ;; esac
+          bash scripts/ci/package-cli.sh "${{ matrix.target }}" "target/go-cli/uniclip$EXE" "sidecar/uniclipd$EXE"
 
       - name: upload artifact
         uses: actions/upload-artifact@v7
         with:
           name: cli-${{ matrix.target }}
           path: uniclipboard-cli-*
-
-      - name: cleanup keychain (macOS only)
-        if: matrix.platform == 'macos-latest' && always()
-        run: security delete-keychain $RUNNER_TEMP/app-signing.keychain-db 2>/dev/null || true

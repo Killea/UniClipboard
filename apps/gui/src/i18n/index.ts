@@ -1,0 +1,79 @@
+import i18n from 'i18next'
+import { initReactI18next } from 'react-i18next'
+import enUS from './locales/en-US.json'
+import jaJP from './locales/ja-JP.json'
+import ptBR from './locales/pt-BR.json'
+import ruRU from './locales/ru-RU.json'
+import zhCN from './locales/zh-CN.json'
+import zhTW from './locales/zh-TW.json'
+import {
+  upgradeProgressEn,
+  upgradeProgressZh,
+  upgradeProgressJa,
+  upgradeProgressPt,
+  upgradeProgressRu,
+} from './upgrade-progress'
+
+export const SUPPORTED_LANGUAGES = ['zh-CN', 'zh-TW', 'en-US', 'ja-JP', 'ru-RU', 'pt-BR'] as const
+export type SupportedLanguage = (typeof SUPPORTED_LANGUAGES)[number]
+
+const STORAGE_KEY = 'uniclipboard.language'
+
+export function isSupportedLanguage(language: unknown): language is SupportedLanguage {
+  return SUPPORTED_LANGUAGES.includes(language as SupportedLanguage)
+}
+
+/**
+ * Every region variant collapses onto the one bundle that covers it — including
+ * pt-PT, since Brazilian copy serves a Portuguese speaker better than English.
+ * Chinese distinguishes Traditional-script variants from Simplified Chinese.
+ *
+ * Keep in sync with `normalize_language` in `crates/uc-desktop/src/language.rs`.
+ */
+const LOCALE_BY_SUBTAG: Partial<Record<string, SupportedLanguage>> = {
+  ja: 'ja-JP',
+  ru: 'ru-RU',
+  pt: 'pt-BR',
+}
+
+const TRADITIONAL_CHINESE_SUBTAGS = new Set(['hant', 'tw', 'hk', 'mo'])
+
+export function normalizeLanguage(language: string | null | undefined): SupportedLanguage {
+  // Fall back to the system language when the caller has no stored preference.
+  const tag = language || navigator.language
+  // Accept both separators: BCP-47 hands us "pt-BR", POSIX locale envs "pt_BR".
+  const subtags = tag.toLowerCase().split(/[-_]/)
+  const [primary, ...variants] = subtags
+  if (primary === 'zh') {
+    return variants.some(subtag => TRADITIONAL_CHINESE_SUBTAGS.has(subtag)) ? 'zh-TW' : 'zh-CN'
+  }
+  return LOCALE_BY_SUBTAG[primary] ?? 'en-US'
+}
+
+export function getInitialLanguage(): SupportedLanguage {
+  const stored = localStorage.getItem(STORAGE_KEY)
+  if (isSupportedLanguage(stored)) return stored
+  return normalizeLanguage(navigator.language)
+}
+
+export function persistLanguage(language: SupportedLanguage) {
+  localStorage.setItem(STORAGE_KEY, language)
+}
+
+i18n.use(initReactI18next).init({
+  resources: {
+    'zh-CN': { translation: { ...zhCN, upgradeProgress: upgradeProgressZh } },
+    'zh-TW': { translation: { ...zhTW, upgradeProgress: upgradeProgressZh } },
+    'en-US': { translation: { ...enUS, upgradeProgress: upgradeProgressEn } },
+    'ja-JP': { translation: { ...jaJP, upgradeProgress: upgradeProgressJa } },
+    'ru-RU': { translation: { ...ruRU, upgradeProgress: upgradeProgressRu } },
+    'pt-BR': { translation: { ...ptBR, upgradeProgress: upgradeProgressPt } },
+  },
+  lng: getInitialLanguage(),
+  fallbackLng: 'zh-CN',
+  interpolation: { escapeValue: false },
+})
+
+persistLanguage(i18n.language as SupportedLanguage)
+
+export default i18n

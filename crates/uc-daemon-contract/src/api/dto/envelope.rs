@@ -30,8 +30,13 @@ use crate::api::dto::diagnostics::{
     UpdateDebugModeResultDto,
 };
 use crate::api::dto::encryption::{
-    EncryptionActionResponse, EncryptionStateResponse, KeychainAccessResponse,
-    ProfileRecoveryResponse, UnlockSpaceResponse,
+    ContentLockStatusResponse, EncryptionActionResponse, EncryptionStateResponse,
+    KeychainAccessResponse, ProfileRecoveryResponse, UnlockSpaceResponse,
+};
+use crate::api::dto::history_tags::{
+    HistoryEntryTagSummaryDto, HistoryTagBatchResultDto, HistoryTagCreatedDto,
+    HistoryTagDeletedDto, HistoryTagDto, HistoryTagLayoutDto, HistoryTagMergeResultDto,
+    HistoryTagRenameResultDto,
 };
 use crate::api::dto::member::{
     DeviceGroupChoiceResultDto, DeviceGroupChoicesDto, DeviceTrustSnapshotDto,
@@ -43,11 +48,12 @@ use crate::api::dto::mobile_sync::{
     UpdateMobileSyncSettingsResultDto,
 };
 use crate::api::dto::search::{
-    SearchQueryResultDto, SearchRebuildAcceptedData, SearchStatusData, SearchTagDto,
+    SearchCountResultDto, SearchQueryResultDto, SearchRebuildAcceptedData, SearchStatusData,
+    SearchTagDto,
 };
 use crate::api::dto::settings::{
-    CustomRelayDto, CustomRelayMutationResultDto, RelayCredentialStatusDto, RelayProbeOutcomeDto,
-    RelaySaveResultDto, SettingsDto, SettingsUpdateResultDto,
+    CustomRelayDto, CustomRelayMutationResultDto, RelayCredentialStatusDto, RelayOverviewDto,
+    RelayProbeOutcomeDto, RelaySaveResultDto, SettingsDto, SettingsUpdateResultDto,
 };
 use crate::api::dto::storage::{
     ClearCacheResponse, DeleteUpgradeBackupResponse, StorageStatsDto, UpgradeBackupDto,
@@ -104,6 +110,7 @@ use crate::api::types::{
     RelayCredentialStatusEnvelope = ApiEnvelope<RelayCredentialStatusDto>,
     RelaySaveResultEnvelope = ApiEnvelope<RelaySaveResultDto>,
     CustomRelayListEnvelope = ApiEnvelope<Vec<CustomRelayDto>>,
+    RelayOverviewEnvelope = ApiEnvelope<RelayOverviewDto>,
     CustomRelayMutationResultEnvelope = ApiEnvelope<CustomRelayMutationResultDto>,
     DebugStatusEnvelope = ApiEnvelope<DebugStatusDto>,
     UpdateDebugModeEnvelope = ApiEnvelope<UpdateDebugModeResultDto>,
@@ -129,6 +136,7 @@ use crate::api::types::{
     ProfileRecoveryEnvelope = ApiEnvelope<ProfileRecoveryResponse>,
     KeychainAccessEnvelope = ApiEnvelope<KeychainAccessResponse>,
     EncryptionActionEnvelope = ApiEnvelope<EncryptionActionResponse>,
+    ContentLockStatusEnvelope = ApiEnvelope<ContentLockStatusResponse>,
     UnlockSpaceEnvelope = ApiEnvelope<UnlockSpaceResponse>,
     // ── upgrade ─────────────────────────────────────────────────────
     UpgradeStatusEnvelope = ApiEnvelope<UpgradeStatusDto>,
@@ -140,6 +148,16 @@ use crate::api::types::{
     SearchRebuildEnvelope = ApiEnvelope<SearchRebuildAcceptedData>,
     SearchQueryEnvelope = ApiEnvelope<SearchQueryResultDto>,
     SearchTagsEnvelope = ApiEnvelope<Vec<SearchTagDto>>,
+    SearchCountEnvelope = ApiEnvelope<SearchCountResultDto>,
+    // ── local history tags ──────────────────────────────────────────
+    HistoryTagsEnvelope = ApiEnvelope<Vec<HistoryTagDto>>,
+    HistoryTagCreatedEnvelope = ApiEnvelope<HistoryTagCreatedDto>,
+    HistoryTagRenameEnvelope = ApiEnvelope<HistoryTagRenameResultDto>,
+    HistoryTagBatchEnvelope = ApiEnvelope<HistoryTagBatchResultDto>,
+    HistoryEntryTagSummaryEnvelope = ApiEnvelope<HistoryEntryTagSummaryDto>,
+    HistoryTagMergeEnvelope = ApiEnvelope<HistoryTagMergeResultDto>,
+    HistoryTagDeletedEnvelope = ApiEnvelope<HistoryTagDeletedDto>,
+    HistoryTagLayoutEnvelope = ApiEnvelope<HistoryTagLayoutDto>,
     // ── storage ────────────────────────────────────────────────────
     StorageStatsEnvelope = ApiEnvelope<StorageStatsDto>,
     ClearCacheEnvelope = ApiEnvelope<ClearCacheResponse>,

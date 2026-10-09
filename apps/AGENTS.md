@@ -1,16 +1,16 @@
 # apps 本地规则
 
-`apps/` 存放可直接运行的二进制 crate；库 crate 一律放 `crates/`。Rust workspace 的导航与知识库见 `crates/AGENTS.md`。
+`apps/` 存放可直接运行的生产程序；开发专用的 crate（如 Rust 开发 CLI `uc-dev-cli`）在 `tools/`。Rust 库 crate 一律放 `crates/`。`cli-go/` 是独立的 Go 模块，不属于 cargo workspace。Rust workspace 的导航与知识库见 `crates/AGENTS.md`。
 
 | 目录 | 包名 | 产物 | 本地规则 |
 | --- | --- | --- | --- |
-| `cli/` | `uc-cli` | `uniclip` | `apps/cli/AGENTS.md` |
+| `cli-go/` | Go 模块 `github.com/UniClipboard/UniClipboard/apps/cli-go` | 用户端终端客户端 `uniclip`（Go 实现，发布产物由它构建） | `apps/cli-go/AGENTS.md` |
 | `daemon/` | `uc-daemon` | `uniclipd` | （暂无；遵循 workspace 规则） |
-| `mobile-probe-core/` | `uc-mobile-probe-core` | iOS/Android 验收库 | （诊断宿主，不发布） |
-| `android-probe/` | - | Android 模拟器与真机验收应用 | （诊断宿主，不发布） |
-| `ohos-probe/` | - | HarmonyOS 模拟器与真机验收应用 | （诊断宿主，不发布） |
-| `../src-tauri/`（物理位置见说明） | `uniclipboard` | 桌面 GUI（Tauri） | `src-tauri/AGENTS.md` |
+| `quick-panel/` | `quick-panel` | GPUI 快捷面板（macOS 随安装包发布，可执行文件 `uniclip-quick-panel`） | `README.md` |
+| `android-probe/`、`ios-probe/`、`ohos-probe/` | - | 移动端验收宿主应用（非 Rust） | 不发布；**当前不可构建**：它们依赖已移出本仓的 `uc-mobile-probe-core` 与 `uc-ohos-napi`（`scripts/architecture/check-engine-repository.mjs` 禁止其回到本仓），处置待定 |
+| `gui-go/` | Go 模块 `github.com/UniClipboard/UniClipboard/apps/gui-go` | 桌面 GUI 宿主（Go/Wails），目前唯一的桌面宿主；应用标识、版本与更新公钥的唯一来源是 `apps/gui-go/app.json` | `apps/gui-go/AGENTS.md` |
+| `gui/` | `uniclipboard-gui`（前端，JS） | 桌面 GUI 的共享 React 前端源码（`src/`）、测试与设计规范；随包产物由 `apps/gui-go/vite.config.ts` 构建 | `apps/gui/src/AGENTS.md` |
 
-桌面 GUI 在逻辑上也是一个 app，但物理目录必须叫 `src-tauri/` 且位于仓库根——这是 tauri-cli 的项目发现约定（`src-tauri/` + `tauri.conf.json`），官方不支持重命名，所以它不放在本目录下。
+桌面宿主（窗口、托盘、更新、打包）在 `apps/gui-go/`；共享 React 前端源码在 `apps/gui/src`，测试用 `bun run test`，类型检查用 `bun run typecheck`。开发运行用仓库根的 `bun wails:dev`；本地 macOS 构建与打包用 `apps/gui-go/build.sh`。仓库根的 `package.json` 只是 bun workspace 根和命令转发入口，GUI 依赖与脚本以 `apps/gui/package.json` 为准。旧 Tauri 宿主已退役，记录见 `docs/architecture/gui-go-tauri-retirement.md`。
 
-未来 iOS / Android 的 app core crate 也放在这里。新增 app 时：路径依赖指向 `../../crates/uc-*`，在根 `Cargo.toml` 的 members 中注册，并补一行本表。
+新增 app 时：路径依赖指向 `../../crates/uc-*`，在根 `Cargo.toml` 的 members 中注册，并补一行本表。

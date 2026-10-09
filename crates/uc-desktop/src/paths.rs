@@ -9,16 +9,26 @@ pub struct DesktopPaths {
 
 impl DesktopPaths {
     pub fn resolve() -> anyhow::Result<Self> {
-        let app_data_root_dir = uc_app_paths::app_data_root()
-            .ok_or_else(|| anyhow::anyhow!("unable to resolve app data root directory"))?;
-        let logs_dir = uc_app_paths::app_log_dir()
-            .ok_or_else(|| anyhow::anyhow!("unable to resolve app log directory"))?;
+        let app_data_root_dir = uc_app_paths::app_data_root().ok_or_else(|| {
+            anyhow::anyhow!(uc_app_paths::unavailable_reason(
+                "unable to resolve app data root directory"
+            ))
+        })?;
+        let logs_dir = uc_app_paths::app_log_dir().ok_or_else(|| {
+            anyhow::anyhow!(uc_app_paths::unavailable_reason(
+                "unable to resolve app log directory"
+            ))
+        })?;
 
         Ok(Self {
             settings_path: app_data_root_dir.join("settings.json"),
             logs_dir,
             app_data_root_dir,
         })
+    }
+
+    pub fn desktop_preferences_path(&self) -> PathBuf {
+        self.app_data_root_dir.join("desktop-preferences.json")
     }
 
     pub fn last_notified_update_path(&self) -> PathBuf {

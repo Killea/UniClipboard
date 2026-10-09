@@ -9,7 +9,7 @@ on:
     paths:
       - 'crates/**'
       - 'apps/**'
-      - 'src-tauri/**'
+      - 'tools/**'
       - 'tests/e2e/**'
       - 'vendor/**'
       - 'Cargo.toml'
@@ -21,7 +21,7 @@ on:
     paths:
       - 'crates/**'
       - 'apps/**'
-      - 'src-tauri/**'
+      - 'tools/**'
       - 'tests/e2e/**'
       - 'vendor/**'
       - 'Cargo.toml'
@@ -60,21 +60,11 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf xvfb
+          # libxkbcommon-x11-dev: the workspace includes the GPUI quick panel (apps/quick-panel), whose
+          # Linux test binary links xkbcommon-x11 (rust-lld: unable to find library -lxkbcommon-x11).
+          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf xvfb libxkbcommon-x11-dev
 
       - name: Generate coverage report
-        env:
-          # ADR-008 D13 added `externalBin: ["binaries/uniclipd"]` to
-          # tauri.conf.json, so `tauri_build::build()` requires and copies
-          # `src-tauri/binaries/uniclipd-<triple>` at compile time. Real bundles
-          # stage it via prepare-daemon-sidecar.mjs (build.yml / alpha-build.yml),
-          # but this job only measures coverage and never ships the sidecar — and
-          # the copy would clobber the workspace's own instrumented `uniclipd` bin
-          # in the target dir, breaking `cargo llvm-cov`'s object scan. Override
-          # the config to drop the sidecar for this build (tauri-build merges
-          # TAURI_CONFIG as a JSON Merge Patch; an empty array replaces the list),
-          # so the build script neither requires nor copies it.
-          TAURI_CONFIG: '{"bundle":{"externalBin":[]}}'
         run: |
           xvfb-run -a cargo llvm-cov --lcov --output-path lcov.info --workspace
 

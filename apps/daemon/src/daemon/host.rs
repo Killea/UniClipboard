@@ -19,6 +19,7 @@ use uc_observability::analytics::AnalyticsPort;
 use uc_webserver::api::auth::load_or_create_auth_token_from_conn;
 use uc_webserver::api::server::{run_http_server, DaemonApiState, DaemonFileHandles};
 use uc_webserver::api::startup::StartupServer;
+use uc_webserver::api::tag_layout::TagLayoutStore;
 use uc_webserver::api::types::{DaemonResidency, DaemonWsEvent};
 use uc_webserver::security::{cleanup_rate_limiter_task, SecurityState};
 
@@ -75,6 +76,7 @@ async fn run_async_with_diagnostics(
     let prepared = prepare_desktop_engine_host()?;
     let process_paths = prepared.process_paths().clone();
     let analytics = prepared.analytics();
+    let secure_storage_source = prepared.secure_storage_source();
     let file_handles: Arc<dyn DaemonFileHandles> =
         Arc::new(DesktopDaemonFileHandles::new(prepared.file_handles()));
     let (engine_config, host_capabilities) = prepared.into_engine_start();
@@ -127,7 +129,11 @@ async fn run_async_with_diagnostics(
     let (engine, events) = match started {
         Ok(result) => result,
         Err(error) => {
-            tracing::error!("engine startup failed; startup status remains available");
+            // Engine errors carry only a stable code and category, never secrets.
+            tracing::error!(
+                error = %format!("{error:#}"),
+                "engine startup failed; startup status remains available"
+            );
             // Keep the terminal snapshot readable until an explicit retry or full quit.
             wait_for_shutdown_signal().await?;
             startup_server.shutdown().await?;
@@ -145,7 +151,7 @@ async fn run_async_with_diagnostics(
     .await;
 
     record_upgrade_status_at_startup(&engine).await;
-    spawn_startup_recovery(run_mode, Arc::clone(&engine));
+    spawn_startup_recovery(run_mode, Arc::clone(&engine), secure_storage_source);
 
     let wake_monitor = match super::system_wake::start(Arc::clone(&engine)).await {
         Ok(monitor) => Some(monitor),
@@ -178,9 +184,12 @@ async fn run_async_with_diagnostics(
         .await
         .map_err(anyhow::Error::new);
 
-    if result.is_err() {
+    if let Err(error) = &result {
         startup_server.mark_service_failed();
-        tracing::error!("daemon service startup failed; startup status remains available");
+        tracing::error!(
+            error = %format!("{error:#}"),
+            "daemon service startup failed; startup status remains available"
+        );
         wait_for_shutdown_signal().await?;
     }
     startup_server.shutdown().await?;
@@ -215,18 +224,26 @@ async fn run_daemon_surfaces(
     )
     .with_residency(run_mode.into())
     .with_analytics(analytics_sink)
+    .with_tag_layout(Arc::new(TagLayoutStore::load(
+        process_paths
+            .app_data_root()
+            .join("history-tags")
+            .join("layout.v1.json"),
+    )))
     .with_diagnostics(
         diagnostics.clone(),
         Arc::new(DesktopDiagnosticArchive::new(
             process_paths.logs_dir().to_path_buf(),
         )),
-    );
+    )
+    .with_run_marker(run_marker.clone());
     api_state.startup_ready = Some(startup_ready);
     let (event_tx, _) = broadcast::channel::<DaemonWsEvent>(64);
     api_state.event_tx = event_tx.clone();
 
     let restart = api_state.restart.clone();
     let lease_registry = api_state.lease_registry.clone();
+    let graceful_stop_requested = api_state.graceful_stop_requested.clone();
     let cancel = CancellationToken::new();
     let http_cancel = cancel.child_token();
     let cleanup_cancel = cancel.child_token();
@@ -271,6 +288,12 @@ async fn run_daemon_surfaces(
         result = wait_for_shutdown_signal(), if run_mode.listens_to_os_signals() => {
             result?;
             info!("shutdown signal received");
+        }
+        _ = graceful_stop_requested.notified() => {
+            // POST /lifecycle/graceful-stop already marked this run's exit
+            // clean (synchronously, before notifying) — this just drives the
+            // same orderly shutdown sequence an OS signal would.
+            info!("graceful stop requested via HTTP control plane");
         }
         result = &mut http_handle => {
             http_completed = true;

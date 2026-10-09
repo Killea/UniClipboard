@@ -18,6 +18,8 @@ pub mod ws_topic {
     pub const SEARCH: &str = "search";
     pub const DEVICE_TRUST: &str = "device-trust";
     pub const NETWORK_RECOVERY: &str = "network-recovery";
+    /// Content-lock grant changes. Carries no content, only whether content may be shown.
+    pub const CONTENT_LOCK: &str = "content-lock";
 }
 
 /// WebSocket event type names emitted within topics.
@@ -68,6 +70,9 @@ pub mod ws_event {
     pub const SEARCH_REBUILD_PROGRESS: &str = "search.rebuild_progress";
     pub const DEVICE_TRUST_CHANGED: &str = "device-trust.changed";
     pub const NETWORK_RECOVERY_CHANGED: &str = "network-recovery.changed";
+    /// The content-lock grant changed, or a fact it depends on did (`{ unlocked, generation }`).
+    /// Clients must drop what they show when `unlocked` is false and refetch when it is true.
+    pub const CONTENT_LOCK_CHANGED: &str = "content_lock.changed";
     /// Lightweight inbound clipboard notice for CLI `watch` (ADR-008 P2.5).
     /// Emitted alongside `CLIPBOARD_NEW_CONTENT`; carries only display summaries
     /// and delivery metadata, never the full clipboard payload.
@@ -151,6 +156,15 @@ pub mod http_route {
     pub const CLIPBOARD_BLOBS: &str = "/clipboard/blobs";
     /// GET /clipboard/thumbnails/:rep_id — serve raw thumbnail binary content
     pub const CLIPBOARD_THUMBNAILS: &str = "/clipboard/thumbnails";
+    /// GET /content-lock — whether history-derived content may be shown to GUI-class clients
+    pub const CONTENT_LOCK: &str = "/content-lock";
+    /// POST /content-lock/unlock — verify the passphrase and grant content access
+    pub const CONTENT_LOCK_UNLOCK: &str = "/content-lock/unlock";
+    /// POST /content-lock/unlock-keyring — resume the session from the OS keychain and grant
+    /// content access (explicit user action only)
+    pub const CONTENT_LOCK_UNLOCK_KEYRING: &str = "/content-lock/unlock-keyring";
+    /// POST /content-lock/revoke — withdraw the grant; the encryption session is left alone
+    pub const CONTENT_LOCK_REVOKE: &str = "/content-lock/revoke";
     /// GET /search/query — execute a structured search query (Phase 92)
     pub const SEARCH_QUERY: &str = "/search/query";
     /// GET /search/status — get search index availability status (Phase 92)
@@ -159,6 +173,21 @@ pub mod http_route {
     pub const SEARCH_REBUILD: &str = "/search/rebuild";
     /// GET /search/tags — list tags present in the index with entry counts
     pub const SEARCH_TAGS: &str = "/search/tags";
+    /// POST /search/count — batch count matching entries for up to 32 filter
+    /// combinations in one round trip (candidate facet counts).
+    pub const SEARCH_COUNT: &str = "/search/count";
+    /// GET/POST /history/tags — list or create this device's local history tags;
+    /// `/history/tags/{tag_id}` (PATCH rename, DELETE) and its `/entries/add`,
+    /// `/entries/remove`, `/merge` actions hang off the same prefix.
+    pub const HISTORY_TAGS: &str = "/history/tags";
+    /// POST /history/tags/summary — which tags a set of entries carries.
+    pub const HISTORY_TAGS_SUMMARY: &str = "/history/tags/summary";
+    /// GET /history/tags/layout — the sidebar's tags in order and each tag's
+    /// color; `PUT /history/tags/layout/sidebar` replaces the sidebar order.
+    /// `/history/tags/{tag_id}/color` and `/sidebar` (PUT) change one tag.
+    pub const HISTORY_TAGS_LAYOUT: &str = "/history/tags/layout";
+    /// PUT /history/tags/layout/sidebar — replace the sidebar's tags and order.
+    pub const HISTORY_TAGS_LAYOUT_SIDEBAR: &str = "/history/tags/layout/sidebar";
     /// GET /upgrade/status — detect upgrade by comparing version cursor to
     /// the running build (P1 thin upgrade detection).
     pub const UPGRADE_STATUS: &str = "/upgrade/status";
@@ -178,6 +207,13 @@ pub mod http_route {
     pub const CLIPBOARD_CANCEL_TRANSFER: &str = "/clipboard/cancel-transfer";
     /// POST /lifecycle/restart — request a controlled restart/promotion (ADR-008 P5-L L8d-1)
     pub const LIFECYCLE_RESTART: &str = "/lifecycle/restart";
+    /// POST /lifecycle/graceful-stop — request an orderly shutdown of THIS daemon
+    /// process (any residency). Marks the run's crash-detection start marker
+    /// clean before the shutdown sequence runs, so a caller-initiated restart
+    /// (e.g. a GUI settings-change restart) is never misreported as an abnormal
+    /// exit on the next boot, even if the caller later force-kills the process
+    /// because the graceful path did not finish in time.
+    pub const LIFECYCLE_GRACEFUL_STOP: &str = "/lifecycle/graceful-stop";
     /// GET/POST /network/recovery — query or manually request network recovery.
     pub const NETWORK_RECOVERY: &str = "/network/recovery";
     /// POST /config/export — export the current configuration to an encrypted `.ucbundle` (issue #1110)

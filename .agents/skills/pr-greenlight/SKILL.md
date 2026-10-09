@@ -62,12 +62,11 @@ From the file list, classify what changed into categories:
 |----------|-------------------|
 | `rust` | `*.rs`, `Cargo.toml`, `Cargo.lock` |
 | `frontend` | `src/**/*.{ts,tsx,js,jsx,css}`, `package.json`, `bun.lockb` |
-| `api-endpoints` | `*.rs` files containing `#[utoipa::path]` or `#[tauri::command]` changes |
-| `tauri-ipc` | changes in `src-tauri/src/`, DTO structs used by Tauri commands |
+| `api-endpoints` | `*.rs` files containing `#[utoipa::path]` changes |
 | `openapi` | `schema/openapi.json`, files with `#[utoipa::path]` |
 | `docs-site` | `docs-site/**` |
 | `markdown` | `*.md` (outside docs-site) |
-| `generated` | `src/api/generated/**`, `src/lib/ipc-bindings.generated.ts` |
+| `generated` | `apps/gui/src/api/generated/**` |
 
 Store the categories in state as `change_categories`.
 
@@ -106,17 +105,11 @@ git diff --exit-code schema/openapi.json
 # If diff: stage it
 git add schema/openapi.json
 
-# 2. IPC bindings (if tauri-ipc changed)
-cargo test -p uc-tauri --test specta_export 2>&1
-git diff --exit-code src/lib/ipc-bindings.generated.ts
-# If diff: stage it
-git add src/lib/ipc-bindings.generated.ts
-
-# 3. API client (if openapi.json changed in step 1 or was already changed)
+# 2. API client (if openapi.json changed in step 1 or was already changed)
 bun run gen:client 2>&1
-git diff --exit-code src/api/generated/
+git diff --exit-code apps/gui/src/api/generated/
 # If diff: stage it
-git add src/api/generated/
+git add apps/gui/src/api/generated/
 ```
 
 ### 2c — Lint (scoped to changed files)
@@ -150,7 +143,7 @@ bun run test -- --run 2>&1 | tail -40
 
 # Rust tests are slow — only run focused tests for changed crates
 # Detect changed crates from file paths
-CHANGED_CRATES=$(git diff main...HEAD --name-only -- 'crates/*/src' 'apps/*/src' | sed 's|.*/\(crates/[^/]*\)/.*|\1|;s|.*/\(apps/[^/]*\)/.*|\1|' | sort -u)
+CHANGED_CRATES=$(git diff main...HEAD --name-only -- 'crates/*/src' 'apps/*/src' 'tools/*/src' | sed 's|.*/\(crates/[^/]*\)/.*|\1|;s|.*/\(apps/[^/]*\)/.*|\1|' | sort -u)
 for crate_path in $CHANGED_CRATES; do
   crate_name=$(basename $crate_path)
   cargo test -p $crate_name --lib 2>&1 | tail -20

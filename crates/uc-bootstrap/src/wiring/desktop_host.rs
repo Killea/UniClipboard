@@ -21,6 +21,7 @@ use uc_platform::clipboard::{
     SystemClipboardSnapshot,
 };
 use uc_platform::ports::{SecureStorageError, SecureStorageProvider};
+use uc_platform::secure_storage::SecureStorageSource;
 
 use crate::layer::paths::{resolve_desktop_host_paths, DesktopHostPaths};
 use crate::layer::platform::{create_desktop_system_clipboard, SystemClipboardWiring};
@@ -34,6 +35,7 @@ pub struct DesktopEngineHost {
     process_paths: DesktopHostProcessPaths,
     file_handles: DesktopHostFileHandles,
     analytics: DesktopHostAnalytics,
+    secure_storage_source: SecureStorageSource,
 }
 
 impl DesktopEngineHost {
@@ -47,6 +49,11 @@ impl DesktopEngineHost {
 
     pub fn analytics(&self) -> DesktopHostAnalytics {
         self.analytics.clone()
+    }
+
+    /// Confirms the selected key store once the Engine unlocked the profile with it.
+    pub fn secure_storage_source(&self) -> SecureStorageSource {
+        self.secure_storage_source.clone()
     }
 
     pub fn into_engine_start(self) -> (EngineConfig, HostCapabilities) {
@@ -95,7 +102,8 @@ fn host_directories(paths: &DesktopHostPaths, temporary_dir: PathBuf) -> HostDir
 
 pub fn prepare_desktop_engine_host() -> WiringResult<DesktopEngineHost> {
     let paths = resolve_desktop_host_paths()?;
-    let secure_storage = build_secure_storage_prelude(&paths)?.secure_storage;
+    let secure_storage_prelude = build_secure_storage_prelude(&paths)?;
+    let secure_storage = secure_storage_prelude.secure_storage;
     let (_, system_clipboard, clipboard_wiring) = create_desktop_system_clipboard()?.into_parts();
     let file_handles = DesktopHostFileHandles::default();
     let file_registry = Arc::clone(&file_handles.file_registry);
@@ -136,6 +144,7 @@ pub fn prepare_desktop_engine_host() -> WiringResult<DesktopEngineHost> {
         process_paths: DesktopHostProcessPaths::from_app_paths(&paths),
         file_handles,
         analytics,
+        secure_storage_source: secure_storage_prelude.source,
     })
 }
 
@@ -186,10 +195,12 @@ impl HostClipboard for DesktopClipboard {
     fn read(&self) -> Result<HostClipboardSnapshot, HostCapabilityError> {
         let snapshot = match self.pending_snapshots().take() {
             Some(snapshot) => snapshot,
-            None => self
-                .system_clipboard
-                .read_snapshot()
-                .map_err(|_| host_io_error("desktop clipboard read failed"))?,
+            None => self.system_clipboard.read_snapshot().map_err(|source| {
+                host_io_error(
+                    "desktop clipboard read failed",
+                    source.into_boxed_dyn_error(),
+                )
+            })?,
         };
         let representations = snapshot
             .representations
@@ -230,7 +241,12 @@ impl HostClipboard for DesktopClipboard {
                 file_content_digests: Vec::new(),
                 file_set_v1_component: None,
             })
-            .map_err(|_| host_io_error("desktop clipboard write failed"))
+            .map_err(|source| {
+                host_io_error(
+                    "desktop clipboard write failed",
+                    source.into_boxed_dyn_error(),
+                )
+            })
     }
 
     fn take_change_stream(
@@ -305,8 +321,12 @@ impl DesktopClipboardChanges {
         if self.running.is_some() {
             return Ok(());
         }
-        let event_loop =
-            build_event_loop().map_err(|_| host_io_error("desktop clipboard listener failed"))?;
+        let event_loop = build_event_loop().map_err(|source| {
+            host_io_error(
+                "desktop clipboard listener failed",
+                source.into_boxed_dyn_error(),
+            )
+        })?;
         let (sender, receiver) = tokio::sync::mpsc::channel(64);
         let watcher = ClipboardWatcher::new(Arc::clone(&self.system_clipboard), sender);
         let (shutdown, shutdown_receiver) = shutdown_channel();
@@ -354,9 +374,18 @@ impl HostClipboardChangeStream for DesktopClipboardChanges {
         running.shutdown.signal();
         match tokio::time::timeout(std::time::Duration::from_secs(5), running.join).await {
             Ok(Ok(Ok(()))) => Ok(()),
-            Ok(Ok(Err(_))) | Ok(Err(_)) | Err(_) => {
-                Err(host_io_error("desktop clipboard listener shutdown failed"))
-            }
+            Ok(Ok(Err(source))) => Err(host_io_error(
+                "desktop clipboard listener shutdown failed",
+                source.into_boxed_dyn_error(),
+            )),
+            Ok(Err(source)) => Err(host_io_error(
+                "desktop clipboard listener shutdown failed",
+                Box::new(source),
+            )),
+            Err(source) => Err(host_io_error(
+                "desktop clipboard listener shutdown timed out",
+                Box::new(source),
+            )),
         }
     }
 }
@@ -386,7 +415,9 @@ impl DesktopFileRegistry {
             .truncate(true)
             .write(true)
             .open(&path)
-            .map_err(|_| host_io_error("desktop output file creation failed"))?;
+            .map_err(|source| {
+                host_io_error("desktop output file creation failed", Box::new(source))
+            })?;
         self.register(path, DesktopFileMode::Output)
     }
 
@@ -455,7 +486,7 @@ impl HostFileAccess for DesktopHostFileHandles {
     fn metadata(&self, handle: &HostFileHandle) -> Result<HostFileMetadata, HostCapabilityError> {
         let file = self.file_registry.resolve(handle)?;
         let metadata = std::fs::metadata(&file.path)
-            .map_err(|_| host_io_error("desktop file metadata failed"))?;
+            .map_err(|source| host_io_error("desktop file metadata failed", Box::new(source)))?;
         Ok(HostFileMetadata {
             display_name: display_name(&file.path),
             size_bytes: metadata.len(),
@@ -477,13 +508,13 @@ impl HostFileAccess for DesktopHostFileHandles {
             ));
         }
         let mut file = std::fs::File::open(registered.path)
-            .map_err(|_| host_io_error("desktop file open failed"))?;
+            .map_err(|source| host_io_error("desktop file open failed", Box::new(source)))?;
         file.seek(SeekFrom::Start(offset))
-            .map_err(|_| host_io_error("desktop file seek failed"))?;
+            .map_err(|source| host_io_error("desktop file seek failed", Box::new(source)))?;
         let mut bytes = vec![0; max_bytes as usize];
         let read = file
             .read(&mut bytes)
-            .map_err(|_| host_io_error("desktop file read failed"))?;
+            .map_err(|source| host_io_error("desktop file read failed", Box::new(source)))?;
         bytes.truncate(read);
         Ok(bytes)
     }
@@ -504,11 +535,11 @@ impl HostFileAccess for DesktopHostFileHandles {
         let mut file = OpenOptions::new()
             .write(true)
             .open(registered.path)
-            .map_err(|_| host_io_error("desktop output file open failed"))?;
+            .map_err(|source| host_io_error("desktop output file open failed", Box::new(source)))?;
         file.seek(SeekFrom::Start(offset))
-            .map_err(|_| host_io_error("desktop output file seek failed"))?;
+            .map_err(|source| host_io_error("desktop output file seek failed", Box::new(source)))?;
         file.write_all(bytes)
-            .map_err(|_| host_io_error("desktop output file write failed"))
+            .map_err(|source| host_io_error("desktop output file write failed", Box::new(source)))
     }
 
     fn finish_write(&self, handle: &HostFileHandle) -> Result<(), HostCapabilityError> {
@@ -523,7 +554,7 @@ impl HostFileAccess for DesktopHostFileHandles {
             .write(true)
             .open(registered.path)
             .and_then(|file| file.sync_all())
-            .map_err(|_| host_io_error("desktop output file flush failed"))
+            .map_err(|source| host_io_error("desktop output file flush failed", Box::new(source)))
     }
 }
 
@@ -534,8 +565,11 @@ fn display_name(path: &Path) -> String {
         .to_string()
 }
 
-fn host_io_error(detail: &'static str) -> HostCapabilityError {
-    HostCapabilityError::new(HostCapabilityErrorCategory::Io, detail)
+fn host_io_error(
+    detail: &'static str,
+    source: Box<dyn std::error::Error + Send + Sync>,
+) -> HostCapabilityError {
+    HostCapabilityError::new(HostCapabilityErrorCategory::Io, detail).with_source(source)
 }
 
 #[cfg(test)]

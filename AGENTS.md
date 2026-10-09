@@ -70,12 +70,12 @@ Use when:
 - refactoring large port interfaces into smaller ones
 - reviewing whether a use case depends on more than it needs
 
-### 3. Rust / Tauri / daemon / tracing work
-Read: `docs/agent/rust-tauri-rules.md`
+### 3. Rust / daemon / tracing work
+Read: `docs/agent/rust-rules.md`
 
 Use when:
 - editing Rust code
-- adding or changing Tauri commands
+- adding or changing daemon APIs or desktop-core use cases
 - handling async loops, network drivers, or daemon APIs
 - working on tracing/logging
 - emitting frontend events from Rust
@@ -96,10 +96,11 @@ Read: `docs/agent/project-memory.md`
 Then selectively read:
 - `docs/README.md` and linked docs for current-state guidance
 - `.planning/` for roadmap, milestones, and spike research notes
-- `src/AGENTS.md` for frontend-local navigation
-- `crates/AGENTS.md` for Rust-workspace navigation (crates/ + apps/ + src-tauri/)
-- `src-tauri/AGENTS.md` for Tauri packaging specifics
-- `apps/cli/AGENTS.md` for `uniclip` CLI-local rules
+- `apps/gui/src/AGENTS.md` for frontend-local navigation
+- `crates/AGENTS.md` for Rust-workspace navigation (crates/ + apps/)
+- `apps/gui-go/AGENTS.md` for the Go/Wails desktop host (the only desktop host) and its packaging
+- `tools/AGENTS.md` for development-only crates, `tools/uc-dev-cli/AGENTS.md` for the Rust development CLI
+- `apps/cli-go/AGENTS.md` for the Go `uniclip` implementation (migration in progress)
 
 Log file locations (platform-conventional, separate from the data root; single
 source of truth is `uc_app_paths::app_log_dir()`):
@@ -125,14 +126,14 @@ Use when:
 ### Frontend task
 1. `AGENTS.md`
 2. `docs/agent/frontend-ui-rules.md`
-3. `src/AGENTS.md`
+3. `apps/gui/src/AGENTS.md`
 4. relevant code/docs only
 
-### Rust/Tauri task
+### Rust/daemon task
 1. `AGENTS.md`
-2. `docs/agent/rust-tauri-rules.md`
+2. `docs/agent/rust-rules.md`
 3. `docs/agent/architecture-rules.md` if boundaries are involved
-4. `crates/AGENTS.md` (plus `src-tauri/AGENTS.md` for packaging work)
+4. `crates/AGENTS.md` (plus `apps/gui-go/AGENTS.md` for desktop host packaging work)
 5. relevant code/docs only
 
 ### Complex bug in unfamiliar area
@@ -147,7 +148,7 @@ Use when:
 - `docs/agent/workflow-rules.md`
 - `docs/agent/architecture-rules.md`
 - `docs/architecture/ports.md`
-- `docs/agent/rust-tauri-rules.md`
+- `docs/agent/rust-rules.md`
 - `docs/agent/frontend-ui-rules.md`
 - `docs/agent/project-memory.md`
 

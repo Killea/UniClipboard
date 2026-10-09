@@ -17,7 +17,7 @@
 
 ## 1. Why this protocol exists
 
-`RegisterMobileShortcutDeviceUseCase` (`src-tauri/crates/uc-application/src/usecases/mobile_sync/register_device.rs`)
+`RegisterMobileShortcutDeviceUseCase` (`uc-application/src/usecases/mobile_sync/register_device.rs` (now in the `UniClipboard/Engine` repository))
 historically encoded **only** the static SyncClipboard "Clipboard EX" iCloud install URL
 (`SYNC_CLIPBOARD_EX_INSTALL_URL`) into the device-registration QR. Mobile users still had
 to **manually copy** three fields — server URL, username, password — from
@@ -336,14 +336,14 @@ avoid.
 | `pwd`          | Password                                          |
 | `o.*`          | Local UI / diagnostics only; never sent over HTTP |
 
-HTTP wire protocol is unchanged — see `src-tauri/crates/uc-webserver/src/mobile_lan/mod.rs`.
+HTTP wire protocol is unchanged — see `crates/uc-webserver/src/mobile_lan/mod.rs`.
 
 ---
 
 ## 7. Golden test vector
 
 This vector is the **single source of truth** for cross-language byte equality between the
-Rust encoder/decoder (`uc-application`) and the TypeScript parser (`src/lib/`). Both test
+Rust encoder/decoder (`uc-application`) and the TypeScript parser (`apps/gui/src/lib/`). Both test
 suites MUST assert against the exact strings below.
 
 ### 7.1 Happy-path vector
@@ -514,16 +514,16 @@ must retire the affected flow rather than create a parallel future protocol here
 
 | Concern                    | File                                                                                                 |
 | -------------------------- | ---------------------------------------------------------------------------------------------------- |
-| Rust encoder/decoder       | `src-tauri/crates/uc-application/src/usecases/mobile_sync/connect_uri.rs` (added in Phase 1)         |
-| Use-case integration       | `src-tauri/crates/uc-application/src/usecases/mobile_sync/register_device.rs` (Phase 2)              |
-| Tauri DTO                  | `src-tauri/crates/uc-tauri/src/commands/mobile_sync.rs` — `connectUri` field added (Phase 2)         |
-| TypeScript parser          | `src/lib/mobileSyncConnectUri.ts` (added in Phase 3)                                                 |
-| Credential modal           | `src/components/device/MobileSyncCredentialModal.tsx` — primary QR switches to connect URI (Phase 3) |
+| Rust encoder/decoder       | `uc-application/src/usecases/mobile_sync/connect_uri.rs` (Engine repository) (added in Phase 1)         |
+| Use-case integration       | `uc-application/src/usecases/mobile_sync/register_device.rs` (now in the `UniClipboard/Engine` repository) (Phase 2)              |
+| Host DTO                   | `crates/uc-daemon-contract/src/api/dto/mobile_sync.rs` — `connectUri` field added (Phase 2; originally in the retired Tauri shell) |
+| TypeScript parser          | `apps/gui/src/lib/mobileSyncConnectUri.ts` (added in Phase 3)                                                 |
+| Credential modal           | `apps/gui/src/components/device/MobileSyncCredentialModal.tsx` — primary QR switches to connect URI (Phase 3) |
 | Golden vector (Rust tests) | `connect_uri.rs::tests` — uses §7 vectors verbatim                                                   |
-| Golden vector (TS tests)   | `src/lib/__tests__/mobileSyncConnectUri.test.ts` — uses §7 vectors verbatim                          |
+| Golden vector (TS tests)   | `apps/gui/src/lib/__tests__/mobileSyncConnectUri.test.ts` — uses §7 vectors verbatim                          |
 | iOS App integration guide  | `docs/integrations/ios-app-connect-uri.md` (added in Phase 4 — primary client path)                  |
 | iOS Shortcut template doc  | `docs/integrations/ios-shortcut.md` (added in Phase 4 — fallback path)                               |
 
 The HTTP wire protocol — unchanged from v1 SyncClipboard semantics — remains documented in
-`src-tauri/crates/uc-webserver/src/mobile_lan/mod.rs` and the existing
+`crates/uc-webserver/src/mobile_lan/mod.rs` and the existing
 `.context/mobile-sync/SPEC.md`.

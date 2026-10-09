@@ -657,6 +657,7 @@ P2 落地（2026-05-21，与 update scheduler / 系统通知同 PR）。覆盖"�
 - **scheduler-only 的 source 值**：`startup` / `scheduled` / `window_show` 仅由 `update_scheduler` emit；命令行 / UI 触发的"检查更新"按钮 emit `manual`。两类 source **绝不** 混用同一调用路径——避免"用户主动检查"与"后台检查"分子错位。
 - **版本字符串相等比较**：去重与 dashboard slicing 都按字符串相等处理，不引入 semver。channel 切换（如 stable → alpha）导致的版本号变化按"新版本"语义处理，会重新通知一次。
 - **prompt cooldown 抑制显式化**：弹窗冷却期（stable 72h / 预发布 24h，`update_prompt_throttle.json` 持久化）会让 `update_check_performed { outcome: available }` 与 `update_notification_shown` 出现缺口，缺口由 `update_prompt_suppressed` 解释——同一版本在冷却期内每轮 scheduled 检查各 emit 一条（衡量抑制压力），auto-download ready-fallback 路径同一轮内不重复 emit。手动检查绕过冷却期，不产生该事件。
+- **现状：`update_prompt_suppressed` 未送达**：GUI 进程不持有分析 sink，只能把事件编码为 daemon 线上契约 `CaptureUiEventRequest` 发送到 `POST /analytics/capture`；该契约没有此事件，所以冷却期分支目前不发送它，上面的缺口解释在 PostHog 中不可用。补齐需要先在 `CaptureUiEventRequest` 与 daemon 映射中增加对应变体。
 
 落地备注（保留以便回溯）：
 
@@ -739,7 +740,7 @@ pub enum InstallKind {
 
 ## 9. 类型定义落地位置（建议）
 
-```/home/wuy6/myprojects/UniClipboard/src-tauri/crates/uc-observability/src/analytics/
+```crates/uc-observability/src/analytics/
 mod.rs        // pub use 与 sink trait
 context.rs    // EventContext 与构造工厂
 events.rs     // TelemetryEvent 枚举或 newtype 包装
@@ -971,9 +972,8 @@ v1 **不挂** 进程退出 flush 钩子。理由：
 
 `POSTHOG_PROJECT_KEY` 与 `SENTRY_DSN` / `VITE_SENTRY_DSN` 同属 release
 build 时间注入的 secret 列表。CI 注入位置（计划）：
-`.github/workflows/build.yml` 与 `.github/workflows/alpha-build.yml`
-的 `tauri-action` + `bun run tauri build` 两段 `env:` 块同位添加，
-镜像 `SENTRY_DSN` 已有写法。空 secret 等价"未设置"，自动走降级路径。
+Go 宿主的发布流水线落地后（见 #1895 至 #1899），在其构建步骤的 `env:`
+块同位添加，镜像 `SENTRY_DSN` 已有写法。空 secret 等价"未设置"，自动走降级路径。
 
 ## 11. 验收检查项
 
@@ -991,7 +991,7 @@ build 时间注入的 secret 列表。CI 注入位置（计划）：
 - [x] `AnalyticsPort` trait 定义，入参用本文件的事件类型。
 - [x] `analytics_gate` 模块实现（与 `telemetry_gate` 对称）。
 - [x] 配置目录中 `installation_id` / `analytics_device_id` 持久化逻辑落地（纯模块层，bootstrap 拼装在后续 slice）。
-- [x] settings UI 拆分两个开关并补齐文案（`src/components/setting/GeneralSection.tsx` 两个独立 toggle）。
+- [x] settings UI 拆分两个开关并补齐文案（`apps/gui/src/components/setting/GeneralSection.tsx` 两个独立 toggle）。
 - [x] dev 构建下事件 stdout 打印通路（`uc-bootstrap/src/analytics.rs`：`cfg!(debug_assertions)` 下接 `Gated(StdoutSink)`）。
 
 ## 12. 未来事件 roadmap（post-v1 实施计划）

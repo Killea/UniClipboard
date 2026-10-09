@@ -1,0 +1,1901 @@
+// stdout/stderr ARE this crate's user-facing output channel (data/JSON to
+// stdout, human-readable lines via src/ui.rs per local AGENTS.md), so the
+// workspace-wide print lints do not apply here.
+#![allow(clippy::print_stdout, clippy::print_stderr)]
+
+mod commands;
+mod exit_codes;
+mod local_daemon;
+mod output;
+mod setup_check;
+mod terminal_clipboard;
+mod ui;
+
+use clap::{CommandFactory, Parser, Subcommand, ValueEnum};
+
+/// Initialise AppKit enough for headless macOS CLI invocations.
+///
+/// Only needed when the `dev-tools` feature is enabled — in that mode the
+/// CLI may build an in-process `CliAppSession` which calls
+/// `clipboard-rs`'s `+[NSPasteboard generalPasteboard]`. Without dev-tools
+/// the CLI is a pure daemon client and never touches AppKit.
+#[cfg(all(target_os = "macos", feature = "dev-tools"))]
+fn init_macos_appkit() {
+    extern "C" {
+        fn NSApplicationLoad() -> bool;
+    }
+    unsafe {
+        let _ = NSApplicationLoad();
+    }
+}
+#[cfg(not(all(target_os = "macos", feature = "dev-tools")))]
+fn init_macos_appkit() {}
+
+#[derive(Parser)]
+#[command(
+    name = "uc-dev-cli",
+    version,
+    about = "UniClipboard development and diagnostics command-line interface"
+)]
+struct Cli {
+    /// Output in JSON format
+    #[arg(long, global = true)]
+    json: bool,
+
+    /// Enable verbose tracing output (shows debug logs on console)
+    #[arg(long, short, global = true)]
+    verbose: bool,
+
+    /// Run in development mode (use file-based secure storage instead of system keychain)
+    #[cfg_attr(not(debug_assertions), arg(long, global = true, hide = true))]
+    #[cfg_attr(debug_assertions, arg(long, global = true))]
+    dev: bool,
+
+    /// Override the active profile (equivalent to `UC_PROFILE`). Isolates
+    /// data dir, keychain, and iroh identity — needed to run two CLI
+    /// instances on the same machine for end-to-end pairing testing.
+    #[arg(long, global = true, value_name = "NAME")]
+    profile: Option<String>,
+
+    #[command(subcommand)]
+    command: Option<Commands>,
+}
+
+#[derive(Subcommand)]
+enum Commands {
+    /// Start the daemon (background by default, use --foreground for log streaming)
+    Start {
+        /// Run daemon in foreground (log output to terminal)
+        #[arg(
+            long,
+            short = 'f',
+            help = "Run daemon in foreground (log output to terminal)"
+        )]
+        foreground: bool,
+        /// Run as a headless server node (VPS / container): no system
+        /// clipboard and no clipboard watcher. The node still syncs over
+        /// iroh as a normal Space member and serves the mobile-sync gateway.
+        /// Join the Space first (`uniclip space join`) before starting.
+        #[arg(long)]
+        server: bool,
+    },
+    /// Stop the running daemon
+    Stop,
+    /// Show application status
+    #[command(hide = true)]
+    Status,
+    /// Manage the current encrypted space.
+    Space {
+        #[command(subcommand)]
+        command: SpaceCommands,
+    },
+    /// Create a new encrypted space for this profile.
+    ///
+    /// Use this on the first device before inviting other devices.
+    #[command(hide = true)]
+    Init {
+        /// Space passphrase. If omitted, prompts interactively with
+        /// confirmation. Pass this flag only in non-interactive contexts
+        /// such as the single-machine e2e test script.
+        #[arg(long)]
+        passphrase: Option<String>,
+        /// Display name advertised to paired peers. Defaults to the OS
+        /// hostname (plus `(profile)` suffix when `--profile` is set).
+        #[arg(long)]
+        device_name: Option<String>,
+    },
+    /// Issue a pairing invitation and wait for a joiner (sponsor side).
+    ///
+    /// Silently resumes the local session from the KEK cached in
+    /// keychain (or `--dev`'s file secure storage) by a prior `space init` /
+    /// `unlock` — no passphrase re-entry needed. Fails if the profile
+    /// has not been initialized yet.
+    #[command(hide = true)]
+    Invite,
+    /// Join a space with an invitation code and passphrase.
+    ///
+    /// Default (re-pair / first-time join) → redeems the invitation and
+    /// joins the sponsor's space (joiner side of pairing). Safe to run when
+    /// already in the *same* space: stale member/trust rows are replaced in
+    /// the new handshake (issue #1023), so this is how you re-pair after a
+    /// one-sided unpair.
+    ///
+    /// `--switch` → switches to a *different* sponsor's space, re-encrypting
+    /// local clipboard history under the new master key (4-phase migration:
+    /// backup → handshake → swap → commit). This is destructive and prompts
+    /// for confirmation; pass `--yes` to skip the prompt in non-interactive
+    /// contexts. A daemon crash mid-migration auto-resumes on the next
+    /// `uniclip` invocation thanks to `MigrationStatePort` persistence.
+    #[command(args_conflicts_with_subcommands = true, hide = true)]
+    Join {
+        /// Invitation code printed by the sponsor's `invite`. Prompted
+        /// interactively when omitted.
+        #[arg(long)]
+        code: Option<String>,
+        /// Space passphrase: the sponsor's passphrase when joining, or the
+        /// new sponsor's passphrase when switching. Prompted interactively
+        /// when omitted.
+        #[arg(long)]
+        passphrase: Option<String>,
+        /// Display name advertised to the sponsor as this device's name on
+        /// first-time join. Defaults to the OS hostname (plus `(profile)`
+        /// suffix when `--profile` is set). Persisted to settings before
+        /// dialing so the B2 handshake can read it back. Ignored with
+        /// `--switch`.
+        #[arg(long)]
+        device_name: Option<String>,
+        /// Switch to a *different* sponsor's space instead of re-pairing,
+        /// re-encrypting local clipboard history under the new master key.
+        /// Destructive; without it `join` always takes the non-destructive
+        /// re-pair path.
+        #[arg(long)]
+        switch: bool,
+        /// Skip the confirmation prompt shown before a destructive space
+        /// switch (re-encrypting local history). Required when switching
+        /// non-interactively. Only meaningful together with `--switch`.
+        #[arg(long)]
+        yes: bool,
+        /// Keep local history records that cannot be read during a space
+        /// switch. This requires explicit confirmation and is never implied
+        /// by `--yes`.
+        #[arg(long, requires = "switch")]
+        preserve_unreadable_history: bool,
+        /// Return after Engine accepts a pending join instead of waiting for a final result.
+        #[arg(long)]
+        no_wait: bool,
+        #[command(subcommand)]
+        command: Option<JoinCommands>,
+    },
+    /// Deprecated alias for `member list`. Hidden from `--help`; still runs
+    /// with a deprecation warning so existing scripts keep working.
+    ///
+    /// Self-contained direct mode. Prints `{name} ({state}) [local]` per
+    /// member using each peer's last-known reachability. Pass `--probe` to
+    /// actively ping every paired peer first so the states are fresh.
+    /// Also available under the `devices` alias.
+    #[command(alias = "devices", hide = true)]
+    Members {
+        /// Actively probe paired peers for fresh online/offline state
+        /// before listing (adds a network round-trip; off by default).
+        #[arg(long)]
+        probe: bool,
+    },
+    /// Manage members of the current space.
+    Member {
+        #[command(subcommand)]
+        command: MemberCommands,
+    },
+    /// Dispatch one clipboard payload to paired peers.
+    ///
+    /// Uses the local daemon. Three input modes are available:
+    ///
+    /// * **Automatic** (default) — an existing regular file is sent as a
+    ///   file; other positional input is sent as text; omitted input reads
+    ///   text from stdin.
+    /// * **Explicit** — `--text` forces text and `--file` reads file paths
+    ///   from the positional argument or, when omitted, one path per stdin
+    ///   line. Stdin supplies paths, not file contents.
+    /// * **Resend** (`--resend <ENTRY-ID>`) — re-fans-out a previously
+    ///   captured local entry. The CLI reconstructs the snapshot from
+    ///   storage (no stdin / positional text). Fails when the entry is
+    ///   remote-origin or its payload is no longer cached.
+    ///
+    /// Either mode accepts `--peer <DEVICE-ID>` (repeatable) to limit
+    /// fan-out to specific devices. Without `--peer`, the new-entry
+    /// mode dispatches to all online peers, and resend mode targets the
+    /// derived `trusted_peer \ (Delivered ∪ Duplicate)` diff.
+    ///
+    /// EXIT CODES (resend mode):
+    /// * `0` — at least one peer accepted, was a content-duplicate, or
+    ///   moved into background continuation (`pending`). All-pending is
+    ///   treated as success because the work has been accepted and will
+    ///   resolve asynchronously via host events; the daemon writes the
+    ///   delivery record on real completion.
+    /// * Non-zero — every target ended up `offline` or `errored` (no
+    ///   accepted, no duplicate, no pending). Use `--json` to inspect
+    ///   per-bucket counts when a CI harness needs finer-grained checks.
+    Send {
+        /// Text or an existing regular file to send. Omit to read from stdin.
+        /// With `--file`, this is treated as a file path; otherwise omitted
+        /// stdin is sent as text. Mutually exclusive with `--resend`.
+        #[arg(value_name = "TEXT_OR_FILE", conflicts_with = "resend")]
+        input: Option<String>,
+        /// Force the positional argument to be sent as text, even when it
+        /// names an existing file.
+        #[arg(long = "text", conflicts_with_all = ["resend", "file"])]
+        force_text: bool,
+        /// Send files instead of text. With a positional argument, that value
+        /// is the path. Without one, read one complete file path per stdin
+        /// line; blank lines are ignored. Stdin contains paths, not file data.
+        #[arg(short = 'f', long = "file", conflicts_with_all = ["resend", "force_text"])]
+        file: bool,
+        /// Re-fan-out an existing entry by its ID instead of sending
+        /// new text. When set, stdin is not consumed.
+        #[arg(long, value_name = "ENTRY-ID")]
+        resend: Option<String>,
+        /// Restrict fan-out to the listed device IDs. Repeat the flag
+        /// for multiple peers (e.g. `--peer dev-a --peer dev-b`).
+        #[arg(long = "peer", value_name = "DEVICE-ID")]
+        peers: Vec<String>,
+        /// Total seconds to wait BEFORE dispatch, as one deadline shared by
+        /// three stages: the local daemon becoming ready (started on demand),
+        /// then the target devices connecting.
+        ///
+        /// With `--peer`, every listed device must be connected. Without it,
+        /// one connected paired device is enough (later devices are not
+        /// awaited). If the deadline passes, nothing is sent: exit 5 when the
+        /// daemon was not ready, exit 1 when a device was not connected.
+        /// Once dispatched, a send is never retried.
+        ///
+        /// `0` is a special value, not "no wait": it restores the pre-deadline
+        /// behavior: the daemon start wait keeps its built-in 45 s budget and
+        /// target devices are NOT waited for, so an offline target is reported
+        /// in the send outcome. `--resend` only waits for the daemon.
+        #[arg(long = "connect-timeout", value_name = "SECONDS", default_value_t = 15)]
+        connect_timeout: u64,
+    },
+    /// Watch inbound clipboard payloads from paired peers and print each
+    /// delivery as it lands. Press Ctrl-C to stop.
+    ///
+    /// Self-contained direct mode. Decodes the V3 envelope and shows the
+    /// first text representation (or a per-rep summary for image-only
+    /// envelopes). Does NOT write the system clipboard — that's the
+    /// daemon's job; the CLI watch is purely a diagnostic observer.
+    Watch,
+    /// Deprecated compatibility command. Receive a single inbound file from a paired peer and save it to
+    /// disk. Exits after the first file arrives (or on Ctrl-C).
+    ///
+    /// Daemon-client mode: connects to a running daemon (or spawns a
+    /// transient one), waits for the first inbound clipboard entry that
+    /// carries a materialized file, exports its bytes from the daemon, and
+    /// writes them into the output directory. Press Ctrl-C to stop waiting.
+    /// Does NOT write the system clipboard — recv is strictly a file sink.
+    /// Progress is shown interactively; on success, stdout contains only the
+    /// absolute path of the received file.
+    #[command(hide = true)]
+    Recv {
+        /// Output directory. Created if missing. Defaults to current
+        /// working directory.
+        #[arg(short = 'o', long = "out", value_name = "DIR")]
+        out: Option<std::path::PathBuf>,
+    },
+    /// Get the latest entry now, or wait for the next synced entry.
+    ///
+    /// By default this reads what is already in daemon history and returns
+    /// immediately. `--wait` waits for one new remote entry and then exits.
+    ///
+    /// Selection (default: the newest usable entry):
+    /// * `--type <image|file|text|link>` — newest entry of that kind.
+    /// * `--id <ENTRY-ID>` — a specific entry (see `uniclip search`).
+    /// * `--list` — list recent entries instead of materializing one.
+    ///
+    /// Output: text/link content prints to stdout; image/file bytes are
+    /// written to `--out` (default cache dir) with the absolute path printed
+    /// to stdout, or streamed to stdout with `--out -`. A successful fetch
+    /// prints no additional status lines, so the output can be piped directly.
+    ///
+    /// EXIT CODES: `0` materialized; `6` no entry matched the selector;
+    /// `7` matched but payload unavailable (Lost / not downloaded — re-send
+    /// from the source device).
+    Get {
+        /// Restrict selection to the newest entry of this kind.
+        #[arg(long = "type", value_name = "KIND", value_enum)]
+        kind: Option<commands::get::GetKind>,
+        /// Select a specific entry by id (from `uniclip search`).
+        #[arg(long, value_name = "ENTRY-ID", conflicts_with = "kind")]
+        id: Option<String>,
+        /// List recent entries instead of materializing one.
+        #[arg(long, conflicts_with_all = ["kind", "id"])]
+        list: bool,
+        /// Number of recent entries to scan / list (default 50).
+        #[arg(short = 'n', long, value_name = "N")]
+        limit: Option<usize>,
+        /// Output for image/file bytes: a directory, or `-` for stdout.
+        /// Defaults to a per-user cache directory. Ignored for text/link
+        /// (those always print to stdout).
+        #[arg(short = 'o', long = "out", value_name = "DIR|-")]
+        out: Option<String>,
+        /// Copy the result to the clipboard on the computer where this terminal is open.
+        #[arg(short = 'c', long, conflicts_with = "list")]
+        copy: bool,
+        /// Wait for the next matching remotely synced entry after this command
+        /// subscribes instead of reading current history. Exits after one match.
+        #[arg(short = 'w', long, conflicts_with_all = ["list", "limit"])]
+        wait: bool,
+    },
+    /// Publish or fetch encrypted large payload blobs
+    #[cfg(feature = "dev-tools")]
+    Blob {
+        #[command(subcommand)]
+        subcommand: commands::blob::BlobCommands,
+    },
+    /// Search clipboard history. Provide a query to search, or use the
+    /// `status` / `rebuild` subcommands to inspect or maintain the index.
+    #[command(args_conflicts_with_subcommands = true)]
+    Search {
+        #[command(flatten)]
+        query: commands::search::SearchQueryArgs,
+        #[command(subcommand)]
+        subcommand: Option<commands::search::SearchCommands>,
+    },
+    /// Inspect or advance the upgrade-detection cursor (manual verification
+    /// for the P1 thin upgrade module). Bare `upgrade` prints status; use
+    /// the `ack` subcommand to advance the cursor.
+    Upgrade {
+        #[command(subcommand)]
+        subcommand: Option<commands::upgrade::UpgradeCommands>,
+    },
+    /// Manage persistent local debug logging and export diagnostic logs
+    Debug {
+        #[command(subcommand)]
+        subcommand: commands::debug::DebugCommands,
+    },
+    /// Hidden clipboard-diagnostic subcommand group (replaces the standalone
+    /// `clipboard-probe` binary). Development and E2E debugging only.
+    #[cfg(feature = "dev-tools")]
+    #[command(hide = true)]
+    Probe {
+        #[command(subcommand)]
+        subcommand: commands::probe::ProbeCommands,
+    },
+    /// Hidden development tools.
+    #[cfg(feature = "dev-tools")]
+    #[command(hide = true)]
+    Dev {
+        #[command(subcommand)]
+        subcommand: commands::dev::DevCommands,
+    },
+    /// Manage mobile clipboard sync (iPhone over LAN, SyncClipboard-compatible).
+    #[command(name = "mobile")]
+    Mobile {
+        #[command(subcommand)]
+        subcommand: commands::mobile_sync::MobileSyncCommands,
+    },
+    /// Deprecated alias for `mobile`. Hidden from `--help`; still runs but
+    /// prints a deprecation notice. Kept so already-published scripts keep
+    /// working; will be removed in a future release.
+    #[command(name = "mobile-sync", hide = true)]
+    MobileSync {
+        #[command(subcommand)]
+        subcommand: commands::mobile_sync::MobileSyncCommands,
+    },
+}
+
+#[derive(Subcommand)]
+enum MemberCommands {
+    /// List members of this space: the local device plus paired peers.
+    List {
+        /// Actively probe paired peers for fresh online/offline state
+        /// before listing (adds a network round-trip; off by default).
+        #[arg(long)]
+        probe: bool,
+    },
+    /// Record an irreversible, offline-first removal intent for one member.
+    ///
+    /// Immediately stops sending new content to the peer and prints the full
+    /// Engine-owned device relationship state. Pass `--json` for the raw DTO.
+    Remove {
+        /// Peer device ID to remove.
+        #[arg(value_name = "PEER-ID")]
+        peer_id: String,
+    },
+    /// Inspect or choose among current Engine-owned device groups.
+    Trust {
+        #[command(subcommand)]
+        command: MemberTrustCommands,
+    },
+    /// Inspect or update one member's sync preferences.
+    Sync {
+        #[command(subcommand)]
+        command: MemberSyncCommands,
+    },
+}
+
+#[derive(Subcommand)]
+enum JoinCommands {
+    /// Show the current Engine-owned join status.
+    Status,
+    /// Cancel the current pending join request.
+    Cancel,
+}
+
+#[derive(Subcommand)]
+enum SpaceCommands {
+    /// Show application status.
+    Status,
+    /// Create a new encrypted space for this profile.
+    Init {
+        /// Space passphrase. If omitted, prompts interactively with confirmation.
+        #[arg(long)]
+        passphrase: Option<String>,
+        /// Display name advertised to paired peers.
+        #[arg(long)]
+        device_name: Option<String>,
+    },
+    /// Issue a pairing invitation and wait for a joiner. In JSON mode, emits
+    /// one event per line so callers receive the invitation before pairing
+    /// completes.
+    Invite,
+    /// Rebuild this profile as a new one-device space while keeping local history.
+    Reset {
+        /// Confirm the permanent loss of all existing device relationships.
+        #[arg(long, required = true)]
+        yes: bool,
+    },
+    /// Change the space passphrase (unlocked, single-device space only). Keeps local history.
+    ChangePassphrase {
+        /// New space passphrase. If omitted, prompts interactively with confirmation.
+        #[arg(long)]
+        passphrase: Option<String>,
+    },
+    /// Join a space with an invitation code and passphrase.
+    #[command(args_conflicts_with_subcommands = true)]
+    Join {
+        /// Invitation code printed by the sponsor's `space invite`.
+        #[arg(long)]
+        code: Option<String>,
+        /// Space passphrase.
+        #[arg(long)]
+        passphrase: Option<String>,
+        /// Display name advertised to the sponsor on first-time join.
+        #[arg(long)]
+        device_name: Option<String>,
+        /// Switch to a different space and migrate local history.
+        #[arg(long)]
+        switch: bool,
+        /// Skip the confirmation prompt for a destructive space switch.
+        #[arg(long)]
+        yes: bool,
+        /// Keep local history records that cannot be read during a space switch.
+        #[arg(long, requires = "switch")]
+        preserve_unreadable_history: bool,
+        /// Return after Engine accepts a pending join instead of waiting for a final result.
+        #[arg(long)]
+        no_wait: bool,
+        #[command(subcommand)]
+        command: Option<JoinCommands>,
+    },
+}
+
+#[derive(Subcommand)]
+enum MemberTrustCommands {
+    /// Show the current device relationship state and pending group choices.
+    Status,
+    /// Choose one option from the current device-group query.
+    Choose {
+        /// Opaque issue ID from `member trust status`.
+        #[arg(long, value_name = "ISSUE-ID")]
+        issue: Option<String>,
+        /// Opaque choice ID from the selected issue.
+        #[arg(long, value_name = "CHOICE-ID")]
+        choice: Option<String>,
+        /// Explicitly allow this device to be removed by the change.
+        #[arg(long)]
+        confirm_local_removal: bool,
+    },
+}
+
+#[derive(Debug, Clone, Copy, ValueEnum)]
+enum OnOff {
+    On,
+    Off,
+}
+
+impl From<OnOff> for bool {
+    fn from(value: OnOff) -> Self {
+        matches!(value, OnOff::On)
+    }
+}
+
+fn warn_legacy_space_command(command: &str, replacement: &str) {
+    ui::warn(&format!(
+        "`uniclip {command}` is deprecated; use `uniclip {replacement}` instead. This alias will be removed in a future release."
+    ));
+}
+
+async fn run_space_command(command: SpaceCommands, json: bool, verbose: bool) -> i32 {
+    match command {
+        SpaceCommands::Status => commands::status::run(json, verbose).await,
+        SpaceCommands::Init {
+            passphrase,
+            device_name,
+        } => {
+            commands::init::run(
+                commands::init::InitArgs {
+                    passphrase,
+                    device_name,
+                },
+                json,
+                verbose,
+            )
+            .await
+        }
+        SpaceCommands::Invite => commands::invite::run(json, verbose).await,
+        SpaceCommands::Reset { yes: _ } => commands::reset_space::run(json, verbose).await,
+        SpaceCommands::ChangePassphrase { passphrase } => {
+            commands::change_passphrase::run(
+                commands::change_passphrase::ChangePassphraseArgs { passphrase },
+                json,
+                verbose,
+            )
+            .await
+        }
+        SpaceCommands::Join {
+            code,
+            passphrase,
+            device_name,
+            switch,
+            yes,
+            preserve_unreadable_history,
+            no_wait,
+            command,
+        } => match command {
+            Some(JoinCommands::Status) => commands::join::status(json, verbose).await,
+            Some(JoinCommands::Cancel) => commands::join::cancel(json, verbose).await,
+            None => {
+                commands::join::run(
+                    commands::join::JoinArgs {
+                        code,
+                        passphrase,
+                        device_name,
+                        switch,
+                        yes,
+                        preserve_unreadable_history,
+                        no_wait,
+                    },
+                    json,
+                    verbose,
+                )
+                .await
+            }
+        },
+    }
+}
+
+#[derive(Subcommand)]
+enum MemberSyncCommands {
+    /// Show one member's current sync preferences.
+    Show {
+        /// Device ID, or an unambiguous device name in an interactive terminal.
+        device: String,
+    },
+    /// Partially update one member's sync preferences.
+    Set {
+        /// Device ID, or an unambiguous device name in an interactive terminal.
+        device: String,
+        /// Enable or disable sending to this member.
+        #[arg(long, value_enum)]
+        send: Option<OnOff>,
+        /// Enable or disable receiving from this member.
+        #[arg(long, value_enum)]
+        receive: Option<OnOff>,
+        /// Comma-separated send types, or `all` / `none`.
+        #[arg(long, value_name = "TYPES")]
+        send_types: Option<String>,
+        /// Comma-separated receive types, or `all` / `none`.
+        #[arg(long, value_name = "TYPES")]
+        receive_types: Option<String>,
+    },
+}
+
+fn main() -> anyhow::Result<()> {
+    init_macos_appkit();
+
+    // rustls 0.23+ requires a process-wide `CryptoProvider` before any
+    // `ClientConfig` is built. iroh-quinn installs its own on bind, and
+    // if reqwest sees that provider first it hits
+    // `CertificateError::BadEncoding` on any plain HTTPS handshake
+    // (symptom: "bad certificate format" from `rendezvous.uniclipboard.app`).
+    // Setting ring as the explicit default up front keeps both stacks on
+    // the same provider. The call is idempotent and safe if something
+    // already installed a provider.
+    let _ = rustls::crypto::ring::default_provider().install_default();
+
+    let cli = Cli::parse();
+
+    if cli.dev {
+        std::env::set_var("UNICLIPBOARD_ENV", "development");
+    }
+
+    // `--profile <name>` must land as `UC_PROFILE` BEFORE any bootstrap
+    // code runs, because `wire_dependencies` + `apply_profile_suffix`
+    // branch on that env var at path-resolution time.
+    if let Some(profile) = &cli.profile {
+        std::env::set_var("UC_PROFILE", profile);
+    }
+
+    let Some(command) = cli.command else {
+        Cli::command().print_help()?;
+        println!();
+        return Ok(());
+    };
+
+    let rt = tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()?;
+
+    let exit_code = rt.block_on(async {
+        match command {
+            Commands::Start { foreground, server } => {
+                commands::start::run(foreground, server, cli.json, cli.verbose).await
+            }
+            Commands::Stop => commands::stop::run(cli.json, cli.verbose).await,
+            Commands::Status => {
+                warn_legacy_space_command("status", "space status");
+                commands::status::run(cli.json, cli.verbose).await
+            }
+            Commands::Space { command } => run_space_command(command, cli.json, cli.verbose).await,
+            Commands::Init {
+                passphrase,
+                device_name,
+            } => {
+                warn_legacy_space_command("init", "space init");
+                commands::init::run(
+                    commands::init::InitArgs {
+                        passphrase,
+                        device_name,
+                    },
+                    cli.json,
+                    cli.verbose,
+                )
+                .await
+            }
+            Commands::Invite => {
+                warn_legacy_space_command("invite", "space invite");
+                commands::invite::run(cli.json, cli.verbose).await
+            }
+            Commands::Join {
+                code,
+                passphrase,
+                device_name,
+                switch,
+                yes,
+                preserve_unreadable_history,
+                no_wait,
+                command,
+            } => match command {
+                Some(JoinCommands::Status) => {
+                    warn_legacy_space_command("join status", "space join status");
+                    commands::join::status(cli.json, cli.verbose).await
+                }
+                Some(JoinCommands::Cancel) => {
+                    warn_legacy_space_command("join cancel", "space join cancel");
+                    commands::join::cancel(cli.json, cli.verbose).await
+                }
+                None => {
+                    warn_legacy_space_command("join", "space join");
+                    commands::join::run(
+                        commands::join::JoinArgs {
+                            code,
+                            passphrase,
+                            device_name,
+                            switch,
+                            yes,
+                            preserve_unreadable_history,
+                            no_wait,
+                        },
+                        cli.json,
+                        cli.verbose,
+                    )
+                    .await
+                }
+            },
+            Commands::Members { probe } => {
+                ui::warn(
+                    "`uniclip members` and `uniclip devices` are deprecated; use `uniclip member list` instead.",
+                );
+                commands::members::run(probe, cli.json, cli.verbose).await
+            }
+            Commands::Member { command } => match command {
+                MemberCommands::List { probe } => {
+                    commands::members::run(probe, cli.json, cli.verbose).await
+                }
+                MemberCommands::Remove { peer_id } => {
+                    commands::member::remove(peer_id, cli.json, cli.verbose).await
+                }
+                MemberCommands::Trust { command } => match command {
+                    MemberTrustCommands::Status => {
+                        commands::member_trust::status(cli.json, cli.verbose).await
+                    }
+                    MemberTrustCommands::Choose {
+                        issue,
+                        choice,
+                        confirm_local_removal,
+                    } => {
+                        commands::member_trust::choose(
+                            issue,
+                            choice,
+                            confirm_local_removal,
+                            cli.json,
+                            cli.verbose,
+                        )
+                        .await
+                    }
+                },
+                MemberCommands::Sync { command } => match command {
+                    MemberSyncCommands::Show { device } => {
+                        commands::member_sync::show(device, cli.json, cli.verbose).await
+                    }
+                    MemberSyncCommands::Set {
+                        device,
+                        send,
+                        receive,
+                        send_types,
+                        receive_types,
+                    } => {
+                        commands::member_sync::set(
+                            device,
+                            send,
+                            receive,
+                            send_types,
+                            receive_types,
+                            cli.json,
+                            cli.verbose,
+                        )
+                        .await
+                    }
+                },
+            },
+            Commands::Send {
+                input,
+                force_text,
+                file,
+                resend,
+                peers,
+                connect_timeout,
+            } => {
+                commands::send::run(
+                    commands::send::SendArgs {
+                        input,
+                        force_text,
+                        file,
+                        resend,
+                        peers,
+                        connect_timeout: (connect_timeout > 0)
+                            .then(|| std::time::Duration::from_secs(connect_timeout)),
+                    },
+                    cli.json,
+                    cli.verbose,
+                )
+                .await
+            }
+            Commands::Watch => commands::watch::run(cli.json, cli.verbose).await,
+            Commands::Recv { out } => commands::recv::run(out, cli.json, cli.verbose).await,
+            Commands::Get {
+                kind,
+                id,
+                list,
+                limit,
+                out,
+                copy,
+                wait,
+            } => {
+                commands::get::run(
+                    commands::get::GetArgs {
+                        kind,
+                        id,
+                        list,
+                        limit,
+                        out,
+                        copy,
+                        wait,
+                    },
+                    cli.json,
+                    cli.verbose,
+                )
+                .await
+            }
+            #[cfg(feature = "dev-tools")]
+            Commands::Blob { subcommand } => {
+                commands::blob::run(subcommand, cli.json, cli.verbose).await
+            }
+            Commands::Search { query, subcommand } => {
+                commands::search::run(query, subcommand, cli.json, cli.verbose).await
+            }
+            Commands::Upgrade { subcommand } => {
+                commands::upgrade::run(subcommand, cli.json, cli.verbose).await
+            }
+            Commands::Debug { subcommand } => {
+                commands::debug::run(subcommand, cli.json, cli.verbose).await
+            }
+            #[cfg(feature = "dev-tools")]
+            Commands::Probe { subcommand } => commands::probe::run(subcommand, cli.verbose).await,
+            #[cfg(feature = "dev-tools")]
+            Commands::Dev { subcommand } => {
+                commands::dev::run(subcommand, cli.json, cli.verbose).await
+            }
+            Commands::Mobile { subcommand } => {
+                commands::mobile_sync::run(subcommand, cli.json, cli.verbose).await
+            }
+            Commands::MobileSync { subcommand } => {
+                // Deprecation notice goes to stderr (via ui::warn), so it never
+                // corrupts `--json` stdout. The old alias otherwise behaves
+                // identically to `mobile`.
+                ui::warn(
+                    "`mobile-sync` is deprecated; use `mobile` instead. \
+                     This alias will be removed in a future release.",
+                );
+                commands::mobile_sync::run(subcommand, cli.json, cli.verbose).await
+            }
+        }
+    });
+
+    std::process::exit(exit_code);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        commands, Cli, Commands, JoinCommands, MemberCommands, MemberSyncCommands,
+        MemberTrustCommands, SpaceCommands,
+    };
+    use clap::{CommandFactory, Parser};
+
+    #[test]
+    fn cli_binary_name_is_uc_dev_cli() {
+        let command = Cli::command();
+
+        assert_eq!(command.get_name(), "uc-dev-cli");
+    }
+
+    #[test]
+    fn detailed_capture_commands_parse_with_bounded_minutes() {
+        let started =
+            Cli::try_parse_from(["uniclip", "debug", "capture", "start", "--minutes", "15"])
+                .expect("capture start must parse");
+        assert!(matches!(
+            started.command,
+            Some(Commands::Debug {
+                subcommand: commands::debug::DebugCommands::Capture {
+                    command: commands::debug::CaptureCommands::Start { minutes: 15 }
+                }
+            })
+        ));
+
+        let invalid =
+            Cli::try_parse_from(["uniclip", "debug", "capture", "start", "--minutes", "16"]);
+        assert!(invalid.is_err());
+    }
+
+    #[test]
+    fn no_subcommand_displays_help() {
+        let result = Cli::try_parse_from(["uniclip"]);
+
+        match result {
+            Ok(cli) => {
+                assert!(cli.command.is_none());
+            }
+            Err(error) => panic!("expected no subcommand to parse successfully, got {error}"),
+        }
+    }
+
+    #[test]
+    fn setup_command_is_removed() {
+        let result = Cli::try_parse_from(["uniclip", "setup"]);
+
+        assert!(
+            result.is_err(),
+            "legacy setup command should be removed; CLI should keep init/invite/join"
+        );
+    }
+
+    #[test]
+    fn switch_space_command_is_removed() {
+        let result = Cli::try_parse_from(["uniclip", "switch-space", "--code", "ABCD-1234"]);
+
+        assert!(
+            result.is_err(),
+            "switch-space is merged into `join`; the standalone command must be gone"
+        );
+    }
+
+    #[test]
+    fn space_status_is_the_canonical_status_command() {
+        let cli =
+            Cli::try_parse_from(["uniclip", "space", "status"]).expect("space status must parse");
+
+        assert!(matches!(
+            cli.command,
+            Some(Commands::Space {
+                command: SpaceCommands::Status
+            })
+        ));
+    }
+
+    #[test]
+    fn legacy_space_commands_remain_parseable() {
+        for args in [
+            vec!["uniclip", "status"],
+            vec!["uniclip", "init"],
+            vec!["uniclip", "invite"],
+            vec!["uniclip", "join"],
+        ] {
+            assert!(
+                Cli::try_parse_from(args).is_ok(),
+                "legacy command should remain parseable"
+            );
+        }
+    }
+
+    #[test]
+    fn space_join_status_and_cancel_are_nested_commands() {
+        let status = Cli::try_parse_from(["uniclip", "space", "join", "status"])
+            .expect("space join status must parse");
+        assert!(matches!(
+            status.command,
+            Some(Commands::Space {
+                command: SpaceCommands::Join {
+                    command: Some(JoinCommands::Status),
+                    ..
+                }
+            })
+        ));
+
+        let cancel = Cli::try_parse_from(["uniclip", "space", "join", "cancel"])
+            .expect("space join cancel must parse");
+        assert!(matches!(
+            cancel.command,
+            Some(Commands::Space {
+                command: SpaceCommands::Join {
+                    command: Some(JoinCommands::Cancel),
+                    ..
+                }
+            })
+        ));
+    }
+
+    #[test]
+    fn space_init_and_join_keep_existing_options() {
+        let init = Cli::try_parse_from([
+            "uniclip",
+            "space",
+            "init",
+            "--passphrase",
+            "secret",
+            "--device-name",
+            "laptop",
+        ])
+        .expect("space init options must parse");
+        assert!(matches!(
+            init.command,
+            Some(Commands::Space {
+                command: SpaceCommands::Init {
+                    passphrase: Some(passphrase),
+                    device_name: Some(device_name),
+                }
+            }) if passphrase == "secret" && device_name == "laptop"
+        ));
+
+        let join = Cli::try_parse_from([
+            "uniclip",
+            "space",
+            "join",
+            "--code",
+            "ABCD-1234",
+            "--passphrase",
+            "secret",
+            "--switch",
+            "--yes",
+            "--no-wait",
+        ])
+        .expect("space join options must parse");
+        assert!(matches!(
+            join.command,
+            Some(Commands::Space {
+                command: SpaceCommands::Join {
+                    code: Some(code),
+                    passphrase: Some(passphrase),
+                    switch: true,
+                    yes: true,
+                    no_wait: true,
+                    command: None,
+                    ..
+                }
+            }) if code == "ABCD-1234" && passphrase == "secret"
+        ));
+    }
+
+    #[test]
+    fn space_change_passphrase_parses_with_and_without_inline_passphrase() {
+        let interactive = Cli::try_parse_from(["uniclip", "space", "change-passphrase"])
+            .expect("interactive change-passphrase must parse");
+        assert!(matches!(
+            interactive.command,
+            Some(Commands::Space {
+                command: SpaceCommands::ChangePassphrase { passphrase: None }
+            })
+        ));
+
+        let scripted = Cli::try_parse_from([
+            "uniclip",
+            "--json",
+            "space",
+            "change-passphrase",
+            "--passphrase",
+            "secret",
+        ])
+        .expect("scripted change-passphrase must parse");
+        assert!(matches!(
+            scripted.command,
+            Some(Commands::Space {
+                command: SpaceCommands::ChangePassphrase { passphrase: Some(p) }
+            }) if p == "secret"
+        ));
+    }
+
+    #[test]
+    fn space_reset_requires_explicit_confirmation() {
+        assert!(
+            Cli::try_parse_from(["uniclip", "space", "reset"]).is_err(),
+            "space reset must reject an unconfirmed rebuild"
+        );
+
+        let reset = Cli::try_parse_from(["uniclip", "space", "reset", "--yes"])
+            .expect("confirmed space reset must parse");
+        assert!(matches!(
+            reset.command,
+            Some(Commands::Space {
+                command: SpaceCommands::Reset { yes: true }
+            })
+        ));
+    }
+
+    #[test]
+    fn join_accepts_switch_and_confirmation_flags() {
+        // `--switch` opts into the destructive migration path; `--yes` skips
+        // its confirmation in non-interactive contexts.
+        let cli = Cli::try_parse_from([
+            "uniclip",
+            "join",
+            "--code",
+            "ABCD-1234",
+            "--passphrase",
+            "pw",
+            "--switch",
+            "--yes",
+            "--preserve-unreadable-history",
+        ])
+        .expect("join must accept switch confirmation flags");
+        let Some(Commands::Join {
+            switch,
+            yes,
+            preserve_unreadable_history,
+            ..
+        }) = cli.command
+        else {
+            panic!("expected Join command");
+        };
+        assert!(switch, "--switch must parse into the Join command");
+        assert!(yes, "--yes must parse into the Join command");
+        assert!(
+            preserve_unreadable_history,
+            "explicit preservation confirmation must parse into the Join command"
+        );
+    }
+
+    #[test]
+    fn join_defaults_to_re_pair_without_switch() {
+        // A bare `join` (no `--switch`) must route to the non-destructive
+        // redeem / re-pair path regardless of setup state (issue #1023).
+        let cli = Cli::try_parse_from([
+            "uniclip",
+            "join",
+            "--code",
+            "ABCD-1234",
+            "--passphrase",
+            "pw",
+        ])
+        .expect("bare join must parse");
+        let Some(Commands::Join { switch, .. }) = cli.command else {
+            panic!("expected Join command");
+        };
+        assert!(!switch, "join must default to re-pair, not switch");
+    }
+
+    #[test]
+    fn join_no_wait_parses_on_start_flow() {
+        let cli = Cli::try_parse_from([
+            "uniclip",
+            "join",
+            "--code",
+            "ABCD-1234",
+            "--passphrase",
+            "pw",
+            "--no-wait",
+        ])
+        .expect("join --no-wait must parse");
+        let Some(Commands::Join {
+            no_wait,
+            command: None,
+            ..
+        }) = cli.command
+        else {
+            panic!("expected join start command")
+        };
+        assert!(no_wait);
+    }
+
+    #[test]
+    fn join_status_and_cancel_parse_without_join_inputs() {
+        let status =
+            Cli::try_parse_from(["uniclip", "join", "status"]).expect("join status must parse");
+        assert!(matches!(
+            status.command,
+            Some(Commands::Join {
+                command: Some(JoinCommands::Status),
+                ..
+            })
+        ));
+
+        let cancel =
+            Cli::try_parse_from(["uniclip", "join", "cancel"]).expect("join cancel must parse");
+        assert!(matches!(
+            cancel.command,
+            Some(Commands::Join {
+                command: Some(JoinCommands::Cancel),
+                ..
+            })
+        ));
+    }
+
+    #[test]
+    fn join_subcommands_reject_join_inputs() {
+        let result = Cli::try_parse_from(["uniclip", "join", "status", "--code", "ABCD-1234"]);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn member_trust_commands_parse_expected_safety_flags() {
+        let status = Cli::try_parse_from(["uniclip", "member", "trust", "status"])
+            .expect("member trust status must parse");
+        assert!(matches!(
+            status.command,
+            Some(Commands::Member {
+                command: MemberCommands::Trust {
+                    command: MemberTrustCommands::Status
+                }
+            })
+        ));
+
+        let choose = Cli::try_parse_from([
+            "uniclip",
+            "member",
+            "trust",
+            "choose",
+            "--issue",
+            "p:issue-1",
+            "--choice",
+            "apply",
+            "--confirm-local-removal",
+        ])
+        .expect("member trust choose flags must parse");
+        assert!(matches!(
+            choose.command,
+            Some(Commands::Member {
+                command: MemberCommands::Trust {
+                    command: MemberTrustCommands::Choose {
+                        issue: Some(_),
+                        choice: Some(_),
+                        confirm_local_removal: true,
+                    }
+                }
+            })
+        ));
+
+        assert!(Cli::try_parse_from(["uniclip", "member", "trust", "apply"]).is_err());
+    }
+
+    #[test]
+    fn member_sync_show_and_partial_set_parse() {
+        let show = Cli::try_parse_from(["uniclip", "member", "sync", "show", "device-a"])
+            .expect("member sync show must parse");
+        assert!(matches!(
+            show.command,
+            Some(Commands::Member {
+                command: MemberCommands::Sync {
+                    command: MemberSyncCommands::Show { .. }
+                }
+            })
+        ));
+
+        let set = Cli::try_parse_from([
+            "uniclip",
+            "member",
+            "sync",
+            "set",
+            "device-a",
+            "--send",
+            "off",
+            "--receive-types",
+            "text,image",
+        ])
+        .expect("member sync partial set must parse");
+        assert!(matches!(
+            set.command,
+            Some(Commands::Member {
+                command: MemberCommands::Sync {
+                    command: MemberSyncCommands::Set { .. }
+                }
+            })
+        ));
+    }
+
+    #[test]
+    fn search_rebuild_no_wait_is_removed() {
+        let result = Cli::try_parse_from(["uniclip", "search", "rebuild", "--no-wait"]);
+
+        assert!(
+            result.is_err(),
+            "standalone CLI search rebuild must be synchronous and reject --no-wait"
+        );
+    }
+
+    #[test]
+    fn search_query_is_flattened_to_top_level() {
+        // `search <query>` no longer requires the `query` subcommand.
+        let cli = Cli::try_parse_from(["uniclip", "search", "report", "--type", "text"])
+            .expect("flattened search query must parse");
+        let Some(Commands::Search { subcommand, .. }) = cli.command else {
+            panic!("expected Search command");
+        };
+        assert!(
+            subcommand.is_none(),
+            "a bare query must not be parsed as a subcommand"
+        );
+    }
+
+    #[test]
+    fn search_accepts_repeatable_source_device_filter() {
+        let cli = Cli::try_parse_from([
+            "uniclip",
+            "search",
+            "report",
+            "--source-device",
+            "Laptop",
+            "--source-device",
+            "mobile_sync:abc",
+        ])
+        .expect("repeatable --source-device must parse");
+        assert!(matches!(cli.command, Some(Commands::Search { .. })));
+    }
+
+    #[test]
+    fn search_status_still_parses_as_subcommand() {
+        let cli =
+            Cli::try_parse_from(["uniclip", "search", "status"]).expect("search status must parse");
+        let Some(Commands::Search { subcommand, .. }) = cli.command else {
+            panic!("expected Search command");
+        };
+        assert!(matches!(
+            subcommand,
+            Some(commands::search::SearchCommands::Status)
+        ));
+    }
+
+    #[test]
+    fn bare_upgrade_defaults_to_no_subcommand() {
+        // `uniclip upgrade` (no subcommand) is valid and means "show status".
+        let cli = Cli::try_parse_from(["uniclip", "upgrade"]).expect("bare upgrade must parse");
+        let Some(Commands::Upgrade { subcommand }) = cli.command else {
+            panic!("expected Upgrade command");
+        };
+        assert!(subcommand.is_none());
+    }
+
+    #[test]
+    fn upgrade_ack_parses_as_subcommand() {
+        let cli =
+            Cli::try_parse_from(["uniclip", "upgrade", "ack"]).expect("upgrade ack must parse");
+        let Some(Commands::Upgrade { subcommand }) = cli.command else {
+            panic!("expected Upgrade command");
+        };
+        assert!(matches!(
+            subcommand,
+            Some(commands::upgrade::UpgradeCommands::Ack)
+        ));
+    }
+
+    #[test]
+    fn member_list_probe_flag_parses_and_defaults_off() {
+        let bare =
+            Cli::try_parse_from(["uniclip", "member", "list"]).expect("member list must parse");
+        let Some(Commands::Member {
+            command: MemberCommands::List { probe },
+        }) = bare.command
+        else {
+            panic!("expected Member List command");
+        };
+        assert!(!probe, "probe must default off");
+
+        let probed = Cli::try_parse_from(["uniclip", "member", "list", "--probe"])
+            .expect("member list --probe parses");
+        let Some(Commands::Member {
+            command: MemberCommands::List { probe },
+        }) = probed.command
+        else {
+            panic!("expected Member List command");
+        };
+        assert!(probe);
+    }
+
+    #[test]
+    fn member_list_is_public_and_members_is_hidden() {
+        let help = Cli::command().render_help().to_string();
+        assert!(help.contains("  member   "));
+        assert!(!help.contains("  members  "));
+
+        let cli = Cli::try_parse_from(["uniclip", "members", "--probe"])
+            .expect("deprecated members command must still parse");
+        assert!(matches!(
+            cli.command,
+            Some(Commands::Members { probe: true })
+        ));
+    }
+
+    #[cfg(feature = "dev-tools")]
+    #[test]
+    fn dev_capture_files_parses_repeated_paths_and_cap_overrides() {
+        let parsed = Cli::try_parse_from([
+            "uniclip",
+            "dev",
+            "capture-files",
+            "--path",
+            "/tmp/a",
+            "--path",
+            "/tmp/b",
+            "--max-members",
+            "2",
+            "--max-bytes",
+            "1024",
+        ])
+        .expect("capture-files args parse");
+
+        let Some(Commands::Dev {
+            subcommand:
+                commands::dev::DevCommands::CaptureFiles {
+                    paths,
+                    max_members,
+                    max_bytes,
+                },
+        }) = parsed.command
+        else {
+            panic!("expected dev capture-files")
+        };
+        assert_eq!(paths.len(), 2);
+        assert_eq!(max_members, Some(2));
+        assert_eq!(max_bytes, Some(1024));
+    }
+
+    #[test]
+    fn devices_remains_hidden_compatibility_alias() {
+        // The former `devices` command remains a hidden compatibility alias.
+        let cli = Cli::try_parse_from(["uniclip", "devices"]).expect("devices alias must parse");
+        assert!(matches!(cli.command, Some(Commands::Members { .. })));
+    }
+
+    #[test]
+    fn mobile_is_the_primary_command_name() {
+        // `mobile` 是新的主命令名(显示在 --help 里)。锁住外部契约。
+        let cli = Cli::try_parse_from(["uniclip", "mobile", "status"])
+            .expect("expected `mobile status` to parse");
+        assert!(matches!(cli.command, Some(Commands::Mobile { .. })));
+    }
+
+    #[test]
+    fn mobile_sync_is_a_hidden_deprecated_alias() {
+        // `mobile-sync` 保留为隐藏的弃用别名 —— 仍能解析(已发布脚本不
+        // 失效),但映射到独立的 `MobileSync` 变体,runtime 会打印弃用提示
+        // 再走与 `mobile` 相同的逻辑。(用 `status` 这个稳定读命令做探针。)
+        let cli = Cli::try_parse_from(["uniclip", "mobile-sync", "status"])
+            .expect("expected `mobile-sync status` to still parse");
+        assert!(matches!(cli.command, Some(Commands::MobileSync { .. })));
+    }
+
+    #[test]
+    fn mobile_sync_network_set_requires_an_advertise_target() {
+        // `network set` 必须强制给出一个广告目标 —— iPhone 客户端需要一个
+        // 具体可达的地址写进 install URL;daemon 自己始终绑 0.0.0.0,与
+        // advertise 无关。两种形态二选一(`advertise_target` ArgGroup)。
+        let result = Cli::try_parse_from(["uniclip", "mobile-sync", "network", "set"]);
+        assert!(
+            result.is_err(),
+            "expected `network set` to require --ip or --url"
+        );
+    }
+
+    #[test]
+    fn mobile_sync_network_set_accepts_url() {
+        // 反代形态:`--url` 单独给出即可满足 advertise_target 组。
+        let result = Cli::try_parse_from([
+            "uniclip",
+            "mobile-sync",
+            "network",
+            "set",
+            "--url",
+            "https://clip.example.com",
+            "--accept-network-risk",
+        ]);
+        assert!(result.is_ok(), "expected `network set --url` to parse");
+    }
+
+    #[test]
+    fn mobile_sync_network_set_rejects_both_forms() {
+        // 互斥:同时给 --ip 和 --url 必须被 ArgGroup 拒绝。
+        let result = Cli::try_parse_from([
+            "uniclip",
+            "mobile-sync",
+            "network",
+            "set",
+            "--ip",
+            "192.168.1.5",
+            "--url",
+            "https://clip.example.com",
+            "--accept-network-risk",
+        ]);
+        assert!(
+            result.is_err(),
+            "expected `network set` to reject both --ip and --url at once"
+        );
+    }
+
+    #[test]
+    fn mobile_sync_network_off_and_interfaces_parse() {
+        // `network off` / `network interfaces` 是无参子命令,锁住解析契约。
+        let off = Cli::try_parse_from(["uniclip", "mobile-sync", "network", "off"]);
+        assert!(off.is_ok(), "expected `network off` to parse");
+        let ifaces = Cli::try_parse_from(["uniclip", "mobile-sync", "network", "interfaces"]);
+        assert!(ifaces.is_ok(), "expected `network interfaces` to parse");
+    }
+
+    #[test]
+    fn mobile_sync_add_requires_label() {
+        // 顶层 `add`(原 `devices add`)—— `--label` 必填,否则 register
+        // flow 拿不到设备名。
+        let missing = Cli::try_parse_from(["uniclip", "mobile-sync", "add"]);
+        assert!(missing.is_err(), "expected `add` to require --label");
+        let ok = Cli::try_parse_from(["uniclip", "mobile-sync", "add", "--label", "My iPhone"]);
+        assert!(ok.is_ok(), "expected `add --label` to parse");
+    }
+
+    #[test]
+    fn mobile_sync_revoke_id_optional() {
+        // 顶层 `revoke` device_id 可选(无 id 走交互式选)。clap 解析层应
+        // 允许两种形态。
+        let r1 = Cli::try_parse_from(["uniclip", "mobile-sync", "revoke"]);
+        assert!(r1.is_ok(), "expected `revoke` (no id) to parse");
+        let r2 = Cli::try_parse_from(["uniclip", "mobile-sync", "revoke", "did_abc"]);
+        assert!(r2.is_ok(), "expected `revoke <id>` to parse");
+    }
+
+    #[test]
+    fn member_remove_requires_peer_id() {
+        // `member remove` 的 peer_id 必填 —— 没有它无法记录移除意图。
+        let missing = Cli::try_parse_from(["uniclip", "member", "remove"]);
+        assert!(
+            missing.is_err(),
+            "expected `member remove` to require a peer ID"
+        );
+        let ok = Cli::try_parse_from(["uniclip", "member", "remove", "peer_abc"]);
+        assert!(ok.is_ok(), "expected `member remove <peer-id>` to parse");
+    }
+
+    #[test]
+    fn retired_member_removal_status_is_rejected() {
+        let result = Cli::try_parse_from(["uniclip", "member", "removal-status"]);
+        assert!(result.is_err(), "retired removal status must not parse");
+    }
+
+    #[test]
+    fn mobile_sync_legacy_command_groups_are_removed() {
+        // 干净删除(无 deprecation 周期):旧分组 `lan` / `devices` /
+        // `settings` 已不再解析 —— 改用 `network` / 顶层 `add`·`revoke` /
+        // `status`。
+        for args in [
+            vec!["uniclip", "mobile-sync", "lan", "list-interfaces"],
+            vec!["uniclip", "mobile-sync", "lan", "enable"],
+            vec!["uniclip", "mobile-sync", "lan", "disable"],
+            vec!["uniclip", "mobile-sync", "devices", "list"],
+            vec!["uniclip", "mobile-sync", "devices", "add", "--label", "X"],
+            vec!["uniclip", "mobile-sync", "devices", "revoke", "did_abc"],
+            vec!["uniclip", "mobile-sync", "settings", "show"],
+        ] {
+            let pretty = args.join(" ");
+            assert!(
+                Cli::try_parse_from(args).is_err(),
+                "expected removed legacy command `{pretty}` to no longer parse"
+            );
+        }
+    }
+
+    #[test]
+    fn mobile_sync_shortcut_subcommand_is_removed() {
+        // 拓扑重组:`shortcut add` 已搬到 `add` / `devices add`,老路径
+        // 直接删除(无 deprecation 周期)。
+        let result =
+            Cli::try_parse_from(["uniclip", "mobile-sync", "shortcut", "add", "--label", "X"]);
+        assert!(
+            result.is_err(),
+            "expected `shortcut` subcommand to be removed"
+        );
+    }
+
+    #[test]
+    fn mobile_sync_enable_subcommand_is_removed() {
+        // 拓扑重组:顶层 `enable` 与 `setup` / `network set` 重叠, 已删除。
+        let result = Cli::try_parse_from(["uniclip", "mobile-sync", "enable"]);
+        assert!(
+            result.is_err(),
+            "expected `enable` subcommand to be removed"
+        );
+    }
+
+    #[test]
+    fn mobile_sync_status_parses() {
+        // Step 4/5: 新增 `status` 综合视图(读命令)。
+        let r = Cli::try_parse_from(["uniclip", "mobile-sync", "status"]);
+        assert!(r.is_ok(), "expected `status` to parse");
+    }
+
+    #[cfg(feature = "dev-tools")]
+    #[test]
+    fn mobile_sync_debug_subcommands_parse() {
+        // P5a.9 引入的 4 个 debug 子命令解析契约。
+        for args in [
+            vec!["uniclip", "mobile-sync", "debug", "put-text", "hello"],
+            vec!["uniclip", "mobile-sync", "debug", "put-file", "/tmp/x.png"],
+            vec!["uniclip", "mobile-sync", "debug", "get-doc"],
+            vec!["uniclip", "mobile-sync", "debug", "get-file", "photo.png"],
+        ] {
+            let result = Cli::try_parse_from(args.clone());
+            assert!(result.is_ok(), "expected `{args:?}` to parse");
+        }
+    }
+
+    #[cfg(feature = "dev-tools")]
+    #[test]
+    fn mobile_sync_debug_put_text_requires_text() {
+        // put-text 必须带 TEXT 位置参数,否则 facade 拿不到内容。
+        let result = Cli::try_parse_from(["uniclip", "mobile-sync", "debug", "put-text"]);
+        assert!(result.is_err(), "expected `put-text` to require <TEXT>");
+    }
+
+    #[cfg(feature = "dev-tools")]
+    #[test]
+    fn mobile_sync_debug_put_file_requires_path() {
+        // put-file 必须带 PATH;mime 是可选的。
+        let result = Cli::try_parse_from(["uniclip", "mobile-sync", "debug", "put-file"]);
+        assert!(result.is_err(), "expected `put-file` to require <PATH>");
+    }
+
+    #[cfg(feature = "dev-tools")]
+    #[test]
+    fn mobile_sync_debug_get_file_requires_data_name() {
+        // get-file 必须带 DATANAME 位置参数。
+        let result = Cli::try_parse_from(["uniclip", "mobile-sync", "debug", "get-file"]);
+        assert!(result.is_err(), "expected `get-file` to require <DATANAME>");
+    }
+
+    #[test]
+    fn mobile_sync_setup_parses_with_no_args() {
+        // `setup` 不强制任何 flag —— 默认全交互式。runtime 才会按
+        // `--non-interactive` / `--json` 决定是否要求 --label /
+        // --accept-network-risk(--ip 已降级为可选高级覆盖);clap 解析层
+        // 不下结论。
+        let r = Cli::try_parse_from(["uniclip", "mobile-sync", "setup"]);
+        assert!(r.is_ok(), "expected `setup` to parse with no args");
+    }
+
+    #[test]
+    fn mobile_sync_setup_accepts_full_non_interactive_flags() {
+        // CI 友好的全 flag 形态。
+        let r = Cli::try_parse_from([
+            "uniclip",
+            "mobile-sync",
+            "setup",
+            "--non-interactive",
+            "--label",
+            "iPhone",
+            "--ip",
+            "192.168.1.5",
+            "--port",
+            "42720",
+            "--username",
+            "alice_001",
+            "--password-stdin",
+            "--accept-network-risk",
+        ]);
+        assert!(r.is_ok(), "expected full-flag setup to parse");
+    }
+
+    #[cfg(feature = "dev-tools")]
+    #[test]
+    fn dev_pairing_manual_address_commands_parse() {
+        // 隐藏开发入口用于手动选择配对地址,不进入公开 help 契约。
+        for args in [
+            vec!["uniclip", "dev", "pairing", "addrs"],
+            vec![
+                "uniclip",
+                "dev",
+                "pairing",
+                "issue",
+                "--addr",
+                "100.79.191.42",
+            ],
+        ] {
+            let result = Cli::try_parse_from(args.clone());
+            assert!(result.is_ok(), "expected `{args:?}` to parse");
+        }
+    }
+
+    #[cfg(feature = "dev-tools")]
+    #[test]
+    fn dev_clipboard_seed_and_dump_commands_parse() {
+        // seed/dump 是调试 / E2E 入口,已从顶层搬进隐藏的 `dev` 组。
+        // 锁住新路径的解析契约 —— e2e 脚本依赖 `dev seed-clipboard` /
+        // `dev dump-clipboard`。
+        for args in [
+            vec!["uniclip", "dev", "seed-clipboard", "--text", "hello"],
+            vec!["uniclip", "dev", "dump-clipboard"],
+            vec!["uniclip", "dev", "dump-clipboard", "--limit", "5"],
+        ] {
+            let result = Cli::try_parse_from(args.clone());
+            assert!(result.is_ok(), "expected `{args:?}` to parse");
+        }
+    }
+
+    #[cfg(feature = "dev-tools")]
+    #[test]
+    fn top_level_clipboard_seed_and_dump_are_removed() {
+        // 迁移到 `dev` 组后,顶层路径必须消失,避免两套入口并存,
+        // 也确保它们不再出现在公开 help 契约里。
+        for args in [
+            vec!["uniclip", "seed-clipboard", "--text", "hello"],
+            vec!["uniclip", "dump-clipboard"],
+        ] {
+            let result = Cli::try_parse_from(args.clone());
+            assert!(
+                result.is_err(),
+                "expected top-level `{args:?}` to be rejected after move under `dev`"
+            );
+        }
+    }
+
+    #[test]
+    fn send_accepts_positional_text() {
+        // 历史契约:`uniclip send hello` 必须继续工作。
+        let r = Cli::try_parse_from(["uniclip", "send", "hello"]);
+        assert!(r.is_ok(), "expected `send hello` to parse");
+    }
+
+    #[test]
+    fn send_accepts_force_text_and_file_modes_with_peers() {
+        assert!(Cli::try_parse_from(["uniclip", "send", "--text", "report.pdf"]).is_ok());
+        assert!(Cli::try_parse_from([
+            "uniclip",
+            "send",
+            "--file",
+            "report.pdf",
+            "--peer",
+            "dev-a",
+        ])
+        .is_ok());
+        assert!(Cli::try_parse_from(["uniclip", "send", "--file"]).is_ok());
+        assert!(Cli::try_parse_from(["uniclip", "send", "-f"]).is_ok());
+    }
+
+    #[test]
+    fn send_explicit_modes_remain_mutually_exclusive() {
+        assert!(Cli::try_parse_from([
+            "uniclip",
+            "send",
+            "--text",
+            "report.pdf",
+            "--file",
+            "report.pdf",
+        ])
+        .is_err());
+        assert!(Cli::try_parse_from([
+            "uniclip",
+            "send",
+            "--text",
+            "report.pdf",
+            "--resend",
+            "entry-1",
+        ])
+        .is_err());
+    }
+
+    #[test]
+    fn send_accepts_no_args_for_stdin_mode() {
+        // `echo … | uniclip send` 链路 —— 不带 text 也不带 --resend 必须能解析。
+        let r = Cli::try_parse_from(["uniclip", "send"]);
+        assert!(
+            r.is_ok(),
+            "expected `send` with no args to parse (stdin mode)"
+        );
+    }
+
+    #[test]
+    fn send_resend_alone_parses() {
+        let r = Cli::try_parse_from(["uniclip", "send", "--resend", "ent-123"]);
+        assert!(r.is_ok(), "expected `send --resend <id>` to parse");
+    }
+
+    #[test]
+    fn send_resend_with_text_is_mutually_exclusive() {
+        // 互斥规则:`--resend` 不能与 positional text 同时出现。
+        let r = Cli::try_parse_from(["uniclip", "send", "hello", "--resend", "ent-123"]);
+        assert!(
+            r.is_err(),
+            "expected `send <text> --resend <id>` to fail at clap layer"
+        );
+    }
+
+    #[test]
+    fn send_accepts_multiple_peers() {
+        // `--peer` 可重复出现;两种 mode 都允许。
+        let r1 = Cli::try_parse_from([
+            "uniclip", "send", "hello", "--peer", "dev-a", "--peer", "dev-b",
+        ]);
+        assert!(
+            r1.is_ok(),
+            "expected new-entry mode with multiple --peer to parse"
+        );
+        let r2 = Cli::try_parse_from(["uniclip", "send", "--resend", "ent-1", "--peer", "dev-a"]);
+        assert!(r2.is_ok(), "expected resend mode with --peer to parse");
+    }
+
+    #[test]
+    fn get_parses_with_no_args() {
+        // `uniclip get` 默认取最新一条 —— 不带任何 selector 必须能解析。
+        let r = Cli::try_parse_from(["uniclip", "get"]);
+        assert!(r.is_ok(), "expected bare `get` to parse");
+    }
+
+    #[test]
+    fn get_accepts_copy_flag() {
+        for flag in ["-c", "--copy"] {
+            let cli =
+                Cli::try_parse_from(["uniclip", "get", flag]).expect("get copy flag must parse");
+            assert!(matches!(
+                cli.command,
+                Some(Commands::Get { copy: true, .. })
+            ));
+        }
+    }
+
+    #[test]
+    fn get_accepts_wait_and_copy_as_independent_flags() {
+        for args in [
+            vec!["uniclip", "get", "-w"],
+            vec!["uniclip", "get", "--wait"],
+            vec!["uniclip", "get", "--copy", "--wait"],
+        ] {
+            let cli = Cli::try_parse_from(args).expect("get wait form must parse");
+            assert!(matches!(
+                cli.command,
+                Some(Commands::Get { wait: true, .. })
+            ));
+        }
+    }
+
+    #[test]
+    fn get_wait_accepts_filters_but_rejects_list_mode() {
+        for args in [
+            vec!["uniclip", "get", "--wait", "--type", "text"],
+            vec!["uniclip", "get", "--wait", "--id", "ent-1"],
+        ] {
+            assert!(Cli::try_parse_from(args).is_ok());
+        }
+        assert!(Cli::try_parse_from(["uniclip", "get", "--wait", "--list"]).is_err());
+        assert!(Cli::try_parse_from(["uniclip", "get", "--wait", "--limit", "10"]).is_err());
+    }
+
+    #[test]
+    fn recv_is_hidden_but_still_parses() {
+        let help = Cli::command().render_help().to_string();
+        assert!(!help.contains("  recv"));
+        assert!(Cli::try_parse_from(["uniclip", "recv"]).is_ok());
+        assert!(Cli::try_parse_from(["uniclip", "recv", "--out", "."]).is_ok());
+    }
+
+    #[test]
+    fn get_accepts_type_selector() {
+        for kind in ["image", "file", "text", "link"] {
+            let r = Cli::try_parse_from(["uniclip", "get", "--type", kind]);
+            assert!(r.is_ok(), "expected `get --type {kind}` to parse");
+        }
+        // 非法 kind 必须被 value_enum 拒绝。
+        let bad = Cli::try_parse_from(["uniclip", "get", "--type", "video"]);
+        assert!(bad.is_err(), "expected `get --type video` to be rejected");
+    }
+
+    #[test]
+    fn get_type_and_id_are_mutually_exclusive() {
+        // 选最新某类型 与 选指定 id 互斥 —— 两者语义冲突。
+        let r = Cli::try_parse_from(["uniclip", "get", "--type", "image", "--id", "ent-1"]);
+        assert!(
+            r.is_err(),
+            "expected `get --type … --id …` to be rejected by clap"
+        );
+    }
+
+    #[test]
+    fn get_list_conflicts_with_selectors() {
+        // `--list` 只列出, 不能同时带 selector。
+        assert!(Cli::try_parse_from(["uniclip", "get", "--list", "--type", "image"]).is_err());
+        assert!(Cli::try_parse_from(["uniclip", "get", "--list", "--id", "ent-1"]).is_err());
+        assert!(Cli::try_parse_from(["uniclip", "get", "--list", "--copy"]).is_err());
+        assert!(
+            Cli::try_parse_from(["uniclip", "get", "--list"]).is_ok(),
+            "expected bare `get --list` to parse"
+        );
+    }
+
+    #[test]
+    fn get_accepts_out_dash_for_stdout() {
+        // `--out -` 是把二进制导到 stdout 的契约。
+        let r = Cli::try_parse_from(["uniclip", "get", "--type", "image", "--out", "-"]);
+        assert!(r.is_ok(), "expected `get --type image --out -` to parse");
+    }
+
+    #[test]
+    fn start_accepts_server_flag() {
+        // `uniclip start --server` 是无头节点的启动契约 —— 部署脚本依赖它。
+        let cli = Cli::try_parse_from(["uniclip", "start", "--server"])
+            .expect("expected `start --server` to parse");
+        match cli.command {
+            Some(super::Commands::Start { foreground, server }) => {
+                assert!(server, "--server must set the server flag");
+                assert!(!foreground, "foreground must default to false");
+            }
+            _ => panic!("expected Start command"),
+        }
+    }
+
+    #[test]
+    fn start_defaults_to_non_server() {
+        // 不带 --server 时默认普通 daemon（保留真实系统剪贴板行为）。
+        let cli = Cli::try_parse_from(["uniclip", "start"]).expect("expected `start` to parse");
+        match cli.command {
+            Some(super::Commands::Start { server, .. }) => {
+                assert!(!server, "plain `start` must not enable server mode");
+            }
+            _ => panic!("expected Start command"),
+        }
+    }
+
+    #[test]
+    fn start_server_with_foreground_parses() {
+        // `--server` 与 `--foreground` 可叠加（调试时前台跑 server）。
+        let cli = Cli::try_parse_from(["uniclip", "start", "--server", "--foreground"])
+            .expect("expected `start --server --foreground` to parse");
+        match cli.command {
+            Some(super::Commands::Start { foreground, server }) => {
+                assert!(server);
+                assert!(foreground);
+            }
+            _ => panic!("expected Start command"),
+        }
+    }
+}

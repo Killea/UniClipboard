@@ -14,7 +14,7 @@
 ## 2. 背景
 
 - 现状（代码已核实）：端口由 `crates/uc-daemon-process/src/socket.rs` 以 FNV-1a hash 派生（默认 `42715`，profile 落入 `42719+` 区间）；该文件注释自认"会与无关本地服务碰撞"。碰撞后 `crates/uc-webserver/src/api/server.rs` 的 `run_http_server` 重试 5 秒，超时即 daemon 启动失败。
-- 前端连接信息经 ~500ms 轮询 `get_daemon_connection_info` 获取（`src/lib/daemon-connection-info.ts`，60s 超时上限）；RAW bearer 经该命令进入 webview（ADR-008 C7 已订正的现状）。
+- 前端连接信息经 ~500ms 轮询 `get_daemon_connection_info` 获取（`apps/gui/src/lib/daemon-connection-info.ts`，60s 超时上限）；RAW bearer 经该命令进入 webview（ADR-008 C7 已订正的现状）。
 - 评审触发：评估"在 HTTP+WS 之外新增一套 socket 通道"（动机：Windows 防火墙 / 端口冲突 / 原生侧连接可靠性 / 安全加固）。
 
 ## 3. 被否掉的方案
@@ -56,7 +56,7 @@
    - `crates/uc-daemon-client/src/lib.rs`：`resolve_connection_info_from_env` / base URL 解析改读 conn 文件。
    - `crates/uc-desktop/src/daemon_probe.rs`：probe 改"读 conn 文件 + `verify_pid_identity`"（比"连 hash 端口可达"更可靠，且天然复用 D22 机制）。
    - `apps/cli/src/local_daemon.rs`：health-wait 改"等 conn 文件出现 → 校验 → 连接"。
-   - `src-tauri/crates/uc-tauri/src/commands/startup.rs`（`get_daemon_connection_info`）：数据源改读 conn 文件，每次调用读到最新端口/token，不再依赖进程内 state 设置时序。
+   - `crates/uc-tauri/src/commands/startup.rs`（`get_daemon_connection_info`）：数据源改读 conn 文件，每次调用读到最新端口/token，不再依赖进程内 state 设置时序。
    - 前端 `daemon-connection-info.ts` / `daemon-ws.ts`：**不动**；原生侧数据源新鲜后，轮询读到的信息自动跟随端口/token 轮换，60s 超时兜底保留。
 5. **版本与互操作**：
    - conn 文件 `format` 字段未知 / 文件缺失 → 视为 Incompatible → 走既有 `terminate_incompatible_daemon` 替换路径（与 `DAEMON_API_REVISION` 联动，D13 捆绑分发下同版本收敛）。

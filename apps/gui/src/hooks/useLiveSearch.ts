@@ -1,0 +1,311 @@
+import { useCallback, useEffect, useEffectEvent, useRef, useState } from 'react'
+import { DaemonApiError, DaemonErrorCode } from '@/api/daemon/errors'
+import { summarizeEntryTags } from '@/api/daemon/history-tags'
+import { querySearch } from '@/api/daemon/search'
+import type { HistoryLiveSnapshot } from '@/hooks/historySessionSnapshot'
+import { useClipboardEventStream } from '@/hooks/useClipboardEventStream'
+import { useEncryptionSessionState } from '@/hooks/useEncryptionSessionState'
+import type { ClipboardEntry, DisplayClipboardItem } from '@/lib/clipboard-entry'
+import { clipboardEntryToDisplayItem, searchResultToDisplayItem } from '@/lib/clipboard-transform'
+import { daemonWs } from '@/lib/daemon-ws'
+import { createLogger } from '@/lib/logger'
+import { isBuiltinTagId } from '@/lib/search-tags'
+import {
+  canPatchLive,
+  liveModelToSearchParams,
+  matchesFilter,
+  patchLiveItem,
+  prependLiveItem,
+  removeLiveItem,
+  shouldRefetchOnSearchStatus,
+  type LiveSearchQueryModel,
+  type SearchStatusEventPayload,
+} from './liveSearchModel'
+
+const log = createLogger('use-live-search')
+
+/** Default window size; the list grows by this as the user scrolls. */
+const DEFAULT_PAGE_SIZE = 100
+
+export interface UseLiveSearchOptions {
+  /** When false the hook idles: empty list, no request, no subscription. */
+  enabled?: boolean
+  /** The resolved query/filter model; an empty `query` with no filters browses. */
+  model: LiveSearchQueryModel
+  /** Last in-memory snapshot for the same model, used to avoid a blank remount. */
+  initialSnapshot?: HistoryLiveSnapshot | null
+  /** Page size; {@link UseLiveSearchResult.growWindow} grows the window by this. */
+  pageSize?: number
+}
+
+export interface UseLiveSearchResult {
+  items: DisplayClipboardItem[]
+  isLoading: boolean
+  /** Engine-reported total match count, or null before the first response. */
+  total: number | null
+  hasMore: boolean
+  /**
+   * `'degraded'` when a filter-less browse was served from the main store while
+   * the index rebuilds (§4.7); `'ready'` otherwise.
+   */
+  state: 'ready' | 'degraded'
+  /** Grow the window by one page (infinite scroll). */
+  growWindow: () => void
+  /** Re-issue the current query (freshness on demand; e.g. on panel re-open). */
+  refetch: () => void
+  /** Optimistically drop an entry (user delete) before the next refetch. */
+  removeItem: (id: string) => void
+  /** Optimistically patch an entry in place (favorite toggle, payload lost). */
+  patchItem: (id: string, patch: Partial<DisplayClipboardItem>) => void
+}
+
+function sameModel(a: LiveSearchQueryModel, b: LiveSearchQueryModel): boolean {
+  return (
+    a.query === b.query &&
+    a.contentTypes === b.contentTypes &&
+    a.tags === b.tags &&
+    a.sourceDevices === b.sourceDevices &&
+    a.extensions === b.extensions &&
+    a.timeRange === b.timeRange
+  )
+}
+
+interface QueryWindow {
+  model: LiveSearchQueryModel
+  pageSize: number
+  limit: number
+}
+
+export function resolveQueryWindowLimit(
+  window: QueryWindow,
+  model: LiveSearchQueryModel,
+  pageSize: number
+): number {
+  return window.pageSize === pageSize && sameModel(window.model, model) ? window.limit : pageSize
+}
+
+export function growQueryWindow(
+  window: QueryWindow,
+  model: LiveSearchQueryModel,
+  pageSize: number
+): QueryWindow {
+  return {
+    model,
+    pageSize,
+    limit: resolveQueryWindowLimit(window, model, pageSize) + pageSize,
+  }
+}
+
+/**
+ * Unified live browse/search list (Phase 3B).
+ *
+ * Owns a single `DisplayClipboardItem[]` seeded by a base `querySearch` (an
+ * empty query browses) and kept live by the clipboard WebSocket: a new entry is
+ * either slotted in client-side (when {@link canPatchLive} + {@link matchesFilter}
+ * pass) or triggers a refetch of the current window (§4.8 fallback). User
+ * actions apply optimistic edits via {@link UseLiveSearchResult.removeItem} /
+ * {@link UseLiveSearchResult.patchItem}.
+ *
+ * Replaces the old split of Redux-backed browse (`useClipboardEvents`) plus a
+ * separate search executor: browse and search are now one path, and the index
+ * `state` (ready/degraded) is surfaced honestly instead of the invented
+ * `notReady` flag.
+ */
+export function useLiveSearch(options: UseLiveSearchOptions): UseLiveSearchResult {
+  const { enabled = true, model, initialSnapshot = null, pageSize = DEFAULT_PAGE_SIZE } = options
+  const { query, contentTypes, tags, sourceDevices, extensions, timeRange } = model
+  const { encryptionReady } = useEncryptionSessionState()
+  // Anti-flash seed from the in-session snapshot. The snapshot is LOCAL,
+  // already-decrypted content in sessionStorage — not a daemon call — so showing
+  // it briefly does not leak plaintext the way a locked `/search/query` would.
+  // For an empty-query browse we seed it immediately (the common remount case)
+  // rather than waiting for `encryptionReady`, which starts `false` and resolves
+  // asynchronously; gating on it would flash a placeholder on every remount even
+  // for an unlocked user. A keyword snapshot still waits for `encryptionReady`.
+  const canUseInitialSnapshot =
+    enabled &&
+    initialSnapshot !== null &&
+    sameModel(initialSnapshot.model, model) &&
+    (model.query.trim().length === 0 || encryptionReady)
+
+  const [items, setItems] = useState<DisplayClipboardItem[]>(() =>
+    canUseInitialSnapshot ? initialSnapshot.items : []
+  )
+  // Start loading when enabled so the first paint shows a spinner, not a
+  // flash of the empty state before the base query resolves.
+  const [isLoading, setIsLoading] = useState(enabled)
+  const [total, setTotal] = useState<number | null>(() =>
+    canUseInitialSnapshot ? initialSnapshot.total : null
+  )
+  const [hasMore, setHasMore] = useState(() =>
+    canUseInitialSnapshot ? initialSnapshot.hasMore : false
+  )
+  const [state, setState] = useState<'ready' | 'degraded'>(() =>
+    canUseInitialSnapshot ? initialSnapshot.state : 'ready'
+  )
+  const [queryWindow, setQueryWindow] = useState(() => ({ model, pageSize, limit: pageSize }))
+  const limit = resolveQueryWindowLimit(queryWindow, model, pageSize)
+  const [refetchNonce, setRefetchNonce] = useState(0)
+
+  const abortRef = useRef<AbortController | null>(null)
+
+  // Base query: (re)seed the list from the engine on model/window/refetch change.
+  // Re-runs on `encryptionReady` too, so unlocking refetches.
+  useEffect(() => {
+    abortRef.current?.abort()
+    // Every query form — including a filter-only browse — decrypts each row's
+    // render payload, so all are rejected with 423 while the session is locked.
+    // Skip them entirely and show nothing until unlock (the page renders a
+    // "waiting for unlock" placeholder gated on the same `encryptionReady`).
+    const lockedSession = !encryptionReady
+    if (!enabled || lockedSession) {
+      if (!canUseInitialSnapshot) setItems([])
+      setTotal(null)
+      setHasMore(false)
+      setState('ready')
+      setIsLoading(false)
+      return
+    }
+
+    const controller = new AbortController()
+    abortRef.current = controller
+    setIsLoading(true)
+
+    const params = liveModelToSearchParams({
+      query,
+      contentTypes,
+      tags,
+      sourceDevices,
+      extensions,
+      timeRange,
+    })
+    querySearch({ ...params, limit }, controller.signal)
+      .then(response => {
+        if (controller.signal.aborted) return
+        setItems(response.data.items.map(searchResultToDisplayItem))
+        setTotal(response.data.total)
+        setHasMore(response.data.hasMore)
+        setState(response.data.state)
+        setIsLoading(false)
+      })
+      .catch(err => {
+        if (controller.signal.aborted) return
+        if (err instanceof DOMException && err.name === 'AbortError') return
+        // A 423 during the brief unlock race (session flips locked between the
+        // `encryptionReady` read and the request) is expected — treat it as the
+        // locked/empty state, not an error, so it does not spam the log.
+        const lockedRace =
+          err instanceof DaemonApiError && err.code === DaemonErrorCode.ENCRYPTION_NOT_READY
+        // A 503 means a real search-index outage (rebuilding / unavailable). It is
+        // transient but NOT the unlock race, so surface it (at warn) instead of
+        // silently swallowing it as "not ready".
+        const indexUnavailable =
+          err instanceof DaemonApiError && err.code === DaemonErrorCode.SERVICE_UNAVAILABLE
+        if (indexUnavailable) {
+          log.warn({ err }, 'Live search unavailable: search index rebuilding or not ready')
+        } else if (!lockedRace) {
+          log.error({ err }, 'Live search query failed')
+        }
+        setItems([])
+        setTotal(0)
+        setHasMore(false)
+        setState('ready')
+        setIsLoading(false)
+      })
+
+    return () => controller.abort()
+  }, [
+    enabled,
+    encryptionReady,
+    query,
+    contentTypes,
+    tags,
+    sourceDevices,
+    extensions,
+    timeRange,
+    limit,
+    refetchNonce,
+    canUseInitialSnapshot,
+  ])
+
+  // Realtime: a new local entry is slotted in (when the current filters are
+  // client-judgeable) or refetched; remote changes always refetch.
+  const onLocalItem = useCallback(
+    (entry: ClipboardEntry) => {
+      const current: LiveSearchQueryModel = {
+        query,
+        contentTypes,
+        tags,
+        sourceDevices,
+        extensions,
+        timeRange,
+      }
+      if (!canPatchLive(current)) {
+        setRefetchNonce(n => n + 1)
+        return
+      }
+      const display = clipboardEntryToDisplayItem(entry)
+      if (!matchesFilter(display, current)) return
+      setItems(prev => prependLiveItem(prev, display))
+      // The browse entry has no local tags; ask for them so the row's chips
+      // and the detail's TAGS block show without a refetch.
+      summarizeEntryTags([display.id])
+        .then(summary => {
+          const userTagIds = summary.tags
+            .filter(tag => tag.applied > 0 && !isBuiltinTagId(tag.tagId))
+            .map(tag => tag.tagId)
+          setItems(prev => patchLiveItem(prev, display.id, { userTagIds }))
+        })
+        .catch(err => log.debug({ err, entryId: display.id }, 'live entry tags unavailable'))
+    },
+    [query, contentTypes, tags, sourceDevices, extensions, timeRange]
+  )
+
+  const onRemoteInvalidate = useCallback(() => setRefetchNonce(n => n + 1), [])
+  const onDeleted = useCallback((id: string) => setItems(prev => removeLiveItem(prev, id)), [])
+
+  useClipboardEventStream({
+    enabled: enabled && encryptionReady,
+    onLocalItem,
+    onRemoteInvalidate,
+    onDeleted,
+  })
+
+  const getCurrentState = useEffectEvent(() => state)
+
+  // Subscribe to the search-index status stream and, once the index reports
+  // `ready` again while we are showing the degraded view, refetch the current
+  // window so it upgrades to the index-backed result (clearing the banner and
+  // restoring filter/keyword search).
+  useEffect(() => {
+    if (!enabled) return
+    return daemonWs.subscribe<SearchStatusEventPayload>(['search'], event => {
+      if (shouldRefetchOnSearchStatus(event.payload, getCurrentState())) {
+        setRefetchNonce(n => n + 1)
+      }
+    })
+  }, [enabled])
+
+  // D8 resync: the WS auto-resubscribes topics after a reconnect, but events
+  // missed during the outage are not replayed. Re-issue the query so the window
+  // reconciles to a fresh snapshot (querySearch is idempotent).
+  useEffect(() => {
+    if (!enabled) return
+    return daemonWs.onReconnect(() => {
+      if (encryptionReady) setRefetchNonce(n => n + 1)
+    })
+  }, [enabled, encryptionReady])
+
+  const growWindow = useCallback(() => {
+    setQueryWindow(current => growQueryWindow(current, model, pageSize))
+  }, [model, pageSize])
+  const refetch = useCallback(() => setRefetchNonce(n => n + 1), [])
+  const removeItem = useCallback((id: string) => setItems(prev => removeLiveItem(prev, id)), [])
+  const patchItem = useCallback(
+    (id: string, patch: Partial<DisplayClipboardItem>) =>
+      setItems(prev => patchLiveItem(prev, id, patch)),
+    []
+  )
+
+  return { items, isLoading, total, hasMore, state, growWindow, refetch, removeItem, patchItem }
+}
