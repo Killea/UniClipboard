@@ -5,6 +5,7 @@ import {
   downloadUpdate as apiDownloadUpdate,
   getDownloadProgress,
   getInstallKind,
+  isUpdateSupported,
   installUpdate as apiInstallUpdate,
   subscribeUpdateAvailable,
   subscribeUpdateProgress,
@@ -43,6 +44,9 @@ export const UpdateProvider: React.FC<UpdateProviderProps> = ({ children }) => {
   }, [])
   const [isCheckingUpdate, setIsCheckingUpdate] = useState(false)
   const [installKind, setInstallKind] = useState<InstallKind | null>(null)
+  // Compile-time backend capability — `false` until the probe confirms
+  // otherwise so update controls never flash enabled on builds without it.
+  const [updateSupported, setUpdateSupported] = useState(false)
   const isSystemManaged = installKind === 'deb' || installKind === 'rpm'
   // Portable Windows zip joins deb/rpm in "can't self-install" territory: its
   // NSIS updater would install into Program Files instead of refreshing the
@@ -94,6 +98,12 @@ export const UpdateProvider: React.FC<UpdateProviderProps> = ({ children }) => {
 
   const checkForUpdates = useCallback(
     async (channelOverride?: UpdateChannel | null) => {
+      // Self-maintained builds have no update feed — the backend guard would
+      // reject the call anyway; returning `null` keeps callers on the normal
+      // "no update" path without an error toast.
+      if (!updateSupported) {
+        return null
+      }
       const channel = channelOverride === undefined ? updateChannel : channelOverride
       const activeCheck = activeCheckRef.current
 
@@ -109,7 +119,7 @@ export const UpdateProvider: React.FC<UpdateProviderProps> = ({ children }) => {
 
       return runCheckForChannel(channel)
     },
-    [runCheckForChannel, updateChannel]
+    [runCheckForChannel, updateChannel, updateSupported]
   )
 
   const doDownloadUpdate = useCallback(async () => {
@@ -213,6 +223,23 @@ export const UpdateProvider: React.FC<UpdateProviderProps> = ({ children }) => {
     }
   }, [])
 
+  // Mount-time: probe whether this build carries in-app update support.
+  // Self-maintained Linux/Windows builds report `false`; update controls then
+  // render disabled instead of calling gated commands that always error.
+  useEffect(() => {
+    let cancelled = false
+    isUpdateSupported()
+      .then(supported => {
+        if (!cancelled) setUpdateSupported(supported)
+      })
+      .catch(err => {
+        if (!cancelled) log.error({ err }, '获取更新支持状态失败')
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
   // Mount-time: probe install kind so deb/rpm users get routed to the
   // package manager dialog instead of the in-app updater. One-shot — the
   // backend caches the answer.
@@ -231,7 +258,10 @@ export const UpdateProvider: React.FC<UpdateProviderProps> = ({ children }) => {
   }, [])
 
   // Mount-time: sync backend snapshot, then attach broadcast listener.
+  // No in-app update support → pending state can never be populated, so
+  // skip the IPC round-trips entirely.
   useEffect(() => {
+    if (!updateSupported) return
     let cancelled = false
     let unlisten: (() => void) | undefined
 
@@ -280,7 +310,7 @@ export const UpdateProvider: React.FC<UpdateProviderProps> = ({ children }) => {
       cancelled = true
       if (unlisten) unlisten()
     }
-  }, [handleDownloadEvent])
+  }, [handleDownloadEvent, updateSupported])
 
   // Listen for scheduler-driven (or manual) `do_check_for_update` results.
   // Without this, a check that resolved AFTER mount would never reach the UI
@@ -288,6 +318,7 @@ export const UpdateProvider: React.FC<UpdateProviderProps> = ({ children }) => {
   // alone only catches state present at mount time. Mirrors the setState
   // shape used by `runCheckForChannel` so manual and broadcast paths converge.
   useEffect(() => {
+    if (!updateSupported) return
     let cancelled = false
     let unlisten: (() => void) | undefined
 
@@ -329,7 +360,7 @@ export const UpdateProvider: React.FC<UpdateProviderProps> = ({ children }) => {
       cancelled = true
       if (unlisten) unlisten()
     }
-  }, [])
+  }, [updateSupported])
 
   const downloadProgress = useMemo<DownloadProgress>(
     () => ({
@@ -353,6 +384,7 @@ export const UpdateProvider: React.FC<UpdateProviderProps> = ({ children }) => {
       installKind,
       isSystemManaged,
       isManualUpdate,
+      updateSupported,
     }),
     [
       state,
@@ -365,6 +397,7 @@ export const UpdateProvider: React.FC<UpdateProviderProps> = ({ children }) => {
       installKind,
       isSystemManaged,
       isManualUpdate,
+      updateSupported,
     ]
   )
 

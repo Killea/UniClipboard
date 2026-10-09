@@ -890,6 +890,7 @@
         "checkUpdate": "Verificar atualizações",
         "checkingUpdate": "Verificando...",
         "updatesTitle": "Atualizações",
+        "updatesSelfMaintained": "Esta compilação é distribuída pelo mantenedor — as atualizações automáticas não estão disponíveis.",
         "autoCheckUpdate": {
           "label": "Verificar atualizações automaticamente",
           "description": "Verificar automaticamente se há novas versões quando o app iniciar"

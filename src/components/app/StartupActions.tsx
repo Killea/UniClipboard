@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { contactAuthor, STARTUP_SUPPORT_URL } from '@/api/startup-support'
 import { checkForUpdate, openUpdaterWindow } from '@/api/updater'
 import { Button } from '@/components/ui/button'
+import { useUpdateSupported } from '@/hooks/useUpdateSupported'
 import type { StartupSnapshot } from '@/lib/startup-progress'
 
 type Props = {
@@ -19,6 +20,9 @@ export function StartupActions({ failed, onExport, onRetry, required, snapshot }
   const [exportState, setExportState] = useState<'idle' | 'working' | 'failed' | 'done'>('idle')
   const [contactState, setContactState] = useState<'idle' | 'working' | 'failed' | 'done'>('idle')
   const [updateState, setUpdateState] = useState<'idle' | 'working' | 'failed'>('idle')
+  // Self-maintained builds ship no update feed — hide the action entirely
+  // rather than letting it fail against the gated backend commands.
+  const updateSupported = useUpdateSupported()
 
   async function exportLogs() {
     if (exportState === 'working') return
@@ -63,7 +67,7 @@ export function StartupActions({ failed, onExport, onRetry, required, snapshot }
             {t(required ? 'upgradeProgress.retry' : 'startupFailure.retry')}
           </Button>
         )}
-        {failed && (
+        {failed && updateSupported && (
           <Button
             variant="outline"
             disabled={updateState === 'working'}

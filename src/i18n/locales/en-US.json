@@ -890,6 +890,7 @@
         "checkUpdate": "Check for updates",
         "checkingUpdate": "Checking...",
         "updatesTitle": "Updates",
+        "updatesSelfMaintained": "This build is distributed by its maintainer — automatic updates are not available.",
         "autoCheckUpdate": {
           "label": "Auto-check for updates",
           "description": "Automatically check for new versions when the app starts"

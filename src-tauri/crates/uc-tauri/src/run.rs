@@ -900,6 +900,13 @@ pub fn run(tauri_ctx: tauri::Context<tauri::Wry>) -> anyhow::Result<()> {
                 //
                 // `LastNotifiedUpdateStore` 一次性 load 到 Mutex —— Phase 4B 通知
                 // 去重时通过 `deps.last_notified` 写入并 persist。
+                //
+                // Self-maintained Linux/Windows builds carry no signed update
+                // feed: skip the scheduler entirely (store loads, notify
+                // context, wake source, task spawn). `update_scheduler::run`
+                // repeats the same compile-time guard so direct callers stay
+                // covered.
+                if crate::commands::updater::updates_supported() {
                 let last_notified_path =
                     runtime.desktop().storage_paths().last_notified_update_path();
                 let store = crate::update_scheduler::LastNotifiedUpdateStore::load(
@@ -980,6 +987,7 @@ pub fn run(tauri_ctx: tauri::Context<tauri::Wry>) -> anyhow::Result<()> {
                             .await;
                     })
                     .await;
+                }
             });
 
             info!("App runtime initialized, backend initialization started");

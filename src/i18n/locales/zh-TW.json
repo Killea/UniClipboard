@@ -890,6 +890,7 @@
         "checkUpdate": "檢查更新",
         "checkingUpdate": "正在檢查...",
         "updatesTitle": "更新",
+        "updatesSelfMaintained": "此版本由維護方自行分發，自動更新不可用。",
         "autoCheckUpdate": {
           "label": "自動檢查更新",
           "description": "應用程式啟動時自動檢查是否有新版本"

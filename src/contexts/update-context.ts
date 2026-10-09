@@ -49,6 +49,13 @@ export interface UpdateContextType {
    * these to `PackageManagerUpdateDialog` instead of self-installing.
    */
   isManualUpdate: boolean
+  /**
+   * `false` on self-maintained Linux/Windows builds: the entire update flow
+   * (check / download / install) is compiled off there, so update controls
+   * must render disabled with an explanatory hint. `false` is also the
+   * pre-probe default — controls stay disabled until support is confirmed.
+   */
+  updateSupported: boolean
 }
 
 export const UpdateContext = createContext<UpdateContextType | undefined>(undefined)

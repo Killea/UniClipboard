@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { contactAuthor, exportStartupLogs, STARTUP_SUPPORT_URL } from '@/api/startup-support'
 import { checkForUpdate, openUpdaterWindow } from '@/api/updater'
 import { Button } from '@/components/ui/button'
+import { useUpdateSupported } from '@/hooks/useUpdateSupported'
 
 type StatusAction = 'export' | 'contact' | 'update'
 
@@ -28,6 +29,9 @@ export function AppStatusActions({ onRetry, retrying, versionTooOld }: Props) {
   const { t } = useTranslation()
   const [action, setAction] = useState<StatusAction | null>(null)
   const [feedback, setFeedback] = useState<{ error: boolean; message: string } | null>(null)
+  // Self-maintained builds ship no update feed — hide the action instead of
+  // letting it hit the gated backend commands.
+  const updateSupported = useUpdateSupported()
 
   async function runAction(next: StatusAction) {
     if (action) return
@@ -59,18 +63,20 @@ export function AppStatusActions({ onRetry, retrying, versionTooOld }: Props) {
             {t(retrying ? 'startupFailure.retrying' : 'startupFailure.retry')}
           </Button>
         )}
-        <Button
-          variant={versionTooOld ? 'default' : 'outline'}
-          disabled={action !== null || retrying}
-          onClick={() => void runAction('update')}
-        >
-          {action === 'update' ? (
-            <Loader2 className="size-4 animate-spin" />
-          ) : (
-            <ArrowUpCircle className="size-4" />
-          )}
-          {t(versionTooOld ? 'startupFailure.update' : 'settings.sections.about.checkUpdate')}
-        </Button>
+        {updateSupported && (
+          <Button
+            variant={versionTooOld ? 'default' : 'outline'}
+            disabled={action !== null || retrying}
+            onClick={() => void runAction('update')}
+          >
+            {action === 'update' ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <ArrowUpCircle className="size-4" />
+            )}
+            {t(versionTooOld ? 'startupFailure.update' : 'settings.sections.about.checkUpdate')}
+          </Button>
+        )}
         <Button variant="ghost" disabled={action !== null} onClick={() => void runAction('export')}>
           {action === 'export' ? (
             <Loader2 className="size-4 animate-spin" />

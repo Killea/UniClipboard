@@ -55,6 +55,23 @@ pub const UPDATE_PROGRESS_EVENT: &str = "update-download-progress";
 /// until the next mount.
 pub const UPDATE_AVAILABLE_EVENT: &str = "update-available";
 
+/// Whether in-app updates exist on this build at all.
+///
+/// Self-maintained Linux and Windows distributions ship outside the official
+/// release channel — there is no signed update feed for them to contact — so
+/// the entire update flow (background checks, download, install, tray/manual
+/// check entry points) is disabled at compile time on those targets. macOS
+/// keeps the official updater.
+pub const fn updates_supported() -> bool {
+    !(cfg!(target_os = "linux") || cfg!(target_os = "windows"))
+}
+
+/// Stable machine-readable error returned by gated update commands on
+/// unsupported builds.
+pub(crate) fn updates_disabled_err() -> String {
+    "updates-disabled".to_string()
+}
+
 /// Events emitted during update download.
 ///
 /// Carried both via the broadcast `UPDATE_PROGRESS_EVENT` (background
@@ -283,6 +300,9 @@ pub(crate) async fn do_check_for_update(
     channel: Option<UpdateChannel>,
     pending: &PendingUpdate,
 ) -> Result<Option<UpdateMetadata>, String> {
+    if !updates_supported() {
+        return Err(updates_disabled_err());
+    }
     {
         let guard = lock_state(&pending.0)?;
         if matches!(*guard, PendingUpdateState::Downloading { .. }) {
@@ -656,6 +676,9 @@ pub(crate) async fn do_download_update(
     app: &AppHandle,
     pending: &PendingUpdate,
 ) -> Result<(), DownloadError> {
+    if !updates_supported() {
+        return Err(DownloadError::Precondition(updates_disabled_err()));
+    }
     let cancel = Arc::new(Notify::new());
 
     let (update, info) = {
@@ -1006,6 +1029,10 @@ pub async fn install_update(
     );
     record_trace_fields(&span, &_trace);
 
+    if !updates_supported() {
+        return Err(updates_disabled_err());
+    }
+
     async move {
         // Inspect state while holding the lock; only `mem::take` for the
         // installable variants. For the refusal variants we never touch the
@@ -1197,8 +1224,23 @@ pub async fn open_updater_window(
     _trace: Option<TraceMetadata>,
 ) -> Result<(), String> {
     let _ = _trace;
+    if !updates_supported() {
+        return Err(updates_disabled_err());
+    }
     crate::update_scheduler::open_or_focus_updater_window(&app, false)
         .map_err(|err| format!("failed to open updater window: {err}"))
+}
+
+/// Whether this build ships with in-app update support.
+///
+/// Compile-time constant surfaced to the frontend so update controls render as
+/// disabled (with an explanatory hint) on self-maintained Linux/Windows builds
+/// instead of failing on invoke.
+#[tauri::command]
+#[specta::specta]
+pub async fn is_update_supported(_trace: Option<TraceMetadata>) -> Result<bool, String> {
+    let _ = _trace;
+    Ok(updates_supported())
 }
 
 /// Detect how the current binary was installed.
@@ -1298,6 +1340,9 @@ pub async fn skip_version(
     _trace: Option<TraceMetadata>,
 ) -> Result<(), String> {
     let _ = _trace;
+    if !updates_supported() {
+        return Err(updates_disabled_err());
+    }
     let app_version = app.package_info().version.to_string();
     let settings_client = app
         .try_state::<DaemonConnectionState>()

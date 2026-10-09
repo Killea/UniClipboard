@@ -76,6 +76,7 @@ pub fn build() -> Builder<tauri::Wry> {
         crate::commands::updater::get_download_progress,
         crate::commands::updater::install_update,
         crate::commands::updater::get_install_kind,
+        crate::commands::updater::is_update_supported,
         crate::commands::updater::dev_open_updater_window,
         crate::commands::updater::open_updater_window,
         crate::commands::updater::skip_version,

@@ -184,6 +184,23 @@ export async function installUpdate(
 }
 
 /**
+ * Whether this build ships with in-app update support.
+ *
+ * Compile-time constant on the backend — self-maintained Linux/Windows builds
+ * return `false`, so the UI should render update controls disabled rather than
+ * invoke `checkForUpdate`/`downloadUpdate`/`installUpdate` (which return the
+ * `updates-disabled` error there).
+ */
+export async function isUpdateSupported(): Promise<boolean> {
+  try {
+    return await commands.isUpdateSupported()
+  } catch (error) {
+    log.error({ err: error }, '查询更新支持状态失败')
+    throw error
+  }
+}
+
+/**
  * Probe how the current binary was installed. Cached on the backend after the
  * first call, so it's safe to invoke unconditionally on mount.
  *

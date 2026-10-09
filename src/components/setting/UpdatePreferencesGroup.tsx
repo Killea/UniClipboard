@@ -35,7 +35,10 @@ function normalizeUpdateChannel(value: string): UpdateChannel | null {
 export function UpdatePreferencesGroup() {
   const { t } = useTranslation()
   const { setting, updateGeneralSetting } = useSetting()
-  const { checkForUpdates } = useUpdate()
+  // `updateSupported` is `false` while the backend probe is in flight and on
+  // self-maintained Linux/Windows builds, where no update feed exists — the
+  // controls render disabled with a persistent hint in both cases.
+  const { checkForUpdates, updateSupported } = useUpdate()
   const [alphaWarningOpen, setAlphaWarningOpen] = useState(false)
   const [autoCheckUpdate, setAutoCheckUpdate] = useOptimisticSetting(
     setting?.general.autoCheckUpdate ?? true,
@@ -91,11 +94,20 @@ export function UpdatePreferencesGroup() {
   return (
     <>
       <SettingGroup title={t('settings.sections.about.updatesTitle')}>
+        {!updateSupported && (
+          <p className="text-ui-caption text-muted-foreground">
+            {t('settings.sections.about.updatesSelfMaintained')}
+          </p>
+        )}
         <SettingRow
           label={t('settings.sections.about.autoCheckUpdate.label')}
           description={t('settings.sections.about.autoCheckUpdate.description')}
         >
-          <Switch checked={autoCheckUpdate} onCheckedChange={setAutoCheckUpdate} />
+          <Switch
+            checked={updateSupported && autoCheckUpdate}
+            onCheckedChange={setAutoCheckUpdate}
+            disabled={!updateSupported}
+          />
         </SettingRow>
 
         <SettingRow
@@ -107,9 +119,9 @@ export function UpdatePreferencesGroup() {
           }
         >
           <Switch
-            checked={autoDownloadUpdate && autoCheckUpdate}
+            checked={updateSupported && autoDownloadUpdate && autoCheckUpdate}
             onCheckedChange={setAutoDownloadUpdate}
-            disabled={!autoCheckUpdate}
+            disabled={!updateSupported || !autoCheckUpdate}
           />
         </SettingRow>
 
@@ -117,7 +129,11 @@ export function UpdatePreferencesGroup() {
           label={t('settings.sections.about.updateChannel.label')}
           description={t('settings.sections.about.updateChannel.description')}
         >
-          <Select value={updateChannel ?? 'auto'} onValueChange={handleUpdateChannelChange}>
+          <Select
+            value={updateChannel ?? 'auto'}
+            onValueChange={handleUpdateChannelChange}
+            disabled={!updateSupported}
+          >
             <SelectTrigger className="w-40">
               <SelectValue />
             </SelectTrigger>

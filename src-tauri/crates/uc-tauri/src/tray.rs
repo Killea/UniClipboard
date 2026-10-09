@@ -79,11 +79,14 @@ impl TrayState {
         let open = MenuItem::with_id(app, "tray.open", labels.open, true, None::<&str>)?;
         let settings =
             MenuItem::with_id(app, "tray.settings", labels.settings, true, None::<&str>)?;
+        // Self-maintained Linux/Windows builds have no update feed; keep the
+        // item visible but disabled so the surface reads as "not offered"
+        // rather than silently missing.
         let check_update = MenuItem::with_id(
             app,
             "tray.check_update",
             labels.check_update,
-            true,
+            crate::commands::updater::updates_supported(),
             None::<&str>,
         )?;
         let restart = MenuItem::with_id(app, "tray.restart", labels.restart, true, None::<&str>)?;

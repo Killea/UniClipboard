@@ -74,6 +74,7 @@ const AboutSection: React.FC = () => {
     downloadProgress,
     installKind,
     isManualUpdate,
+    updateSupported,
   } = useUpdate()
   const [appVersion, setAppVersion] = useState<string>('')
   const [updateDialogOpen, setUpdateDialogOpen] = useState(false)
@@ -187,7 +188,8 @@ const AboutSection: React.FC = () => {
           size="sm"
           className="ml-auto w-40 max-w-full transition-colors"
           onClick={handleCheckUpdate}
-          disabled={settingLoading || isCheckingUpdate}
+          disabled={settingLoading || isCheckingUpdate || !updateSupported}
+          title={updateSupported ? undefined : t('settings.sections.about.updatesSelfMaintained')}
           aria-busy={isCheckingUpdate}
         >
           <span className="inline-flex min-w-0 items-center justify-center gap-1.5">

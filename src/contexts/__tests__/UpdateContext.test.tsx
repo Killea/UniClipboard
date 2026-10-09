@@ -6,6 +6,7 @@ import {
   checkForUpdate,
   downloadUpdate,
   getDownloadProgress,
+  isUpdateSupported,
   subscribeUpdateProgress,
   type DownloadEvent,
 } from '@/api/updater'
@@ -30,6 +31,7 @@ vi.mock('@/api/updater', () => ({
     date: null,
   }),
   getInstallKind: vi.fn().mockResolvedValue('macos'),
+  isUpdateSupported: vi.fn().mockResolvedValue(true),
   subscribeUpdateProgress: vi.fn(),
   subscribeUpdateAvailable: vi.fn().mockResolvedValue(() => {}),
 }))
@@ -118,6 +120,7 @@ describe('UpdateProvider', () => {
   const checkForUpdateMock = vi.mocked(checkForUpdate)
   const downloadUpdateMock = vi.mocked(downloadUpdate)
   const getDownloadProgressMock = vi.mocked(getDownloadProgress)
+  const isUpdateSupportedMock = vi.mocked(isUpdateSupported)
   const subscribeUpdateProgressMock = vi.mocked(subscribeUpdateProgress)
 
   beforeEach(() => {
@@ -134,6 +137,8 @@ describe('UpdateProvider', () => {
       body: null,
       date: null,
     })
+    isUpdateSupportedMock.mockReset()
+    isUpdateSupportedMock.mockResolvedValue(true)
     subscribeUpdateProgressMock.mockReset()
     subscribeUpdateProgressMock.mockImplementation(async () => () => {})
   })
@@ -324,5 +329,22 @@ describe('UpdateProvider', () => {
     await waitFor(() => {
       expect(checkForUpdateMock).toHaveBeenCalledWith('alpha')
     })
+  })
+
+  it('never reaches the backend when the build has no update support', async () => {
+    isUpdateSupportedMock.mockResolvedValue(false)
+
+    renderWithSetting(baseSetting, <AutoCheckOnMountConsumer />)
+
+    // Give the support probe and the auto-check effect time to settle.
+    await waitFor(() => {
+      expect(isUpdateSupportedMock).toHaveBeenCalled()
+    })
+    await new Promise(resolve => setTimeout(resolve, 0))
+
+    expect(checkForUpdateMock).not.toHaveBeenCalled()
+    expect(getDownloadProgressMock).not.toHaveBeenCalled()
+    expect(subscribeUpdateProgressMock).not.toHaveBeenCalled()
+    expect(screen.getByTestId('phase').textContent).toBe('idle')
   })
 })

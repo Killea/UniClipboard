@@ -96,6 +96,18 @@ pub async fn run(
 ) {
     info!(target: "update_scheduler", "starting");
 
+    // Self-maintained Linux/Windows builds ship outside the official release
+    // channel — no signed feed exists for them, so the scheduler exits instead
+    // of polling it. `do_check_for_update` / `do_download_update` carry the
+    // same guard, so every caller of the update flow is covered.
+    if !crate::commands::updater::updates_supported() {
+        info!(
+            target: "update_scheduler",
+            "update scheduler disabled: self-maintained distribution"
+        );
+        return;
+    }
+
     // Phase 4C: install_kind 在进程生命期内不变（用户不会从 dpkg 包切到 rpm
     // 包还跑同一个 binary）。检测一次缓存在 task stack：Linux 路径会跑
     // `dpkg-query` / `rpm -qf` 子进程，从 async 上下文同步调用会短暂阻塞

@@ -67,6 +67,7 @@ function buildUpdateValue(state: UpdateState): UpdateContextType {
     installKind: 'macos',
     isSystemManaged: false,
     isManualUpdate: false,
+    updateSupported: true,
   }
 }
 

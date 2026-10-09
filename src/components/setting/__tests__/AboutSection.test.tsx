@@ -58,6 +58,7 @@ interface RenderAboutSectionOptions {
   updateGeneralSetting?: SettingContextType['updateGeneralSetting']
   checkForUpdates?: UpdateContextType['checkForUpdates']
   isCheckingUpdate?: boolean
+  updateSupported?: boolean
 }
 
 function renderAboutSection({
@@ -67,6 +68,7 @@ function renderAboutSection({
     .mockResolvedValue(undefined),
   checkForUpdates = vi.fn<UpdateContextType['checkForUpdates']>().mockResolvedValue(null),
   isCheckingUpdate = false,
+  updateSupported = true,
 }: RenderAboutSectionOptions = {}) {
   const user = userEvent.setup()
 
@@ -111,6 +113,7 @@ function renderAboutSection({
           installKind: 'macos',
           isSystemManaged: false,
           isManualUpdate: false,
+          updateSupported,
         }}
       >
         <AboutSection />
@@ -301,5 +304,28 @@ describe('AboutSection', () => {
       })
     })
     expect(checkForUpdates).toHaveBeenCalledWith('alpha')
+  })
+
+  it('disables every update control and shows the self-maintained hint on unsupported builds', async () => {
+    const checkForUpdates = vi.fn().mockResolvedValue(null)
+    const { user } = renderAboutSection({ updateSupported: false, checkForUpdates })
+
+    expect(screen.getByText('settings.sections.about.updatesSelfMaintained')).toBeInTheDocument()
+
+    const checkButton = screen.getByRole('button', {
+      name: 'settings.sections.about.checkUpdate',
+    })
+    expect(checkButton).toBeDisabled()
+
+    const [autoCheckSwitch, autoDownloadSwitch] = screen.getAllByRole('switch')
+    expect(autoCheckSwitch).toBeDisabled()
+    expect(autoDownloadSwitch).toBeDisabled()
+    expect(autoCheckSwitch).toHaveAttribute('aria-checked', 'false')
+    expect(autoDownloadSwitch).toHaveAttribute('aria-checked', 'false')
+
+    expect(screen.getByRole('combobox')).toBeDisabled()
+
+    await user.click(checkButton)
+    expect(checkForUpdates).not.toHaveBeenCalled()
   })
 })

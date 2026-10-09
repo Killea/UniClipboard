@@ -293,6 +293,17 @@ export const commands = {
 	timestamp: number,
 } | null) => typedError<InstallKind, string>(__TAURI_INVOKE("get_install_kind", { trace })),
 	/**
+	 *  Whether this build ships with in-app update support.
+	 * 
+	 *  Compile-time constant surfaced to the frontend so update controls render as
+	 *  disabled (with an explanatory hint) on self-maintained Linux/Windows builds
+	 *  instead of failing on invoke.
+	 */
+	isUpdateSupported: (trace: {
+	trace_id: string,
+	timestamp: number,
+} | null) => typedError<boolean, string>(__TAURI_INVOKE("is_update_supported", { trace })),
+	/**
 	 *  Dev-only: manually open the Sparkle-style updater window with mock data.
 	 * 
 	 *  Wired to a debug-build button in `AboutSection.tsx` so we can iterate on

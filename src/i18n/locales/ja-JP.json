@@ -890,6 +890,7 @@
         "checkUpdate": "更新を確認します",
         "checkingUpdate": "確認中...",
         "updatesTitle": "アップデート",
+        "updatesSelfMaintained": "このビルドは配布元が個別に管理しています。自動アップデートは利用できません。",
         "autoCheckUpdate": {
           "label": "アップデートを自動チェックする",
           "description": "アプリの起動時に新しいバージョンを自動的にチェックする"
