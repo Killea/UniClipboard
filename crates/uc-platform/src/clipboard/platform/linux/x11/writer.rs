@@ -37,6 +37,9 @@ use x11rb::protocol::xproto::{
 use x11rb::wrapper::ConnectionExt as _;
 use x11rb::CURRENT_TIME;
 
+use super::super::write_offers::{
+    extra_offers_for_uri_list, is_uri_list_mime, GNOME_COPIED_FILES_MIME,
+};
 use super::atoms::default_mime_for_format;
 use super::connection::X11Server;
 
@@ -93,6 +96,9 @@ pub(super) fn install_snapshot(
     }
 
     let mut payloads: HashMap<Atom, Arc<Vec<u8>>> = HashMap::new();
+    // Raw bytes of the first uri-list rep, used after the loop to derive the
+    // extra offers a native file-manager copy advertises.
+    let mut uri_list_bytes: Option<Arc<Vec<u8>>> = None;
     for rep in &snapshot.representations {
         let mime = rep
             .mime
@@ -153,7 +159,39 @@ pub(super) fn install_snapshot(
             }
             _ => {}
         }
+        if uri_list_bytes.is_none() && is_uri_list_mime(&mime) {
+            uri_list_bytes = Some(bytes.clone());
+        }
         payloads.insert(atom, bytes);
+    }
+
+    // A file list must look like a native file-manager copy or Nautilus and
+    // the GTK family never enable Paste: additionally serve
+    // `x-special/gnome-copied-files` ("copy\n" + URIs) and `text/plain`
+    // (decoded paths). `entry().or_insert` keeps a genuine rep's payload
+    // authoritative if it already claimed one of these atoms.
+    if let Some(list_bytes) = uri_list_bytes {
+        for (mime, extra) in extra_offers_for_uri_list(&list_bytes) {
+            let extra = Arc::new(extra);
+            match mime.as_str() {
+                GNOME_COPIED_FILES_MIME => {
+                    payloads.entry(atoms.GNOME_COPIED_FILES).or_insert(extra);
+                }
+                "text/plain" => {
+                    for atom in [
+                        atoms.UTF8_STRING,
+                        atoms.STRING,
+                        atoms.TEXT,
+                        atoms.TEXT_PLAIN,
+                        atoms.TEXT_PLAIN_UTF8,
+                        atoms.TEXT_PLAIN_UTF8_BIG,
+                    ] {
+                        payloads.entry(atom).or_insert_with(|| extra.clone());
+                    }
+                }
+                _ => {}
+            }
+        }
     }
 
     if payloads.is_empty() {
@@ -265,6 +303,12 @@ pub(super) fn service_selection_request(
         );
         false
     };
+    debug!(
+        target = %server.atom_name(event.target),
+        requestor = ?event.requestor,
+        success,
+        "x11 selection-request serviced"
+    );
 
     let notify = SelectionNotifyEvent {
         response_type: SELECTION_NOTIFY_EVENT,

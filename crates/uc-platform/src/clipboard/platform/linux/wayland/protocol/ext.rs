@@ -39,6 +39,7 @@ use wayland_protocols::ext::data_control::v1::client::{
 use crate::clipboard::event_loop::{PlatformClipboardEventLoop, ShutdownRx};
 use crate::clipboard::watcher::ClipboardWatcher;
 
+use super::super::super::write_offers::{extra_offers_for_uri_list, is_uri_list_mime};
 use super::super::backend::OfferLike;
 use super::super::snapshot::build_from_offer;
 use super::super::write_payload::write_payload;
@@ -668,6 +669,10 @@ fn handle_write(
 
     let source = manager.create_data_source(qh, ());
     let mut payloads: HashMap<String, Arc<Vec<u8>>> = HashMap::new();
+    // Derived file-manager offers collected while iterating reps, applied
+    // afterwards with `contains_key` guards so a genuine rep always wins a
+    // mime over a derived copy (e.g. a real `text/plain` beats file paths).
+    let mut deferred_offers: Vec<(String, Arc<Vec<u8>>)> = Vec::new();
 
     for rep in &snapshot.representations {
         let Some(primary_mime) = rep
@@ -708,6 +713,25 @@ fn handle_write(
             source.offer(mime.clone());
             payloads.insert(mime, Arc::clone(&bytes));
         }
+
+        // File sets additionally advertise the payload variants Linux file
+        // managers expect (x-special/gnome-copied-files for Nautilus paste,
+        // text/plain paths as the text fallback). See write_offers.rs.
+        if is_uri_list_mime(&primary_mime) {
+            for (mime, extra) in extra_offers_for_uri_list(&bytes) {
+                for offered in super::offer_mimes_for(&mime) {
+                    deferred_offers.push((offered, Arc::new(extra.clone())));
+                }
+            }
+        }
+    }
+
+    for (mime, bytes) in deferred_offers {
+        if payloads.contains_key(&mime) {
+            continue;
+        }
+        source.offer(mime.clone());
+        payloads.insert(mime, bytes);
     }
 
     if payloads.is_empty() {

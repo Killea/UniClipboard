@@ -25,6 +25,7 @@ pub(super) mod x11;
 /// the `linux` subtree; the `pub(super)` (== `pub(in ...::linux)`) helpers
 /// inside it are reachable from every descendant of `linux`.
 mod mime;
+mod write_offers;
 
 use crate::clipboard::SystemClipboard;
 use crate::clipboard::SystemClipboardSnapshot;
