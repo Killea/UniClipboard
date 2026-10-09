@@ -30,33 +30,15 @@ helping keep UniClipboard users safe.
 
 ## Verifying Release Downloads
 
-UniClipboard uses two **independent** signing mechanisms, both built on
-[minisign](https://jedisct1.github.io/minisign/)-compatible Ed25519 keys. The
-two keys are intentionally separate so they can be rotated independently.
-
-### 1. In-app auto-updater (always on)
-
-The Tauri auto-updater cryptographically verifies every update bundle it
-downloads against a public key embedded in the application. You do not need to
-do anything: an update whose signature is missing or invalid is rejected
-automatically.
-
-For reference, the updater public key is:
-
-```
-untrusted comment: minisign public key: B2680836865C2738
-RWQ4J1yGNghostY9tL54b8pVCWvFIc7ebO9iD11Hvf2fqcMYemYwtIWb
-```
-
-This key signs the **updater payloads only** — `*.app.tar.gz` (macOS),
-`*.AppImage.tar.gz` (Linux) and `*.nsis.zip` (Windows) — whose detached `*.sig`
-files are attached to every GitHub release. It is the same key shipped in the
-application configuration, so it is fully public.
+This self-maintained build ships **without** an in-app auto-updater: the
+application never downloads or installs updates on its own. Upgrades are
+performed by manually installing a newer release, so the release-artifact
+signature below is the single mechanism for verifying downloads.
 
 > On macOS, release builds are additionally Apple-notarized and code-signed, so
 > Gatekeeper (`spctl --assess --type execute`) validates the `.app` directly.
 
-### 2. Release artifacts (`SHA256SUMS`)
+### Release artifacts (`SHA256SUMS`)
 
 Starting with the first signed release, every GitHub release includes:
 

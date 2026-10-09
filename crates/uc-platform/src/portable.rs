@@ -26,7 +26,7 @@
 //! implementation and **one** cache (no drift). This module re-exports the
 //! public API so existing call paths keep resolving:
 //!
-//!   - external: `uc_platform::portable::is_portable()` (uc-tauri updater), and
+//!   - external: `uc_platform::portable::is_portable()` (host shells), and
 //!   - internal: `crate::portable::{portable_data_root, is_portable}`
 //!     (app_dirs, secure_storage).
 

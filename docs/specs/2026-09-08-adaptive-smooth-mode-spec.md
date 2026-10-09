@@ -33,7 +33,7 @@
 | `apps/gui/src/components/motion/input.tsx` | 有命令式 `animate()` 错误抖动 | 公共控制需覆盖取消、复位与静态错误提示 |
 | `crates/uc-tauri/src/run.rs`、`specta_builder.rs` | 管理桌面状态、集中注册类型化命令 | 新服务归此壳层（Tauri 适配 crate） |
 | `Cargo.lock` | 已锁定 `sysinfo 0.38.4`，`uc-tauri` 尚未直接依赖 | 原生 CPU/内存采集优先复用同版本，不再引入完整系统监控栈 |
-| `apps/gui/src/updater/main.tsx` | 另一个独立界面入口 | 纳入效果覆盖审计；不改更新业务 |
+| `apps/gui/src/updater/main.tsx` | 另一个独立界面入口 | 已随应用内自动更新整体移除（本自维护分支） |
 
 本地安装的 Motion 代码也已核实：`useReducedMotion()` 在 `useState` 初始化时读取系统值，并不读取本产品的用户选择；不能把替换根部属性当成所有已挂载组件都会立即更新的证据。实施时以锁定版本的源码和运行测试为准。
 

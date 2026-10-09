@@ -96,7 +96,7 @@ def main():
         menu = seen['tray-menu-initial']['detail']
         assert labels(menu)[0] in ('Enable Sync', 'Disable Sync'), labels(menu)
         assert seen['tray-language-en']['ok']
-        assert labels(menu)[1:] == ['Device Sync', '-', 'Open', 'Settings', 'Check for Updates…', '-', 'Restart',
+        assert labels(menu)[1:] == ['Device Sync', '-', 'Open', 'Settings', '-', 'Restart',
                                     'Lightweight Mode (Background Sync)', 'Quit'], labels(menu)
         listed = seen['tray-device-listed']['detail']
         assert listed['checked'] is True and listed['enabled'] is True, listed
@@ -106,7 +106,7 @@ def main():
         assert off['checked'] is False and off['send'] is False and off['receive'] is False, off
         assert on['checked'] is True and on['send'] is True and on['receive'] is True, on
         zh = seen['tray-menu-zh']['detail']
-        assert labels(zh)[1:] == ['设备同步', '-', '打开', '设置', '检查更新…', '-', '重启', '轻量模式（后台同步）', '退出'], labels(zh)
+        assert labels(zh)[1:] == ['设备同步', '-', '打开', '设置', '-', '重启', '轻量模式（后台同步）', '退出'], labels(zh)
         submenu = [i for i in menu if isinstance(i, dict) and 'items' in i][0]['items']
         assert [i['label'] for i in submenu] == ['tray-peer-b'], submenu
 

@@ -27,8 +27,8 @@ sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(HERE / 'linux' / 'tray_probe'))
 from native_wayland_probe import sh, procs, socket_classes, environ_of  # noqa: E402
 
-ROOT_ORDER = ['Device Sync', '-', 'Open', 'Settings', 'Check for Updates…', '-', 'Restart', 'Lightweight Mode (Background Sync)', 'Quit']
-ZH = ['设备同步', '-', '打开', '设置', '检查更新…', '-', '重启', '轻量模式（后台同步）', '退出']
+ROOT_ORDER = ['Device Sync', '-', 'Open', 'Settings', '-', 'Restart', 'Lightweight Mode (Background Sync)', 'Quit']
+ZH = ['设备同步', '-', '打开', '设置', '-', '重启', '轻量模式（后台同步）', '退出']
 MENU_CRITICAL = re.compile(r'(gtk_container_foreach|gtk_menu_shell_insert|gtk_menu_item_set_submenu|gtk_menu_|GtkMenu|GTK_IS_MENU)')
 
 

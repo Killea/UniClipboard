@@ -29,7 +29,7 @@ sys.path.insert(0, str(HERE / 'linux' / 'tray_probe'))
 from sni_host import SniHost, flat  # noqa: E402
 from linux_xvfb_run import Gui, pid_alive, PASSPHRASE, read_steps  # noqa: E402
 
-ROOT_ORDER = ['Device Sync', '-', 'Open', 'Settings', 'Check for Updates…', '-', 'Restart', 'Lightweight Mode (Background Sync)', 'Quit']
+ROOT_ORDER = ['Device Sync', '-', 'Open', 'Settings', '-', 'Restart', 'Lightweight Mode (Background Sync)', 'Quit']
 MENU_CRITICAL = re.compile(r'(gtk_container_foreach|gtk_menu_shell_insert|gtk_menu_item_set_submenu|gtk_menu_|GtkMenu|GTK_IS_MENU)')
 
 
@@ -208,7 +208,7 @@ def main():
         lay = host.wait(lambda l: labels(l)[0] == sync0, 30, 'sync restores')
         check('7 and the label returns', lay is not None, labels(lay)[0] if lay else None)
 
-        ZH = ['设备同步', '-', '打开', '设置', '检查更新…', '-', '重启', '轻量模式（后台同步）', '退出']
+        ZH = ['设备同步', '-', '打开', '设置', '-', '重启', '轻量模式（后台同步）', '退出']
         def lang_calls():
             return [r['detail'] for r in read_steps(gui.evidence) if r['step'] == 'tray-language-call']
         # The frontend's own settings effect also calls set_tray_language (once, when its settings load); our change must come after it.

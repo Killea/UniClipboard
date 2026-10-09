@@ -169,10 +169,10 @@ def main():
             _, rd = open_and_read('m1')
             titles = [i['title'] for i in rd.get('menu', [])]
             # The labels follow the session language, so the structure is checked rather than the words: sync, device sync, separator, open,
-            # settings, check for updates, separator, restart, lightweight mode, quit.
+            # settings, separator, restart, lightweight mode, quit.
             shape = [bool(t) for t in titles]
-            check('3 right click on this pid\'s status item opens the real menu with its ten entries (eight items, two separators)',
-                  rd.get('ok') and shape == [True, True, False, True, True, True, False, True, True, True], {'titles': titles})
+            check('3 right click on this pid\'s status item opens the real menu with its nine entries (seven items, two separators)',
+                  rd.get('ok') and shape == [True, True, False, True, True, False, True, True, True], {'titles': titles})
             label0 = titles[0] if titles else None
             p = press(label0)
             s1 = wait_daemon(lambda x: ((x.get('sync') or {}).get('syncEnabled')) is (not sync0))

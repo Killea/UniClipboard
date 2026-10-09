@@ -45,7 +45,7 @@ portable 同时承担另一个语义：`is_portable()` 为真时 daemon 选择 *
 
 ### `$APPIMAGE` 的可信度
 
-结论：**校验形态，不校验来源**。runtime 从 `/proc/self/exe` 的 realpath 设置它，但任何父进程都能伪造；能伪造环境的人同样能设置 `HOME`、`XDG_DATA_HOME`，所以它用于数据根不引入新的信任边界，并且现有代码（`install_kind_linux.go`、`restart_exe_linux.go`、`autostart_linux.go`、Tauri updater）已经这样使用它。校验项：绝对路径、普通文件、可执行文件位于 `APPDIR` 下（挡住继承来的陈旧变量）、`.home` 存在且可写。无法证明的部分（伪造的 `APPIMAGE` 指向另一个存在的文件）写入「不证明的边界」。
+结论：**校验形态，不校验来源**。runtime 从 `/proc/self/exe` 的 realpath 设置它，但任何父进程都能伪造；能伪造环境的人同样能设置 `HOME`、`XDG_DATA_HOME`，所以它用于数据根不引入新的信任边界，并且现有代码（`restart_exe_linux.go`、`autostart_linux.go`）已经这样使用它（原 `install_kind_linux.go` 与 Tauri updater 已随自动更新移除）。校验项：绝对路径、普通文件、可执行文件位于 `APPDIR` 下（挡住继承来的陈旧变量）、`.home` 存在且可写。无法证明的部分（伪造的 `APPIMAGE` 指向另一个存在的文件）写入「不证明的边界」。
 
 ### 与 daemon 的契约
 

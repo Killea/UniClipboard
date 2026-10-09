@@ -209,7 +209,7 @@ chmod +x UniClipboard_<version>_amd64.AppImage
 ./UniClipboard_<version>_amd64.AppImage
 ```
 
-> Packaged installs (COPR / Snap / rpm / deb) do not auto-update from inside the app — use your package manager. The AppImage is what the in-app updater uses on Linux.
+> This build has no in-app auto-updater: every install form upgrades by installing a newer build. Installs through a package manager (COPR / Snap / rpm / deb) upgrade through that package manager; AppImage, `.app`, and portable builds are replaced by downloading and installing the newer release manually.
 
 ### Homebrew (macOS)
 

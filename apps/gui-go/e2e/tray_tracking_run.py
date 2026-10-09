@@ -65,8 +65,8 @@ def build_tools():
             marker.write_text(src_hash + '\n')
         info[name] = {'toolchain': subprocess.run(cmd[:1] + (['--version'] if cmd[0] == 'swiftc' else ['version']), capture_output=True, text=True).stdout.strip().splitlines()[0:1], 'sourceSha256': src_hash, 'binarySha256': hashlib.sha256(binary.read_bytes()).hexdigest(), 'command': ' '.join(cmd)}
     return info
-EN = ['Device Sync', '-', 'Open', 'Settings', 'Check for Updates…', '-', 'Restart', 'Lightweight Mode (Background Sync)', 'Quit']
-ZH = ['设备同步', '-', '打开', '设置', '检查更新…', '-', '重启', '轻量模式（后台同步）', '退出']
+EN = ['Device Sync', '-', 'Open', 'Settings', '-', 'Restart', 'Lightweight Mode (Background Sync)', 'Quit']
+ZH = ['设备同步', '-', '打开', '设置', '-', '重启', '轻量模式（后台同步）', '退出']
 
 
 def titles(items):

@@ -184,7 +184,7 @@ uniclipboard-desktop/
 │   │   ├── store/           # Redux slices
 │   │   └── api/             # Host command invocations (frozen contract)
 │
-├── apps/gui-go/             # Go/Wails desktop host: app.json (identity, version, updater key), icons, packaging
+├── apps/gui-go/             # Go/Wails desktop host: app.json (identity, version), icons, packaging
 │
 ├── crates/                  # Rust library crates (see above)
 │

@@ -57,7 +57,7 @@ These were collected by scanning the repo on 2026-05-19. The PKGBUILDs in §6/§
 ### Distribution
 - [x] **License:** `AGPL-3.0-only` (`LICENSE` header; workspace `Cargo.toml`). **Note:** the initial skeleton placeholder said MIT — that was wrong; §6/§7 are now corrected.
 - [x] **Release artifacts:** `.deb`, `.rpm`, `.AppImage` (Linux); `.dmg` (macOS); `.msi`/`.exe` (Windows). No upstream source tarball published — the `uniclipboard` AUR package pulls GitHub's auto-generated `archive/refs/tags/v$VER.tar.gz`.
-- [x] **Signatures:** the in-app **updater** signs payloads with minisign (pubkey in `apps/gui-go/app.json`). **But** that key signs the in-app update bundle, not the release tarball or .deb — §11 (release-artifact signing) is still required for PKGBUILD-side verification.
+- [x] **Signatures:** the in-app updater and its minisign pubkey were removed on this self-maintained branch (`apps/gui-go/app.json` no longer carries `updater.pubkey`). §11 (release-artifact signing) remains the required mechanism for PKGBUILD-side verification.
 - [x] **Tag format:** `v$VERSION` (e.g. `v0.10.0`, `v0.10.1-alpha.1`). v-prefixed.
 - [x] **systemd user service:** none. App runs as a normal GUI process started by the user.
 - [x] **Desktop integration:** generic `.desktop` file lives at `packaging/linux/uniclipboard.desktop` (created 2026-05-19, content forked from `snap/local/uniclipboard.desktop`). Icons come from `apps/gui-go/icons/` (32, 128 and 128@2x = 256 pixels); the PKGBUILD renames them into hicolor `apps/uniclipboard.png` at install, the same set as the deb, rpm and AppImage. The same `packaging/linux/uniclipboard.desktop` is installed by `package_linux.py` for deb, rpm and AppImage; `snap/local/uniclipboard.desktop` differs only in its `${SNAP}` icon path. `packaging/linux/uniclipboard.desktop.hbs` is a leftover template of the retired bundler.
@@ -181,7 +181,7 @@ Send to czyt (AUR profile email, or via GitHub @czyt). Replace placeholders befo
 
 Out of scope for the initial AUR push, but plan for:
 
-- **Heads-up — there's already a minisign key in `apps/gui-go/app.json` (`updater.pubkey`).** That key signs the **updater** payload (the in-app auto-update bundle), not the GitHub release tarball or .deb. For AUR verification we need a **separate** signing step over the release artifacts (or, debatably, repurpose the existing key — but mixing the two roles makes key rotation harder, so prefer a second key).
+- **The former minisign key in `apps/gui-go/app.json` (`updater.pubkey`) is gone:** it only signed in-app auto-update bundles, and the in-app updater is removed on this branch. For AUR verification we need a **separate** signing step over the release artifacts (a dedicated release-artifact key, not the retired updater key).
 - Add `minisign -S` to the GitHub Actions release workflow. Generate a dedicated release-artifact key (`minisign -G`), store the secret key encrypted in repo secrets, publish public key in `SECURITY.md`.
 - Update `uniclipboard` PKGBUILD to download `.sig` alongside tarball and verify in `prepare()`.
 - Coordinate the same change into `uniclipboard-bin` with czyt (he can verify the `.deb`'s `.sig` before extraction).
