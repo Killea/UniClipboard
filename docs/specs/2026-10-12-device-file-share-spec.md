@@ -170,7 +170,12 @@ pub fn resolve(root: &Dir, client_rel: &str) -> Result<CapPath, ConfineDenied>;
 
 `ConfineDenied` 为不透明错误，不回显任何路径片段。
 
-**必须写清 `cap-std` 给的是哪种保证。** 它的 `Dir` 拒绝字面逃逸（`../`、绝对路径），但 **会解析并跟随指向根外的符号链接**——即它保证的是"路径字符串不逃出"，不是"openat2 `RESOLVE_BENEATH` / `O_NOFOLLOW` 那种绝不离开目录树"。因此 §6 语料中的符号链接类用例不能默认库层已经挡住，必须由本层显式加严：对每一段做 `O_NOFOLLOW` 式的逐段打开，或等价地拒绝任何 `file_type().is_symlink()` 的中间段。若核查后确认 `cap-std` 无法在不引入 `openat2` 的前提下满足该强度，则 ADR-013 的选项集需重新评估——这是选型的先决条件，不是实现细节。
+**`cap-std` 实际提供的保证（P1 Task 1 已实测订正）。** 本段原先断言"`Dir` 会解析并跟随指向根外的符号链接"，**该断言已被实测推翻**：`cap-std` 4.0.3 在 Linux 上对经指向根外的符号链接打开文件返回 `PermissionDenied`（`"a path led outside of the filesystem"`），即它提供的是 **目录树包含**，不只是路径字符串包含。机制为 `openat2` 的 `RESOLVE_BENEATH | RESOLVE_NO_MAGICLINKS`，`EXDEV` 映射到该错误；`openat2` 不可用时退回逐段手工打开。
+
+两点仍要求本层自行加严，不得因"库已挡住"而省略：
+
+- **根内符号链接仍被跟随**（`inside -> public` 成功）。逐段拒绝符号链接因此是有效的策略加严——它防的是"共享子树被一根链接悄悄外扩"，与逃出根是两回事。该前提目前仅由 ADR-030 记录，Task 5 须把它变成 committed 断言。
+- **Windows 与 macOS 未实测**，ADR-030 记为"跳过"；跨平台结论在真机执行前不得当作已保证。`cap-primitives` 还显式 **不对 Android 尝试 `openat2`**（seccomp），Android 恒走手工逐段打开路径。
 
 必须覆盖并被测试固定的逃逸形式：`..` 与嵌套 `..`、符号链接链与指向根外的链接、绝对路径、Windows 盘相对路径 `C:foo`、UNC `\\server\share`、备用数据流 `file:stream`、`\\?\` 长路径前缀、大小写不敏感导致的前缀判断失效、根目录被替换为指向他处的链接、两次调用之间的 TOCTOU 竞态、超长与含控制字符的文件名。
 
