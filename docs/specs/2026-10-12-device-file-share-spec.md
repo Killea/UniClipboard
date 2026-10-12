@@ -30,8 +30,9 @@
 | `ENGINE:crates/uc-infra/src/network/iroh/` | iroh 1.3 单栈、按功能注册 ALPN（预注册数组 `node.rs:971`）、`InboundPeerGate` 身份解析 | 无通用 RPC-over-P2P；无按请求授权 |
 | `ENGINE:crates/uc-infra/src/network/iroh/active_clipboard/pull_wire.rs` | 请求→响应线格式模板：magic → 长度前缀 → postcard，读取前先验分配上限（`:182`） | 该模板仅承载固定上限的内存内信封 |
 | `ENGINE:crates/uc-infra/src/network/iroh/blobs.rs` | `publish_path`、`fetch_to_path(digest, target)`（`ExportMode::TryReference`）、`_temp_tag` 抗 GC | 无面向任意远端目录的读写语义 |
-| `ENGINE:crates/uc-infra/src/security/profile_content_key_vault/persistence.rs` | **整份加密文档落盘的现成先例**：读时先 `take(cap+1)` 再解析（`:90`），写时原子替换（`:268`） | 尚无共享根清单使用该形态 |
-| `ENGINE:crates/uc-core/src/ports/space/access.rs:196` | `DeriveSpaceSubkeyPort::derive_subkey`，锁定时返回类型化的 `NotUnlocked` | — |
+| `ENGINE:crates/uc-infra/src/security/profile_storage_upgrade/persistence.rs` | 小型加密文档落盘的 **最贴近模板**：`seal_profile_payload`/`open_profile_payload` + 64 KiB 上限 + 自有 `write_atomically` | 不可直接复用，需按同形态新写 |
+| `ENGINE:crates/uc-infra/src/security/profile_content_key_vault/persistence.rs` | 同形态的另一实现，含 `take(cap+1)` 截断与篡改 fail-closed 测试 | **整模块 `pub(super)`，外部不可调用** |
+| `ENGINE:crates/uc-core/src/ports/space/access.rs:206` | `DeriveSpaceSubkeyPort::derive_subkey(salt, info) -> [u8; 32]`，锁定时返回类型化 `NotUnlocked` | — |
 | `apps/daemon/src/daemon/mobile_lan_lifecycle.rs` | LAN HTTP 兼容通道 | 明文 HTTP、静态 Basic 无重放防护、无路径约束原语；范围受 ADR-005 约束 |
 | `crates/uc-webserver/src/api/clipboard.rs:97` | `POST /clipboard/dispatch-file` 立即返回 + `entry_id` 即传输号 | 无通用作业登记表；`dispatch_file` 无并发信号量 |
 | `ENGINE:crates/uc-infra/src/db/schema.rs` | `file_transfer` 表持久化绑定与状态 | 无 `completed_bytes` 列；启动即在途批量失败，不支持续传 |
@@ -124,7 +125,11 @@ SharedRoot
 
 **不新增 settings 数据模型分区**（即不扩展 `Settings` 结构体）。总开关语义即"清单为空"，暂停标记与路径同处密文文档内，因此本功能对 `settings.json` 零改动，既避开其既有明文落盘问题，也避开新增 settings 分区的改动面。前端设置页的那个 UI 分组只是本密文文档的编辑器，见 §11.5。
 
-**实现形态已有先例，不需要新造加密通道**：`ShareStore` 采用与 `ENGINE:crates/uc-infra/src/security/profile_content_key_vault/persistence.rs` 相同的整份加密 JSON 文档模式——读取时先以 `take(cap + 1)` 截断再解析（防超大分配），写入走原子替换。密钥材料经 `DeriveSpaceSubkeyPort::derive_subkey(salt, info)` 派生（`ENGINE:crates/uc-core/src/ports/space/access.rs:196`），使用独立的 `salt`/`info` 以与其它子密钥域分隔。
+**实现形态：现成先例都在，但都不可直接复用，需按同一形态新写。** Engine 里有两类相近实现：`uc-infra/src/security/profile_storage_upgrade/persistence.rs`（`seal_profile_payload`/`open_profile_payload` + 64 KiB 小上限 + 自有 `write_atomically`）是 **最贴近的模板**；`profile_content_key_vault/persistence.rs` 形态相近但 **整个模块是 `pub(super)`，不可外部复用**，且它走的是 `SecureStorageAccess` + 包装主密钥，不是子密钥派生。二者都不得当作可直接调用的设施写进计划。
+
+密钥材料经 `DeriveSpaceSubkeyPort::derive_subkey(&self, salt: &[u8], info: &[u8]) -> Result<[u8; 32], SpaceAccessError>` 派生（`ENGINE:crates/uc-core/src/ports/space/access.rs:206-213`，HKDF-SHA256、IKM 为 MasterKey），使用独立的 `salt`/`info` 与其它子密钥域分隔。该端口在依赖图中的位置是 `ApplicationDeps.security.space_access_ports.derive_subkey`。
+
+文件位置沿用 vault 目录布局：`AppPaths::from_app_dirs(...).vault_dir`（= `app_data_root/vault`），新增一个 `share-store-v1.json` 常量与 `VaultLayout::share_store_path()` 访问器，与既有 4 个 dotfile 的 `*_FILE` + `*_PURPOSE` 成对写法一致。
 
 推论：`derive_subkey` 在锁定时返回类型化的 `NotUnlocked`，因此解锁前 `ShareStore` 必然不可读、共享能力必然不可用。这是被接受的设计约束而非缺陷，且与既有做法一致——`NotUnlocked` 正是映射到线格式 `Locked` 状态的路径。本机侧呈现见 §9 与 §11.5，对端侧见 §11.4。
 
@@ -143,6 +148,8 @@ grant 组合规则：覆盖写入要求 `write && delete`；设备内拷贝目�
 
 前 1–2 步不是新代码：serve 适配器应在进入业务前复用既有的 `ContentExchangeGatePort`（`ENGINE:crates/uc-core/src/membership/ports.rs:314`）与 `PeerAdmissionPort`，与 `pull_serve_adapter.rs:126` 的检查位置保持一致，拒绝经 `record_inbound_peer_rejection` 记录。本功能新增的只有第 3–6 步。
 
+新增的授权器应照搬 `MemberReceiveGate` 的 fail-closed 形状：`authorize(...) -> Option<Permit>` 而非 `Result`，读取存储失败时记一条固定原因的 `warn!` 后返回 `None`（见 `receive_gate.rs:100-107` 的成员查询失败分支）。隐私边界在无法验证时不得放行，这条理由同样适用于共享白名单。
+
 ### 5.3 审计
 
 每次服务端操作记录 `peer_device_id`、`op`、`root_id`、`blake3(relative_path)` 截断值、结果码。**不记录明文路径**（`VISION.md` 日志脱敏）。默认采样常开，不引入新遥测事件名。
@@ -158,10 +165,12 @@ grant 组合规则：覆盖写入要求 `write && delete`；设备内拷贝目�
 接口形态：
 
 ```rust
-pub fn resolve(root: &Cap, client_rel: &str) -> Result<CapPath, ConfineDenied>;
+pub fn resolve(root: &Dir, client_rel: &str) -> Result<CapPath, ConfineDenied>;
 ```
 
 `ConfineDenied` 为不透明错误，不回显任何路径片段。
+
+**必须写清 `cap-std` 给的是哪种保证。** 它的 `Dir` 拒绝字面逃逸（`../`、绝对路径），但 **会解析并跟随指向根外的符号链接**——即它保证的是"路径字符串不逃出"，不是"openat2 `RESOLVE_BENEATH` / `O_NOFOLLOW` 那种绝不离开目录树"。因此 §6 语料中的符号链接类用例不能默认库层已经挡住，必须由本层显式加严：对每一段做 `O_NOFOLLOW` 式的逐段打开，或等价地拒绝任何 `file_type().is_symlink()` 的中间段。若核查后确认 `cap-std` 无法在不引入 `openat2` 的前提下满足该强度，则 ADR-013 的选项集需重新评估——这是选型的先决条件，不是实现细节。
 
 必须覆盖并被测试固定的逃逸形式：`..` 与嵌套 `..`、符号链接链与指向根外的链接、绝对路径、Windows 盘相对路径 `C:foo`、UNC `\\server\share`、备用数据流 `file:stream`、`\\?\` 长路径前缀、大小写不敏感导致的前缀判断失效、根目录被替换为指向他处的链接、两次调用之间的 TOCTOU 竞态、超长与含控制字符的文件名。
 
@@ -366,7 +375,7 @@ RTT 是否可在不引入 `unstable` 接口的前提下取到，P8 开工前须�
 | 前端 | Vitest：树懒加载、分页超限、投放确认、队列状态机、i18n 六语键对齐 |
 | 端到端 | Linux ↔ Windows ↔ macOS 三平台两两组合，真实双向传输 + 删除/重命名各一次，保存可复跑工件 |
 
-约束内核是安全关键件，随机化属性测试对它确有额外价值，但 **Engine 全工作区当前没有 `proptest`/`quickcheck`，也不存在任何属性测试**（`Cargo.lock` 里的 `arbitrary` 只是 `zip` 的传递依赖）。因此基线是穷举具名用例；是否引入 `proptest` 作为 dev-dependency 在 P1 计划中单列一项决定，不与功能实现混在同一次改动里。测试替身按仓库习惯手写内联 stub，不在 `uc-core` 引入 `mockall`（该 crate 目前只在 `uc-infra`/`uc-application` 的 dev-deps 中）。
+约束内核是安全关键件，随机化属性测试对它确有额外价值，但 **Engine 全工作区当前没有 `proptest`/`quickcheck`，也不存在任何属性测试**（`Cargo.lock` 里的 `arbitrary` 只是 `zip` 的传递依赖）。因此基线是穷举具名用例；是否引入 `proptest` 作为 dev-dependency 在 P1 计划中单列一项决定，不与功能实现混在同一次改动里。测试替身按仓库习惯手写内联 stub：`mockall` 虽在 `uc-infra`、`uc-application`、`compatibility/uc-mobile-lan` 的 dev-deps 中声明（且是 iroh 的传递依赖），但 `crates/uc-core/` 下 **零使用**，本功能不改变这一现状。磁盘相关的单测直接用 `tempfile`（`uc-infra` 已声明 `tempfile = "3"`，并有 `test-util` 特性门控）；`uc-testkit::TempDirLease` 的构造器是 `pub(crate)`，从 `uc-infra` 单测中不可达，不要试图引它。
 
 按 `apps/gui-go/AGENTS.md`，宿主侧不写单元测试，验收走真实 WebView → HTTP/WS → daemon 路径；自动化须使用独立沙箱、唯一 `UC_PROFILE`、`UC_GUI_GO_ISOLATED=1`、`UC_DISABLE_SYSTEM_CLIPBOARD=1`。会改变前台窗口或覆盖系统剪贴板的脚本只在专用测试主机运行。
 
