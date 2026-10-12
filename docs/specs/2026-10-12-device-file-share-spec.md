@@ -51,7 +51,7 @@ LAN HTTP 兼容通道被排除，理由不是性能而是底线：`crates/uc-web
 
 - 共享根的增删、启停、逐根读/写/删除授权。
 - 远端根列表、逐层目录列举、单项探测。
-- 上传（单文件与多级文件夹）、下载/另存、设备内拷贝、新建目录、重命名、删除。
+- 上传（单文件与多级文件夹）、下载/另存、设备内拷贝、新建目录、重命名、删除，以及回收目录的列举、还原与清空。
 - 传输进度、取消、失败重传；跨平台拖放。
 - 对端能力与解锁状态的探测与呈现。
 - 本地地址透出到设备详情。
@@ -153,6 +153,16 @@ pub fn resolve(root: &Cap, client_rel: &str) -> Result<CapPath, ConfineDenied>;
 
 根目录 `open` 失败（被移走、权限不足）时该根进入 `unavailable` 态并向对端报告 `root_gone`，不降级为全盘可见。
 
+### 6.1 回收目录前缀保留
+
+每个共享根在 **根内** 有一个回收目录，真实名为 `.uniclipboard-trash-<root_id>`（`root_id` 为该根的 UUID）。
+
+约束层额外施加一条规则：**任何客户端提供的相对路径，其首段匹配 `.uniclipboard-trash-*` 一律拒绝**，返回 `denied`。因此该目录物理位于根内（保证删除是同盘 `rename`，O(1)），但在协议上不可寻址——对端既不能列举、也不能读写、也不能把它改名或删掉。`List` 在序列化边界就过滤掉该前缀，不依赖 UI 约定。
+
+启用某个根时须检查根内是否已存在匹配该模式的条目；存在则拒绝启用并报 `reserved_name`，使该不变量由强制检查保证，而非依赖 UUID 碰撞概率极低这一假设。
+
+回收目录自身的内容只能经 §7 的 `ListTrash`/`Restore`/`EmptyTrash` 操作。
+
 ## 7. `remote-share/1` 协议
 
 ALPN：`uniclipboard/remote-share/1`。帧格式沿用 `active_clipboard_pull` 的模板：magic byte + 长度前缀 + postcard，并在解码前施加分配上限。
@@ -169,7 +179,9 @@ ALPN：`uniclipboard/remote-share/1`。帧格式沿用 `active_clipboard_pull` �
 | `Stat { root, rel }` | 单项探测 | read |
 | `Mkdir { root, rel }` | 新建目录 | write |
 | `Rename { root, from, to }` | 重命名/移动 | write + delete |
-| `Delete { root, rel }` | 移入回收目录 | delete |
+| `Delete { root, rel }` | 移入该根的回收目录（同盘 `rename`） | delete |
+| `ListTrash { root, cursor }` | 列举回收条目，返回原相对路径、删除时间、大小 | delete |
+| `Restore { root, trash_id, to }` | 从回收目录还原到树内某处 | write + delete |
 | `EmptyTrash { root }` | 永久清空该根的回收目录（唯一的永久删除入口） | delete |
 | `CopyWithin { root, from, to }` | 设备内拷贝 | write |
 | `StageUpload { root, dir, entries[] }` | 开暂存区并登记一批清单，返回 `staging_id`；可多次调用累积 | write |
@@ -226,6 +238,8 @@ GET    /peers/{peerId}/share/list                  浏览
 POST   /peers/{peerId}/share/upload                返回 transferId[]
 POST   /peers/{peerId}/share/download              返回 transferId
 POST   /peers/{peerId}/share/mkdir|rename|delete|copy|empty-trash
+GET    /peers/{peerId}/share/trash                   ListTrash，分页
+POST   /peers/{peerId}/share/trash/restore           Restore
 POST   /remote-share/transfers/{id}/cancel
 ```
 
@@ -285,7 +299,9 @@ Linux 上任何外部程序派生须走 `host_helper_env_linux.go` 的清理路�
 
 ### 11.7 删除语义
 
-删除移入根内 `.uniclipboard-trash/`，默认列举时排除，树中以「回收站」条目呈现；保留 `TRASH_RETENTION_DAYS = 7`（Engine 侧常量，非用户设置）。**不提供单项永久删除**；唯一的永久删除路径是「清空回收站」，需 `delete` grant 且二次确认。回收目录本身受 §6 约束覆盖，客户端不可寻址、不可被列举出来再操作。
+删除经 `Delete` 移入该根的回收目录（§6.1），在树上作为一个 **虚拟节点**「回收站」呈现——它不是路径，由 `ListTrash`/`Restore`/`EmptyTrash` 驱动，因此不受根内真实目录同名条目的干扰。
+
+保留 `TRASH_RETENTION_DAYS = 7`（Engine 侧常量，非用户设置），到期由服务端后台清理。**不提供单项永久删除**；唯一的永久删除入口是「清空回收站」，需 `delete` grant 且二次确认。还原（`Restore`）保留原相对路径作为默认目标，冲突时按 §8.1 的重名策略处理。
 
 ### 11.8 状态与持久化
 
@@ -295,7 +311,7 @@ Linux 上任何外部程序派生须走 `host_helper_env_linux.go` 的清理路�
 
 稳定枚举，消息中不出现绝对路径：
 
-`locked` · `unsupported` · `unsupported_request` · `suspended` · `revoked` · `denied` · `not_found` · `conflict` · `root_gone` · `quota` · `too_large` · `too_many_entries` · `io` · `cancelled` · `too_late` · `interrupted`
+`locked` · `unsupported` · `unsupported_request` · `suspended` · `revoked` · `denied` · `reserved_name` · `not_found` · `conflict` · `root_gone` · `quota` · `too_large` · `too_many_entries` · `io` · `cancelled` · `too_late` · `interrupted`
 
 ## 13. 安全不变量
 
@@ -307,6 +323,7 @@ Linux 上任何外部程序派生须走 `host_helper_env_linux.go` 的清理路�
 - **I6** 本功能不新增任何中心存储、离线投递或 store-and-forward。
 - **I7** 本功能不使用 LAN HTTP 兼容通道，也不改变其边界。
 - **I8** 遥测事件名与既有分析 ID 隔离规则不变；本功能不得新增可关联真实身份的字段。
+- **I9** 回收目录前缀对客户端不可寻址：任何以 `.uniclipboard-trash-*` 为首段的路径一律在约束层拒绝，且 `List` 永不返回该前缀。回收条目只能经 §7 的专用 RPC 操作。
 
 ## 14. 网络路径可见性
 
@@ -327,7 +344,7 @@ RTT 是否可在不引入 `unstable` 接口的前提下取到，P8 开工前须�
 
 | 层 | 手段 |
 | --- | --- |
-| 约束内核 | 属性测试 + §6 逃逸语料全量固定；含 TOCTOU 竞态用例 |
+| 约束内核 | 属性测试 + §6 逃逸语料全量固定；含 TOCTOU 竞态用例；含 I9 的回收前缀拒绝与 `List` 过滤用例 |
 | 编解码 | `uc-sync-protocol/tests/golden_vectors.rs` 双向量；分配上限负向用例 |
 | 授权 | 全部 grant 组合（2³ = 8）× §7 各请求类型的判定矩阵；fail closed 路径逐条覆盖 |
 | 传输 | 两节点回环 iroh 集成测试；上传中途取消/掉线/写满三场景验证目标目录无残留 |
@@ -343,7 +360,7 @@ RTT 是否可在不引入 `unstable` 接口的前提下取到，P8 开工前须�
 
 1. **P1 约束内核 + 加密共享根存储 + 授权模型**（纯 Engine，含逃逸语料与授权矩阵）。最高风险先做。
 2. **P2 `remote-share/1` ALPN + `Hello`/`ListRoots`/`List`/`Stat`** 与能力通告。
-3. **P3 变更 RPC**：`Mkdir`/`Rename`/`Delete`/`CopyWithin`/`EmptyTrash` + 回收目录与保留名处理。
+3. **P3 变更 RPC**：`Mkdir`/`Rename`/`Delete`/`CopyWithin` + 回收目录（`ListTrash`/`Restore`/`EmptyTrash`）与 §6.1 前缀保留。
 4. **P4 传输编排**：`StageUpload`/`CommitUpload`/`AbortUpload`/`Export`、下载、进度与取消。
 5. **P5 daemon API** + OpenAPI 重生成 + SDK 重生成。
 6. **P6 Go 宿主拖放** + `stat_local_paths` + 契约手改。
@@ -361,6 +378,4 @@ P1–P4 完成即可用 CLI 与集成测试验收，不依赖 UI。
 
 ## 19. 待确认项
 
-- **§11.5 共享管理入口** 取"设置页 UI 分组 + 对端 Tab 内不放跳转链接"。此点在评审中未获得显式选择，按推荐方案写入，请在规格评审时确认。
 - **内容寻址导致的跨会话可读性**（P4 前必须定稿）。`ENGINE:crates/uc-infra-p2p/src/network/iroh/blobs.rs` 的 blob 服务当前只按 ALPN 与会话门控，**不按请求授权**：任何已准入的 Space 成员只要知道 digest 即可拉取。本规格的 digest 只在授权后的 `Export` 响应中于两设备间传递，正常路径下第三方无从得知；但内容寻址意味着 **相同字节即相同 digest**，若某文件已通过剪贴板历史等其它途径让第三方持有过同一 digest，它即可绕过共享授权直接拉取本功能导出的同一内容。这是既有属性，本功能会放大其影响面。可选处置：为导出内容加一次性随机盐后再寻址（破坏去重收益）、在 blob 服务侧引入按 digest 的短期授权登记表、或接受并在 ADR-015 中书面记录该残余风险。
-- **回收目录与用户自有同名目录的冲突**。`.uniclipboard-trash/` 是保留名；需在 §6 约束层明确：用户目录树中若已存在该 basename，列举时如何呈现（建议：对用户可见条目重命名展示并禁止写入该保留名）。P3 前定稿。
