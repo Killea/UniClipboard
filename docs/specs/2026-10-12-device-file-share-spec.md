@@ -5,6 +5,7 @@
 - **范围**：桌面端在已配对设备之间浏览被显式授权的目录树，并进行上传、下载、新建、重命名、删除与设备内拷贝；附带把当前网络路径的本地地址透出到设备详情。
 - **约束来源**：[产品原则](../../VISION.md)、[架构规则](../agent/architecture-rules.md)、[端口规则](../architecture/ports.md)、[Rust 规则](../agent/rust-rules.md)、[前端 UI 规则](../agent/frontend-ui-rules.md)、[Go 宿主规则](../../apps/gui-go/AGENTS.md)。
 - **跨仓说明**：协议、端口、领域状态与加密存储属 `UniClipboard/Engine` 仓，本仓通过固定发布标签消费；下文以 `ENGINE:` 前缀标注该仓路径，其余为本仓相对路径。
+- **Engine 布局基线**：`ENGINE:` 路径按 Engine **当前主线布局** 书写（`uc-core` / `uc-application` / `uc-infra` / `uc-engine` 共 7 个 crate）。本仓当前固定的 `0e25f41` 仍是合并前的旧布局（`uc-sync-protocol`、`uc-infra-p2p`、`uc-infra-local`、`uc-infra-storage`、`uc-infra-crypto` 等独立 crate），因此 **实施必须先基于 Engine 主线**，不能就着固定 rev 的路径动手。线格式代码现在的归属是 `ENGINE:crates/uc-infra/src/network/iroh/<feature>/*_wire.rs`，不再有独立的协议 crate。
 
 ## 1. 完成定义
 
@@ -26,16 +27,20 @@
 
 | 位置 | 已有能力 | 尚缺能力 |
 | --- | --- | --- |
-| `ENGINE:crates/uc-infra-p2p/src/network/iroh/` | iroh 1.3 单栈、按功能注册 ALPN、`InboundPeerGate` 身份解析 | 无通用 RPC-over-P2P；无按请求授权 |
-| `ENGINE:crates/uc-sync-protocol/src/active_clipboard_pull.rs` | 请求→响应编解码模板（magic byte + 长度前缀 + postcard + 分配上限） | 该模板仅承载 ≤16 MiB 内存内信封 |
-| `ENGINE:crates/uc-infra-p2p/src/network/iroh/blobs.rs` | `publish_path`、`fetch_to_path(digest, target)`（`ExportMode::TryReference`）、`_temp_tag` 抗 GC | 无面向任意远端目录的读写语义 |
+| `ENGINE:crates/uc-infra/src/network/iroh/` | iroh 1.3 单栈、按功能注册 ALPN（预注册数组 `node.rs:971`）、`InboundPeerGate` 身份解析 | 无通用 RPC-over-P2P；无按请求授权 |
+| `ENGINE:crates/uc-infra/src/network/iroh/active_clipboard/pull_wire.rs` | 请求→响应线格式模板：magic → 长度前缀 → postcard，读取前先验分配上限（`:182`） | 该模板仅承载固定上限的内存内信封 |
+| `ENGINE:crates/uc-infra/src/network/iroh/blobs.rs` | `publish_path`、`fetch_to_path(digest, target)`（`ExportMode::TryReference`）、`_temp_tag` 抗 GC | 无面向任意远端目录的读写语义 |
+| `ENGINE:crates/uc-infra/src/security/profile_content_key_vault/persistence.rs` | **整份加密文档落盘的现成先例**：读时先 `take(cap+1)` 再解析（`:90`），写时原子替换（`:268`） | 尚无共享根清单使用该形态 |
+| `ENGINE:crates/uc-core/src/ports/space/access.rs:196` | `DeriveSpaceSubkeyPort::derive_subkey`，锁定时返回类型化的 `NotUnlocked` | — |
 | `apps/daemon/src/daemon/mobile_lan_lifecycle.rs` | LAN HTTP 兼容通道 | 明文 HTTP、静态 Basic 无重放防护、无路径约束原语；范围受 ADR-005 约束 |
 | `crates/uc-webserver/src/api/clipboard.rs:97` | `POST /clipboard/dispatch-file` 立即返回 + `entry_id` 即传输号 | 无通用作业登记表；`dispatch_file` 无并发信号量 |
-| `ENGINE:crates/uc-infra-storage/src/db/schema.rs:104` | `file_transfer` 表持久化绑定与状态 | 无 `completed_bytes` 列；启动即在途批量失败，不支持续传 |
+| `ENGINE:crates/uc-infra/src/db/schema.rs` | `file_transfer` 表持久化绑定与状态 | 无 `completed_bytes` 列；启动即在途批量失败，不支持续传 |
 | `apps/gui/src/components/history/sidebar/HistorySidebar.tsx:324` | 设备行渲染图标/名称/在线点 | 无 `onClick`，点击不产生任何行为 |
 | `apps/gui/src/pages/DevicesPage.tsx:94` | 侧栏 + 设备列表 + 按设备切换的详情面板 | 详情面板无分页能力 |
 | `apps/gui-go/host_commands_files.go:82` | `chooseDirectory`（Linux 走 zenity）、`chooseSaveFile`、`copyPathIntoDir` 递归遍历 | 无任何 OS 级文件拖放接线 |
-| `ENGINE:crates/uc-infra-local/src/settings/repository.rs:194` | settings 读写 | **整个 `settings.json` 明文落盘**，无 AEAD 调用点 |
+| `ENGINE:crates/uc-infra/src/settings/repository.rs` | settings 读写 | **整个 `settings.json` 明文落盘**，无 AEAD 调用点 |
+
+Engine 侧另有两处必须在实现时避开的既有缺陷：`pull_wire.rs:131` 的 `Io(std::io::Error)` 未标 `#[source]`，丢失了错误来源链，与 `ENGINE:docs/design-docs/error-handling.md` 相悖，新代码不得照抄；magic byte 唯一性 **只在单个 ALPN 内成立**（`0xC2` 已同时被 `transfer_progress_wire.rs` 与 `pull_wire.rs` 使用），不得按全局唯一来记文档。
 
 ### 2.1 已排除的传输方案
 
@@ -43,7 +48,7 @@ LAN HTTP 兼容通道被排除，理由不是性能而是底线：`crates/uc-web
 
 ### 2.2 存量偏差记录
 
-`ENGINE:crates/uc-core/src/settings/model.rs:302` 的 `file_sync.auto_save_dir` 存储用户绝对目录路径且明文，未检索到任何书面非敏感性论证。本功能不沿用该先例。该存量偏差的处置另立工作项，不在本规格范围内。
+`file_sync.auto_save_dir` 存储用户绝对目录路径且明文（Engine settings 模型内，字段名稳定、行号随布局变动，实施时按符号定位），未检索到任何书面非敏感性论证。本功能不沿用该先例。该存量偏差的处置另立工作项，不在本规格范围内。
 
 ## 3. 范围与非目标
 
@@ -85,14 +90,17 @@ LAN HTTP 兼容通道被排除，理由不是性能而是底线：`crates/uc-web
 
 | 层 | 仓 | 新增 |
 | --- | --- | --- |
-| 编解码 | `ENGINE:crates/uc-sync-protocol/src/remote_share.rs` | 帧格式 + `REMOTE_SHARE_ALPN` |
-| 端口 | `ENGINE:crates/uc-core/src/ports/remote_share/` | `RemoteShareServePort`、`RemoteShareClientPort`、`SharedRootAuthorizer` |
-| P2P 适配器 | `ENGINE:crates/uc-infra-p2p/src/network/iroh/remote_share/` | serve + client；`node.rs` 两个注册点 |
-| 用例 | `ENGINE:crates/uc-application/src/remote_share/` | 授权、约束、执行、传输编排 |
-| 存储与约束 | `ENGINE:crates/uc-infra-local/src/remote_share/` | 加密共享根存储、`cap-std` 约束器 |
+| 线格式 | `ENGINE:crates/uc-infra/src/network/iroh/remote_share/wire.rs` | 帧编解码 + magic + 分配上限 + `REMOTE_SHARE_ALPN` |
+| 端口 | `ENGINE:crates/uc-core/src/ports/remote_share/`（`mod.rs` 只声明与再导出） | `RemoteShareServePort`、`RemoteShareClientPort`、`SharedRootStorePort`、`ShareAuthorizer` |
+| P2P 适配器 | `ENGINE:crates/uc-infra/src/network/iroh/remote_share/{serve_adapter,client_adapter}.rs` | `node.rs` 两个注册点（ALPN 数组 + `install_remote_share`） |
+| 用例 | `ENGINE:crates/uc-application/src/remote_share/` | 授权、约束、执行、传输编排；`deps.rs` 注入 |
+| 存储 | `ENGINE:crates/uc-infra/src/remote_share/` | 加密 `ShareStore` 文档仓库（仿 profile_content_key_vault 形态） |
+| 约束内核 | `ENGINE:crates/uc-infra/src/fs/share_confinement.rs` | `cap-std` 封装 + 保留前缀拒绝 |
 | daemon 契约与路由 | `crates/uc-daemon-contract/`、`crates/uc-webserver/src/api/remote_share.rs` | DTO、路由、事件投影 |
 | 宿主 | `apps/gui-go/` | `EnableFileDrop` + 拖放事件转发 + 一次本机路径探测 |
-| 前端 | `apps/gui/src/` | 「文件」Tab、目录树、队列、共享管理页 |
+| 前端 | `apps/gui/src/` | 「文件」Tab、目录树、队列、共享管理 UI 分组 |
+
+装配点为 `ENGINE:crates/uc-engine/src/assembly/sync_engine.rs`；观测枚举为 `ENGINE:crates/uc-observability-contract/src/diagnostics/connectivity/inbound_peer.rs` 的 `InboundPeerProtocol` 变体，并须同步其字符串合同测试 `tests/inbound_peer_rejection_contract.rs`。
 
 **归属原则**：授权判定、路径约束、文件系统操作、字节传输全部在 Engine；本仓只做传输适配与呈现。宿主命令处理器与平台适配器内不得写业务判定。
 
@@ -116,7 +124,9 @@ SharedRoot
 
 **不新增 settings 数据模型分区**（即不扩展 `Settings` 结构体）。总开关语义即"清单为空"，暂停标记与路径同处密文文档内，因此本功能对 `settings.json` 零改动，既避开其既有明文落盘问题，也避开新增 settings 分区的改动面。前端设置页的那个 UI 分组只是本密文文档的编辑器，见 §11.5。
 
-推论：解锁前 `ShareStore` 不可读，共享能力必然不可用。这是被接受的设计约束，而非缺陷，并须在 UI 上如实呈现（本机侧见 §9 与 §11.5，对端侧见 §11.4）。
+**实现形态已有先例，不需要新造加密通道**：`ShareStore` 采用与 `ENGINE:crates/uc-infra/src/security/profile_content_key_vault/persistence.rs` 相同的整份加密 JSON 文档模式——读取时先以 `take(cap + 1)` 截断再解析（防超大分配），写入走原子替换。密钥材料经 `DeriveSpaceSubkeyPort::derive_subkey(salt, info)` 派生（`ENGINE:crates/uc-core/src/ports/space/access.rs:196`），使用独立的 `salt`/`info` 以与其它子密钥域分隔。
+
+推论：`derive_subkey` 在锁定时返回类型化的 `NotUnlocked`，因此解锁前 `ShareStore` 必然不可读、共享能力必然不可用。这是被接受的设计约束而非缺陷，且与既有做法一致——`NotUnlocked` 正是映射到线格式 `Locked` 状态的路径。本机侧呈现见 §9 与 §11.5，对端侧见 §11.4。
 
 ### 5.2 授权判定
 
@@ -129,7 +139,9 @@ SharedRoot
 5. 该根对应本次操作所需的 grant。
 6. 路径经 §6 约束成功。
 
-grant 组合规则：覆盖写入要求 `write && delete`；设备内拷贝目标要求 `write`；重命名要求 `write && delete`。
+grant 组合规则：覆盖写入要求 `write && delete`；设备内拷贝目标要求 `write`；重命名要求 `write + delete`。
+
+前 1–2 步不是新代码：serve 适配器应在进入业务前复用既有的 `ContentExchangeGatePort`（`ENGINE:crates/uc-core/src/membership/ports.rs:314`）与 `PeerAdmissionPort`，与 `pull_serve_adapter.rs:126` 的检查位置保持一致，拒绝经 `record_inbound_peer_rejection` 记录。本功能新增的只有第 3–6 步。
 
 ### 5.3 审计
 
@@ -140,6 +152,8 @@ grant 组合规则：覆盖写入要求 `write && delete`；设备内拷贝目�
 本功能唯一真正新增的安全部件，独立可测、独立评审。
 
 采用 `cap-std` 的能力式模型：根目录在启用时 `open` 为目录 fd 并持有；所有操作从该 fd 出发，库层保证无法逃出。客户端参数只含 `root_id` 与相对路径，**协议上不存在绝对路径字段**。
+
+现状核对：`cap-std` 在 Engine 全工作区 **不存在**（所有 `Cargo.toml` 与 `Cargo.lock` 零命中），属新依赖引入；已在用的 OS crate 只有 `libc` 与 `windows-sys`，无 `rustix`/`nix`/`windows`。`ENGINE:crates/uc-infra/src/fs/` 下唯一的路径处理是 `inbound_target.rs:182` 的 `sanitize_basename`（仅取 basename、中和 `/`、`..`、NUL），它做的是 **文件名清洗而非目录约束**，不可当约束器复用；`vault_layout.rs` 只是根 + 固定文件名的布局，无包含性检查。因此本内核是全新代码，不复用上述任一项。
 
 接口形态：
 
@@ -165,7 +179,7 @@ pub fn resolve(root: &Cap, client_rel: &str) -> Result<CapPath, ConfineDenied>;
 
 ## 7. `remote-share/1` 协议
 
-ALPN：`uniclipboard/remote-share/1`。帧格式沿用 `active_clipboard_pull` 的模板：magic byte + 长度前缀 + postcard，并在解码前施加分配上限。
+ALPN：`uniclipboard/remote-share/1`。线格式落在 `ENGINE:crates/uc-infra/src/network/iroh/remote_share/wire.rs`，沿用 active-clipboard pull 的模板（`active_clipboard/pull_wire.rs`）：magic → 大端长度前缀 → postcard 正文，读取时 **先校验长度再分配**，写入时再校验一次。magic 只需在本 ALPN 内唯一，不与全局共享。请求/响应的消息类型就定义在该线格式文件与对应 port 文件中，不放进 `uc-core/src/network/protocol/`（该目录只承载剪贴板领域载荷）。
 
 **只承载元数据，绝不承载文件字节**。单请求上限 64 KiB，单响应上限 2 MiB；列举超出即分页。
 
@@ -195,7 +209,7 @@ ALPN：`uniclipboard/remote-share/1`。帧格式沿用 `active_clipboard_pull` �
 
 列举为 **尽力而为的一致性快照，不做目录版本化**。游标是不透明值，服务端不为其保留目录状态；列举期间目录被并发改动，同一条目可能重复出现或漏出。客户端按 `name` 去重合并，并在响应带 `truncated` 时提示用户手动刷新。此语义明确写入协议文档，不伪装成原子快照。
 
-注册点：`node.rs` 的 ALPN 预注册数组与 `install_remote_share()`，加 `uc-engine` 装配调用，以及 `uc-observability-contract` 的 `InboundPeerProtocol` 变体与 `uc-sync-protocol` 的 golden vectors。
+注册点：`node.rs` 的 ALPN 预注册数组（`:971`）与 `install_remote_share()`（对齐 `:1312` 的既有 install 形态），加 `uc-engine/src/assembly/sync_engine.rs` 装配调用，以及 `uc-observability-contract` 的 `InboundPeerProtocol` 变体与其字符串合同测试。线格式测试按仓库习惯内联在线格式文件底部的 `#[cfg(test)] mod tests`，用 `tokio::io::duplex` 跑双向编解码。
 
 ## 8. 数据传输
 
@@ -344,19 +358,23 @@ RTT 是否可在不引入 `unstable` 接口的前提下取到，P8 开工前须�
 
 | 层 | 手段 |
 | --- | --- |
-| 约束内核 | 属性测试 + §6 逃逸语料全量固定；含 TOCTOU 竞态用例；含 I9 的回收前缀拒绝与 `List` 过滤用例 |
-| 编解码 | `uc-sync-protocol/tests/golden_vectors.rs` 双向量；分配上限负向用例 |
+| 约束内核 | §6 逃逸语料穷举固定为具名单元用例（仓库既有风格）；含 TOCTOU 竞态用例；含 I9 的回收前缀拒绝与 `List` 过滤用例 |
+| 编解码 | 线格式文件内联 `mod tests` 中的双向 round-trip；长度上限在读取侧与写入侧各一条负向用例 |
 | 授权 | 全部 grant 组合（2³ = 8）× §7 各请求类型的判定矩阵；fail closed 路径逐条覆盖 |
 | 传输 | 两节点回环 iroh 集成测试；上传中途取消/掉线/写满三场景验证目标目录无残留 |
 | daemon | 路由级测试 + OpenAPI 冻结基数递增 + 事件 camelCase 断言 |
 | 前端 | Vitest：树懒加载、分页超限、投放确认、队列状态机、i18n 六语键对齐 |
 | 端到端 | Linux ↔ Windows ↔ macOS 三平台两两组合，真实双向传输 + 删除/重命名各一次，保存可复跑工件 |
 
+约束内核是安全关键件，随机化属性测试对它确有额外价值，但 **Engine 全工作区当前没有 `proptest`/`quickcheck`，也不存在任何属性测试**（`Cargo.lock` 里的 `arbitrary` 只是 `zip` 的传递依赖）。因此基线是穷举具名用例；是否引入 `proptest` 作为 dev-dependency 在 P1 计划中单列一项决定，不与功能实现混在同一次改动里。测试替身按仓库习惯手写内联 stub，不在 `uc-core` 引入 `mockall`（该 crate 目前只在 `uc-infra`/`uc-application` 的 dev-deps 中）。
+
 按 `apps/gui-go/AGENTS.md`，宿主侧不写单元测试，验收走真实 WebView → HTTP/WS → daemon 路径；自动化须使用独立沙箱、唯一 `UC_PROFILE`、`UC_GUI_GO_ISOLATED=1`、`UC_DISABLE_SYSTEM_CLIPBOARD=1`。会改变前台窗口或覆盖系统剪贴板的脚本只在专用测试主机运行。
 
 ## 17. 实施阶段
 
 一份规格，按依赖排序切段，每段可独立验收：
+
+**实施计划按阶段切成 4 份，不写成一份。** 每份须独立产出可验证软件；把 P1–P9 压进单一执行文档会导致大量凭猜测写出的签名与占位步骤。P1–P4 属 Engine，其计划落在 `ENGINE:docs/exec-plans/active/`（日期命名式，并须登记进同目录 `index.md`）；P5–P9 属本仓。
 
 1. **P1 约束内核 + 加密共享根存储 + 授权模型**（纯 Engine，含逃逸语料与授权矩阵）。最高风险先做。
 2. **P2 `remote-share/1` ALPN + `Hello`/`ListRoots`/`List`/`Stat`** 与能力通告。
@@ -372,7 +390,7 @@ P1–P4 完成即可用 CLI 与集成测试验收，不依赖 UI。
 
 ## 18. 需要新增的 ADR
 
-- **ADR-013 用 `cap-std` 作为共享路径约束原语**：能力式模型对比自研三平台 `openat2`/`O_RESOLVE_BENEATH`/`NtCreateFile` 与纯字符串校验三选项，含依赖引入论证。
+- **ADR-013 用 `cap-std` 作为共享路径约束原语**：能力式模型对比自研三平台 `openat2`/`O_RESOLVE_BENEATH`/`NtCreateFile` 与纯字符串校验三选项。须明确 `cap-std` 是 Engine 工作区的 **全新依赖**（当前零命中，OS 侧仅有 `libc` 与 `windows-sys`），并给出其 Windows 支持度的核查证据。
 - **ADR-014 共享根清单存于 MasterKey 密文文档而非 settings**：记录"解锁前共享不可用"这一被接受的约束，并引用 §2.2 说明不沿用 `auto_save_dir` 明文先例。
 - **ADR-015 新增 `remote-share/1` ALPN**：记录排除 LAN HTTP 通道的底线论证，以及元数据走 ALPN、字节走 iroh-blobs 的分工。
 
