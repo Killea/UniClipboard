@@ -221,6 +221,10 @@ ALPN：`uniclipboard/remote-share/1`。线格式落在 `ENGINE:crates/uc-infra/s
 
 列举条目：`name`、`is_dir`、`size`、`mtime_ms`、`kind`。`name` 为 basename，是协议中唯一的文件名字段。
 
+**相对路径的线文法（宿主无关）。** 所有 `rel`/`from`/`to`/`dir` 字段中的相对路径一律定义为 `/` 分隔的一段段名字，并 **禁止**：空段、`.`、`..`、前导 `/`、反斜杠 `\`、冒号 `:`、以及任何控制字符（含 NUL）。因此该文法在所有平台上给出同一判定，不随宿主的 `Path` 解析器改变——这一点对 §6 的第二道边界至关重要，因为 `cap-std` 在 Windows 与 macOS 上尚未实测。
+
+代价被明确接受：在 Linux 与 macOS 上合法的 `notes:backup.txt` 一类含冒号的文件名，以及含反斜杠的文件名，**无法经本协议访问**。这是为可预测性换来的收窄，不是遗漏；UI 在列举时应对这类条目给出"不可经共享访问"的提示，而不是静默隐藏。
+
 列举为 **尽力而为的一致性快照，不做目录版本化**。游标是不透明值，服务端不为其保留目录状态；列举期间目录被并发改动，同一条目可能重复出现或漏出。客户端按 `name` 去重合并，并在响应带 `truncated` 时提示用户手动刷新。此语义明确写入协议文档，不伪装成原子快照。
 
 注册点：`node.rs` 的 ALPN 预注册数组（`:971`）与 `install_remote_share()`（对齐 `:1312` 的既有 install 形态），加 `uc-engine/src/assembly/sync_engine.rs` 装配调用，以及 `uc-observability-contract` 的 `InboundPeerProtocol` 变体与其字符串合同测试。线格式测试按仓库习惯内联在线格式文件底部的 `#[cfg(test)] mod tests`，用 `tokio::io::duplex` 跑双向编解码。
