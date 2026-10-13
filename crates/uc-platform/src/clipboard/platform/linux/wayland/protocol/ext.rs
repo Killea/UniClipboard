@@ -39,8 +39,8 @@ use wayland_protocols::ext::data_control::v1::client::{
 use crate::clipboard::event_loop::{PlatformClipboardEventLoop, ShutdownRx};
 use crate::clipboard::watcher::ClipboardWatcher;
 
-use super::super::super::write_offers::{extra_offers_for_uri_list, is_uri_list_mime};
 use super::super::backend::OfferLike;
+use super::super::offer_plan::offer_plan;
 use super::super::snapshot::build_from_offer;
 use super::super::write_payload::write_payload;
 
@@ -668,75 +668,24 @@ fn handle_write(
     }
 
     let source = manager.create_data_source(qh, ());
-    let mut payloads: HashMap<String, Arc<Vec<u8>>> = HashMap::new();
-    // Derived file-manager offers collected while iterating reps, applied
-    // afterwards with `contains_key` guards so a genuine rep always wins a
-    // mime over a derived copy (e.g. a real `text/plain` beats file paths).
-    let mut deferred_offers: Vec<(String, Arc<Vec<u8>>)> = Vec::new();
 
-    for rep in &snapshot.representations {
-        let Some(primary_mime) = rep
-            .mime
-            .as_ref()
-            .map(|m| m.0.clone())
-            .or_else(|| super::default_mime_for_format(&rep.format_id).map(String::from))
-        else {
-            continue;
-        };
-
-        // 用 `rep_bytes` 而非 `expect_inline_bytes`：远端 push 的 image rep 由
-        // `apply_inbound::materializer` 合成为 `LocalFile` source（指向 blob cache
-        // 文件），直接调 `expect_inline_bytes` 会 panic（见
-        // `clipboard::payload::rep_bytes` 注释）。读盘失败时跳过该 rep + warn,
-        // 与 macOS / Windows 平台同语义。
-        let bytes = match crate::clipboard::payload::rep_bytes(rep) {
-            Ok(b) => Arc::new(b.into_owned()),
-            Err(err) => {
-                warn!(
-                    error = %err,
-                    format_id = %rep.format_id,
-                    mime = %primary_mime,
-                    "ext-data-control write: read LocalFile rep failed; skipping this mime"
-                );
-                continue;
-            }
-        };
-
-        // Advertise every MIME alias a paster might request (text expands to the
-        // full UTF-8 family) so apps like Firefox that only negotiate
-        // `text/plain;charset=utf-8` / `UTF8_STRING` can paste. All aliases share
-        // the same payload bytes.
-        for mime in super::offer_mimes_for(&primary_mime) {
-            if payloads.contains_key(&mime) {
-                continue;
-            }
-            source.offer(mime.clone());
-            payloads.insert(mime, Arc::clone(&bytes));
-        }
-
-        // File sets additionally advertise the payload variants Linux file
-        // managers expect (x-special/gnome-copied-files for Nautilus paste,
-        // text/plain paths as the text fallback). See write_offers.rs.
-        if is_uri_list_mime(&primary_mime) {
-            for (mime, extra) in extra_offers_for_uri_list(&bytes) {
-                for offered in super::offer_mimes_for(&mime) {
-                    deferred_offers.push((offered, Arc::new(extra.clone())));
-                }
-            }
-        }
-    }
-
-    for (mime, bytes) in deferred_offers {
-        if payloads.contains_key(&mime) {
-            continue;
-        }
-        source.offer(mime.clone());
-        payloads.insert(mime, bytes);
-    }
+    // Advertise the shared offer plan (see `offer_plan`): the representation's
+    // own MIME aliases first (canonical leading), then the derived file-manager
+    // offers. All aliases share the same payload bytes, and a genuine rep always
+    // wins a mime over a derived copy.
+    let offers = offer_plan(&snapshot);
+    let payloads: HashMap<String, Arc<Vec<u8>>> = offers
+        .iter()
+        .map(|(mime, bytes)| (mime.clone(), Arc::clone(bytes)))
+        .collect();
 
     if payloads.is_empty() {
         source.destroy();
         anyhow::bail!("ext-data-control write: no mime could be derived from snapshot");
+    }
+
+    for (mime, _) in &offers {
+        source.offer(mime.clone());
     }
 
     // Do NOT destroy the previous source before installing the new one.

@@ -79,3 +79,21 @@ func startHostHelper(name string, args ...string) error {
 	go func() { _ = cmd.Wait() }()
 	return nil
 }
+
+// runHostHelperSync runs a host program to completion and returns its trimmed stdout, using the same
+// cleaned AppImage environment and home working directory as startHostHelper (a dialog such as zenity
+// must resolve its own GTK libraries, not the mount's). Exit status 1 is reported as an empty result
+// with a nil error: for the file dialogs it drives, 1 means the user cancelled, which callers treat as
+// "no selection" rather than a failure.
+func runHostHelperSync(name string, args ...string) (string, error) {
+	cmd := exec.Command(name, args...)
+	if appDir := os.Getenv("APPDIR"); appDir != "" {
+		cmd.Env = hostHelperEnvironment(os.Environ(), appDir)
+		if home, err := os.UserHomeDir(); err == nil {
+			cmd.Dir = home
+			cmd.Env = append(cmd.Env, "PWD="+home)
+		}
+	}
+	out, err := cmd.Output()
+	return decodeHostHelperOutput(out, err)
+}

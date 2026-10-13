@@ -15,11 +15,12 @@ AppRun 把 `$APPDIR/usr/lib` 放进 `LD_LIBRARY_PATH`，linuxdeploy 的 GTK 钩�
 | 调用点 | 程序 | 触发 | 平台 |
 | --- | --- | --- | --- |
 | `host_commands_files.go` `openWithSystem` | `xdg-open <路径>`（打开数据目录、日志目录、「在文件管理器中显示」= 其所在目录、「用外部程序打开图片」） | host 命令 `open_data_directory` / `open_logs_directory` / `reveal_path` / `open_image_externally` | Linux（macOS `open`、Windows `explorer`/`start` 不在本片） |
+| `host_commands_files.go` `linuxFolderPicker`（经 `chooseDirectory` 调用） | `zenity --file-selection --directory`（「另存为」等功能的文件夹选择；同步等待其退出码，0=已选、1=取消） | host 命令 `save_files_as` / `pick_directory` | Linux，且仅当系统装有 `zenity`；缺失时回退 Wails `Dialog`。macOS/Windows 不走此路 |
 | 共享前端 `openUrl`（`@tauri-apps/plugin-opener`，适配器 `frontend/src/host/opener.ts`） | Wails `Browser.OpenURL` → `xdg-open <url>`（`internal/browser/browser_other.go`） | 发布说明链接、链接预览、更新窗口的发布页等 | Linux |
 | `install_kind_linux.go` | `dpkg-query -S`、`rpm -qf` | 仅当可执行文件在 `/usr`、`/opt` 等且 `APPIMAGE` 未设置 | deb/rpm 安装，**AppImage 不触发**，不在本片 |
 | `lifecycle.go`、`host_install_linux.go` | 本 AppImage / 本可执行文件自己（重启、更新后拉起） | 重启 | 必须保持完整环境，不是宿主辅助程序 |
 | `packages/desktop-host-go/daemonproc` | 随包 `uniclipd` | 启动 | 同上，依赖包内库 |
-| Wails `Dialog`、`Notifications`、托盘、`Autostart` | 进程内（GTK、D-Bus、写 `.desktop` 文件） | - | 不启动宿主进程 |
+| Wails `Dialog`、`Notifications`、托盘、`Autostart` | 进程内（GTK、D-Bus、写 `.desktop` 文件） | - | 不启动宿主进程（例外：Linux 的文件夹选择器改由上表 `zenity` 驱动——固定版 Wails beta.28 的进程内 GTK 文件夹选择器在确认选择后使宿主进程崩溃（cgo），本机实测；其余对话框仍走 Wails 进程内路径） |
 | Rust 侧（`crates/uc-daemon-process` 等） | `netstat`/`lsof` 等进程元数据 | 守护进程 | 未在 Linux AppImage 上验证，见「明确不证明」 |
 
 Wails 固定版（beta.28）能力核查：`app.Browser.OpenURL/OpenFile` 与 `app.Env.OpenFileManager`（`fileexplorer_linux.go`：D-Bus FileManager1 `ShowItems`，退回 `xdg-open`）都在 Wails 进程内用继承的环境启动子进程，`internal/browser` 的 `openCmd` 是包内变量，**没有注入环境的公开 API**；所以环境问题无法在 Wails API 内部解决。`OpenFileManager` 不能解决问题（同一继承环境），本片也不改变产品的「显示」语义。

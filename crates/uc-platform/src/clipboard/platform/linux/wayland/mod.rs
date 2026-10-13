@@ -26,11 +26,14 @@
 
 mod backend;
 mod clipboard;
+mod data_device;
 mod event_loop;
+mod offer_plan;
 mod protocol;
 mod snapshot;
 mod transfer;
 mod write_payload;
 
 pub(super) use clipboard::WaylandClipboard;
+pub(super) use data_device::DataDeviceWriter;
 pub(super) use event_loop::WaylandEventLoop;

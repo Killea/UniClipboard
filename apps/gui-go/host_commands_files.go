@@ -7,6 +7,7 @@ import (
 	"io"
 	"io/fs"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -82,8 +83,43 @@ func (h *HostService) chooseDirectory() (string, bool, error) {
 	if path, ok := dialogOverride("directory"); ok {
 		return path, path != "", nil
 	}
+	// On Linux the folder chooser is driven by zenity rather than the pinned Wails beta.28 in-process
+	// GTK dialog, which crashes the host (cgo, after a selection is confirmed) on Linux. When zenity is
+	// absent we keep the Wails dialog so a zenity-less host retains the previous behavior.
+	if path, attempted, err := linuxFolderPicker(); attempted || err != nil {
+		return path, path != "", err
+	}
 	path, err := h.app.Dialog.OpenFile().CanChooseDirectories(true).CanChooseFiles(false).CanCreateDirectories(true).PromptForSingleSelection()
 	return path, path != "", err
+}
+
+// linuxFolderPicker shows the folder chooser via zenity on Linux. It reports attempted=false when it is
+// not in play (non-Linux host, or zenity unavailable) so the caller falls back to the Wails dialog;
+// otherwise it reports the chosen path (empty when the user cancelled) or a launch failure.
+func linuxFolderPicker() (path string, attempted bool, err error) {
+	if runtime.GOOS != "linux" {
+		return "", false, nil
+	}
+	if _, err := exec.LookPath("zenity"); err != nil {
+		return "", false, nil
+	}
+	path, err = runHostHelperSync("zenity", "--file-selection", "--directory")
+	return path, true, err
+}
+
+// decodeHostHelperOutput turns a synchronous host helper's raw output into a trimmed result. Exit status
+// 1 is the file dialogs' "cancelled" signal (an empty selection, no error); any other failure is returned.
+// A clean cancel writes nothing to stderr, so an exit-1 with stderr output is a real failure (e.g. the
+// dialog could not open the display) and is surfaced as an error rather than a cancel.
+func decodeHostHelperOutput(out []byte, err error) (string, error) {
+	if err != nil {
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) && exitErr.ExitCode() == 1 && len(exitErr.Stderr) == 0 {
+			return "", nil
+		}
+		return "", err
+	}
+	return strings.TrimSpace(string(out)), nil
 }
 
 // saveFilesResult reports a save-files-as export: the chosen directory, how

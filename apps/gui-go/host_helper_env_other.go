@@ -13,3 +13,11 @@ func startHostHelper(name string, args ...string) error {
 	go func() { _ = cmd.Wait() }()
 	return nil
 }
+
+// runHostHelperSync runs a host program to completion and returns its trimmed stdout. Outside the Linux
+// AppImage there is no environment to clean. Exit status 1 is reported as an empty result with a nil
+// error (a cancelled file dialog); any other failure is returned.
+func runHostHelperSync(name string, args ...string) (string, error) {
+	out, err := exec.Command(name, args...).Output()
+	return decodeHostHelperOutput(out, err)
+}
