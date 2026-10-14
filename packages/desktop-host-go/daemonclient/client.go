@@ -417,15 +417,24 @@ func marshalNoEscape(v any) ([]byte, error) {
 	return bytes.TrimRight(buf.Bytes(), "\n"), nil
 }
 
-// StartupStatus reads `/startup` with the bearer credential, which is the
-// only credential that route accepts before the business API is ready. It
-// returns nil when the daemon is not reachable yet.
+// StartupStatus reads `/startup` from the startup-only listener. That listener
+// publishes its own connection record (`daemon-startup.conn`), separate from the
+// main connection file the rest of the client talks to, so the request must be
+// aimed at the startup port — not the main base URL. It returns nil when the
+// daemon is not up yet.
 func (c *Client) StartupStatus(ctx context.Context) (json.RawMessage, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.BaseURL+"/startup", nil)
+	conn, err := daemonproc.ReadStartupConnFile()
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("Authorization", "Bearer "+c.token)
+	if conn == nil {
+		return nil, nil
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, conn.BaseURL()+"/startup", nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Authorization", "Bearer "+conn.Token)
 	resp, err := c.http.Do(req)
 	if err != nil {
 		if ctx.Err() != nil {

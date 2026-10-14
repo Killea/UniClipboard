@@ -15,8 +15,9 @@ import (
 )
 
 const (
-	connFormat   = 1
-	connFileName = "daemon.conn"
+	connFormat          = 1
+	connFileName        = "daemon.conn"
+	startupConnFileName = "daemon-startup.conn"
 )
 
 // ConnFile is the daemon-published connection record (`daemon.conn`).
@@ -56,6 +57,30 @@ func ReadConnFile() (*ConnFile, error) {
 	if err != nil {
 		return nil, err
 	}
+	return readConnFileAt(path)
+}
+
+// StartupConnPath resolves the profile's `daemon-startup.conn` path: the
+// startup-only listener that serves `/startup`, kept separate from the main
+// connection file so a client can watch the boot without touching business routes.
+func StartupConnPath() (string, error) {
+	root, err := AppDataRoot()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(root, startupConnFileName), nil
+}
+
+// ReadStartupConnFile reads `daemon-startup.conn`; a missing file is (nil, nil).
+func ReadStartupConnFile() (*ConnFile, error) {
+	path, err := StartupConnPath()
+	if err != nil {
+		return nil, err
+	}
+	return readConnFileAt(path)
+}
+
+func readConnFileAt(path string) (*ConnFile, error) {
 	data, err := os.ReadFile(path)
 	if errors.Is(err, fs.ErrNotExist) {
 		return nil, nil
