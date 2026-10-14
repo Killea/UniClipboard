@@ -16,6 +16,7 @@ import {
   initializeDiagnostics,
   DiagnosticsErrorBoundary,
 } from '@/observability/diagnostics'
+import { installLocalLogCapture } from '@/observability/localLog'
 import { store } from '@/store'
 
 initializeWebviewContextMenu()
@@ -23,6 +24,11 @@ initializeWebviewContextMenu()
 // Initialize diagnostics before React mounts. The provider owns SDK setup;
 // the persisted diagnostics setting still controls remote delivery.
 initializeDiagnostics()
+
+// Install the local on-disk error capture before React mounts so uncaught errors,
+// unhandled rejections and console errors during bootstrap reach the GUI log file.
+// Independent of the telemetry gate that governs remote delivery.
+installLocalLogCapture()
 
 // Attach host context without blocking rendering when the runtime is not ready.
 getDeviceMeta()

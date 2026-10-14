@@ -1,6 +1,7 @@
 import pino from 'pino'
 import type { Level, LogEvent } from 'pino'
 import { writeDiagnosticLog } from '@/observability/diagnostics'
+import { appendLocalLog } from '@/observability/localLog'
 import { redactSensitiveArgs } from '@/observability/redaction'
 import { traceManager } from '@/observability/trace'
 
@@ -37,16 +38,32 @@ function transmitDiagnostics(level: Level, logEvent: LogEvent): void {
   if (context.module) attributes.module = String(context.module)
 
   writeDiagnosticLog(level, message, Object.keys(attributes).length > 0 ? attributes : undefined)
+
+  // Mirror the record to the local on-disk log. Independent of the telemetry gate that
+  // governs the diagnostics provider above, so it is always captured for offline inspection.
+  appendLocalLog({
+    level,
+    msg: message,
+    module: context.module ? String(context.module) : undefined,
+    traceId,
+    attributes: Object.keys(attributes).length > 0 ? attributes : undefined,
+    ts: logEvent.ts,
+  })
 }
+
+const isDev = import.meta.env.DEV
 
 /**
  * Application-wide pino logger.
  *
- * - In development: writes to browser DevTools console (default pino/browser
- *   behaviour) and forwards structured records to the diagnostics provider (gated at
- *   runtime by `setDiagnosticsEnabled`).
- * - In production: console output is suppressed below 'warn'; the provider receives
- *   all records at 'info' and above.
+ * - In development: writes to the browser console (default pino/browser behaviour) so
+ *   records are visible in DevTools, and forwards structured records to the diagnostics
+ *   provider (gated at runtime by `setDiagnosticsEnabled`).
+ * - In production: the webview has no visible console (devtools are disabled), so pino's
+ *   direct console write is suppressed. The `transmit` path below is the single channel
+ *   that feeds both the diagnostics provider and the local on-disk log; keeping the
+ *   console quiet also means the local log's console hook captures only ad-hoc
+ *   `console.error`/`console.warn` calls, so a pino record is never recorded twice.
  *
  * Prefer creating module-level child loggers via `createLogger('module-name')`
  * for structured context rather than adding prefix strings to messages.
@@ -60,8 +77,12 @@ function transmitDiagnostics(level: Level, logEvent: LogEvent): void {
  * ```
  */
 export const logger = pino({
-  level: import.meta.env.DEV ? 'debug' : 'info',
+  level: isDev ? 'debug' : 'info',
   browser: {
+    // Suppress pino's direct console write in production. The webview has no visible
+    // console, and this keeps the local log's console hook from double-capturing pino
+    // records (they reach the local log exactly once, via the transmit path).
+    ...(isDev ? {} : { write: () => undefined }),
     transmit: {
       level: 'info',
       send: transmitDiagnostics,
