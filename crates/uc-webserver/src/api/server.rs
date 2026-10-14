@@ -690,16 +690,67 @@ fn apply_cors_headers(headers: &mut HeaderMap, origin: Option<&str>) {
 }
 
 fn is_allowed_cors_origin(origin: &str) -> bool {
+    // Tauri desktop host origins.
     origin == "tauri://localhost"
-        || origin == "wails://localhost"
-        // The Go GUI's development mode serves the frontend from a local dev server,
-        // and Wails puts that port in the WebView origin.
-        || origin.starts_with("wails://localhost:")
         || origin == "http://tauri.localhost"
         || origin == "https://tauri.localhost"
+        // Wails v2 and the Linux webkit scheme use the `wails://localhost` custom
+        // scheme; development mode adds a port.
+        || origin == "wails://localhost"
+        || origin.starts_with("wails://localhost:")
+        // Wails v3 (the Go/Wails desktop host) serves the Windows webview from the
+        // `http://wails.localhost` host (see wails/v3 `internal/assetserver`); allow
+        // the bare host plus any ported / https variants. Without this the browser
+        // blocks every cross-origin REST fetch from the webview ("Failed to fetch"),
+        // while the WebSocket (which skips CORS) still connects.
+        || origin == "http://wails.localhost"
+        || origin == "https://wails.localhost"
+        || origin.starts_with("http://wails.localhost:")
+        || origin.starts_with("https://wails.localhost:")
+        // Local dev servers.
         || origin.starts_with("http://localhost:")
         || origin.starts_with("http://127.0.0.1:")
         || origin.starts_with("http://[::1]:")
+}
+
+#[cfg(test)]
+mod cors_origin_tests {
+    use super::is_allowed_cors_origin;
+
+    #[test]
+    fn allows_known_desktop_host_origins() {
+        for origin in [
+            "tauri://localhost",
+            "http://tauri.localhost",
+            "https://tauri.localhost",
+            "wails://localhost",
+            "wails://localhost:5173",
+            // Wails v3 (Go/Wails desktop host) serves the Windows webview from here.
+            "http://wails.localhost",
+            "https://wails.localhost",
+            "http://wails.localhost:8080",
+            "https://wails.localhost:8080",
+            "http://localhost:5173",
+            "http://127.0.0.1:58565",
+            "http://[::1]:8080",
+        ] {
+            assert!(is_allowed_cors_origin(origin), "should allow {origin}");
+        }
+    }
+
+    #[test]
+    fn rejects_foreign_and_forged_origins() {
+        for origin in [
+            "",
+            "null",
+            "http://evil.example.com",
+            "http://127.0.0.1.evil.example.com:8080",
+            "http://localhost.evil.example.com:5173",
+            "http://wails.localhost.evil.example.com",
+        ] {
+            assert!(!is_allowed_cors_origin(origin), "should reject {origin:?}");
+        }
+    }
 }
 
 #[cfg(test)]
