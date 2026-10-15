@@ -1,8 +1,8 @@
 # 设备文件共享 —— 现状与 Agent 交接
 
-- **最近更新**：2026-10-14（首次快照 2026-10-13）。
-- **性质**：进度快照 + **Agent 交接文档**，供接手 P4/P5/P7 的 agent 快速进入上下文。需求与决策见 §1/§2；已落地代码位置与不变量见 §3；下一步任务清单见 §5；gate 与硬约束见 §6/§7。
-- **一句话状态**：P1 安全底座已迁到 14-crate 基线并可消费（Phase 0）；`remote-share/1` 控制面 **holder 侧**（wire codec + serve 端口 + serve 逻辑 + iroh 适配器 + 引擎装配）已实现、单测/集成测全绿、已推到 `Killea/Engine` fork 分支。剩余：出站 client（P5）、传输编排（P4）、daemon 路由（P5）、前端（P7）、两 peer 端到端（推送 + rev-pin 后）。
+- **最近更新**：2026-10-15（首次快照 2026-10-13）。
+- **性质**：进度快照 + **Agent 交接文档**，供接手 P5/P7 的 agent 快速进入上下文。需求与决策见 §1/§2；已落地代码位置与不变量见 §3；下一步任务清单见 §5；gate 与硬约束见 §6/§7。
+- **一句话状态**：Engine 侧 holder 面 **全部完成**（句柄化约束内核 + 变更 RPC + 回收站 + 两阶段上传编排 + 导出 + §5.3 审计 + 根注册责任人 + 启动 reconcile），`remote-share/1` 线格式已定稿为显式 opcode + DenyCode 全集，T9 门禁全绿（除交接文档 §6.2 登记的环境性项）。§4 三项未闭合保证已全部关闭；§19 裁定接受残余风险并写入 ADR-036。P3/P4 工作已落本地 commit `90141f9e`（**未推送**，推 fork 需授权）。剩余：出站 client + daemon 路由（P5）、前端（P7）、三平台/双 peer 端到端（P9，推送 + rev-pin 后）。
 
 ## 1. 原始需求
 
@@ -26,9 +26,9 @@
 | 范围 | 全量一次做完（浏览 + 上传 + 下载+mkdir/重命名/删除/设备内拷贝 + 路径可见性） | 用户选定 |
 | 多网卡 | 自动选路 **已存在**（iroh 内置 `BiasedRttPathSelector`）；本次只做"显示走的是哪张网卡"；**手动钉选为非目标** | `Builder::path_selector()` 在 iroh 1.3 位于 `unstable-custom-transports` 之后 |
 
-## 3. 已落地（Engine 仓，分支 `feat/device-file-share-p1-port`，已推 `fork`）
+## 3. 已落地（Engine 仓，分支 `feat/device-file-share-p1-port`）
 
-基线 `origin/main` = `0e25f418`（14-crate 布局）。5 个 commit，全部已推到 `github.com/Killea/Engine` 的 `feat/device-file-share-p1-port`（新分支，未覆盖；PR 可建：https://github.com/Killea/Engine/pull/new/feat/device-file-share-p1-port）。**工作树 = git worktree `/home/hank/Documents/Engine-share-port`**（主仓 `/home/hank/Documents/Engine` 保持未动）。
+基线 `origin/main` = `0e25f418`（14-crate 布局）。**工作树 = git worktree `/home/hank/Documents/Engine-share-port`**（主仓 `/home/hank/Documents/Engine` 保持未动）。前 5 个 commit 已推到 `github.com/Killea/Engine`；**`90141f9e` 仅落本地，未推送**（推 `fork` 需明确授权，见 §7-1）。
 
 | commit | 内容 |
 | --- | --- |
@@ -37,50 +37,58 @@
 | `54c6544d` | **B1**：serve 端口 + domain 类型 + `ShareRootId` wire 字节助手 |
 | `033e3b59` | **B2**：serve 逻辑（authorize→confine→read AND，fail-closed）+ 13 单测 |
 | `33aa08b8` | **B3**：iroh serve 适配器 + `install_remote_share` + bind-time ALPN + 引擎装配 + 5 条端点级判定 |
+| `90141f9e` | **P2–P4 收尾（未推送）**：句柄化约束内核 + 显式 opcode 线格式 + DenyCode 全集 + 变更 RPC（mkdir/rename/delete/copy_within）+ 回收站 + 两阶段上传（StageUpload/Commit/Abort，bounded fetch + transfer_id 进度）+ 导出（publish_reader → ticket）+ §5.3 审计记录 + `ShareRootsRegistry` 启动 reconcile / `replace_doc` / `revoke_all` + ADR-036 |
 
 ### 3.1 各件代码位置（14-crate 布局，均在 Engine 仓 worktree）
 
 | 件 | 位置 |
 | --- | --- |
-| 共享根 domain + grant + 归一化 | `crates/uc-core/src/ports/remote_share/model.rs`（含 `ShareRootId::as_bytes`/`from_wire_bytes`） |
-| 存储端口 / 约束端口 / serve 端口 | `crates/uc-core/src/ports/remote_share/{store,confinement,serve}.rs`（`RemoteShareServePort`、payload-free `ShareServeError`、redacting-Debug 的 `ShareRootDescriptor`/`ShareDirectoryPage`/`ShareAvailability`） |
+| 共享根 domain + grant + 归一化 | `crates/uc-core/src/ports/remote_share/model.rs`（含 `ShareRootId::as_bytes`/`from_wire_bytes`、保留名筛查 `is_reserved_share_component`） |
+| 存储端口 / 约束端口 / serve 端口 | `crates/uc-core/src/ports/remote_share/{store,confinement,serve}.rs`（`RemoteShareServePort` 全 15 动词、payload-free `ShareServeError`、不透明 `ConfinedTarget` 能力句柄） |
 | 加密共享根清单（Space 子密钥 AEAD，原子替换、截断式读取） | `crates/uc-infra-storage/src/remote_share/store.rs`（`EncryptedShareStore`） |
-| cap-std 路径约束内核 + 19 条逃逸探针 | `crates/uc-infra-local/src/fs/share_confinement.rs` + `crates/uc-infra-local/tests/share_confinement_escape_probe.rs` |
+| cap-std 路径约束内核 + 逃逸探针 | `crates/uc-infra-local/src/fs/share_confinement.rs`（登记时句柄/路径身份互证 + 保留命名空间扫描 + 末段 no-follow）+ `crates/uc-infra-local/tests/share_confinement_escape_probe.rs`（25 测） |
 | fail-closed 授权器 + 门面 | `crates/uc-application/src/remote_share/{authorizer,facade}.rs`（`ShareAuthorizer`、`RemoteShareFacade`；ADR-018 暴露） |
-| serve 逻辑（AND 门） | `crates/uc-application/src/remote_share/serve_handler.rs`（`RemoteShareServe`/`RemoteShareServeDeps`；`spawn_blocking` 读 fs；13 单测，mock 双向验证：仅 authorize 或仅 resolve 都拒绝） |
-| wire codec | `crates/uc-sync-protocol/src/remote_share.rs`（`REMOTE_SHARE_ALPN = b"uniclipboard/remote-share/1"`；10 字节头 magic `UCRS`/version/kind/body_len(4BE) + postcard，cap-before-allocate；64KiB 请求 / 2MiB 响应上限；30s IO deadline；Hello/ListRoots/List/Stat；11 单测） |
-| iroh serve 适配器 + ALPN 装配 | `crates/uc-infra-p2p/src/network/iroh/remote_share/{serve_adapter,mod}.rs` + `crates/uc-infra-p2p/src/network/iroh/node.rs`（`IrohSessionBuilder::install_remote_share`、bind-time ALPN 数组；`IrohRemoteShareServeHandler` 经 `InboundPeerGate` 放行后分发到 `RemoteShareServePort`；5 端点级判定：member 各请求被服务 / unknown peer 丢弃 / 错误映射 deny code） |
-| 引擎装配 | `crates/uc-engine/src/assembly/{deps.rs, wire/mod.rs, sync_engine.rs}`（`SyncEngineDeps.remote_share` 携带 confinement；`prepare_sync_session` 安装点用 `space_access.share_store` + confinement 构造 `RemoteShareServe`，`builder.finish()` 前调 `install_remote_share`） |
+| serve 逻辑（AND 门） | `crates/uc-application/src/remote_share/serve_handler.rs`（`RemoteShareServe`/`RemoteShareServeDeps`：share_store + confinement + blobs + progress） |
+| 传输编排 | `crates/uc-application/src/remote_share/transfer.rs`（`ShareTransferCoordinator`：staging 会话 + fetch worker `MAX_CONCURRENT_FETCHES=4` + `transfer_id` 进度上报 + commit 墓碑/取消 + 导出 lease） |
+| 根注册责任人 | `crates/uc-application/src/remote_share/registry.rs`（`ShareRootsRegistry`：`reconcile_startup`/`replace_doc`/`revoke_all`；清单唯一写路径） |
+| wire codec | `crates/uc-sync-protocol/src/remote_share.rs`（显式 `u32 opcode` + per-op postcard payload；`DenyCode` 全 17 码；`WireStageEntry.ticket`；`StageUpload.transfer_id`；`Exported{ticket,size}`；golden 向量钉字节） |
+| iroh serve 适配器 + ALPN 装配 + §5.3 审计 | `crates/uc-infra-p2p/src/network/iroh/remote_share/serve_adapter.rs`（全部 op 分发 + DenyCode 全量映射 + `audit_served`；`crates/uc-infra-p2p/src/network/iroh/blobs.rs` 有 `publish_reader` 流式发布） |
+| 审计记录契约 | `crates/uc-observability-contract/src/diagnostics/connectivity/remote_share.rs`（`remote_share.serve.op` 封闭记录：op/root_id/blake3(rel) 截断/结果码，peer 经 `peer_context` 匿名 `peer_ref`） |
+| 引擎装配 | `crates/uc-engine/src/assembly/sync_engine.rs`（`install_remote_share` 后 `ShareRootsRegistry::reconcile_startup`，`builder.finish()` 前；`SyncSessionAssembly::remote_share_registry` 会话级持有，`shutdown` 首步 `revoke_all`） |
 | 观测协议枚举 | `crates/uc-observability-contract/src/diagnostics/connectivity/inbound_peer.rs`（`InboundPeerProtocol::RemoteShare`） |
-| ADR | `docs/design-docs/decisions/034-share-path-confinement-cap-std.md`、`035-share-store-space-subkey.md`（原 ADR-030/031 因与 baseline 自身 030/031 撞号而重编号） |
+| ADR | `docs/design-docs/decisions/034-share-path-confinement-cap-std.md`、`035-share-store-space-subkey.md`、`036-remote-share-alpn-blob-addressing.md`（线格式约定 + §19 残余风险接受） |
+| 执行计划（已归档） | Engine 仓 `docs/exec-plans/completed/2026-10-14-device-file-share-p3-p4.md`（含 T9 gate 证据与稳定结论） |
 
-### 3.2 必须遵守的核心不变量（接手 P4/P5 时别破坏）
+### 3.2 必须遵守的核心不变量（接手 P5/P7 时别破坏）
 
-1. **AND 义务（authorize + confine）**：serve 侧每个读请求必须先 `ShareAuthorizer::authorize`（fail-closed，返回 `Option<SharePermit>`）**再** `confinement.resolve`/`resolve_root`（cap-std 约束），**两者都成功才读**；`resolve` 单独不构成授权。见 `serve_handler.rs`。
-2. **wire 脱敏**：`real_path`（holder 本地绝对路径）**绝不** 上 wire、进日志。wire DTO 只带不透明 `root_id` + `label` + 相对条目名；`ShareRootDescriptor`/`ShareDirectoryEntry` 的 `Debug` 实现脱敏 `label`/`name`。
+1. **AND 义务（authorize + confine）**：serve 侧每个请求必须先 `ShareAuthorizer::authorize`（fail-closed，返回 `Option<SharePermit>`）**再** 走 confinement 动词，**两者都成功才执行**；`resolve` 单独不构成授权。见 `serve_handler.rs`/`transfer.rs`。
+2. **wire 脱敏**：holder 本地绝对路径与对端身份 **绝不** 上 wire、进日志。wire DTO 只带不透明 `root_id` + `label` + 相对条目名；`label`/`name`/`path`/`ticket` 类字段 `Debug` 一律脱敏；§5.3 审计里 peer → 匿名 `peer_ref`、rel → `blake3` 截断指纹。
 3. **持久化默认密文**：共享根清单（白名单）经 Space 子密钥 AEAD 加密落盘，**不明文** 进 DB/日志/索引（见 VISION「安全与隐私底线」）。
-4. **控制面只传元数据**：`remote-share/1` 只跑 Hello/ListRoots/List/Stat；**字节体走 P4 传输管线**（iroh-blobs），不经本 ALPN。
-5. **失败封闭**：任何授权/约束/存储失败一律 deny（不给对端泄露具体原因），映射到类型化 deny code。
+4. **控制面只传元数据**：`remote-share/1` 传 opcode 帧；**字节体走 iroh-blobs**（`BlobTicket` 含地址+hash），不经本 ALPN。
+5. **失败封闭**：任何授权/约束/存储失败一律 deny（不给对端泄露具体原因），映射到类型化 deny code；`StagingNotFound`→`NotFound`、`IsADirectory`/`NotADirectory`→`Denied` 两处塌缩是有意的。
+6. **句柄化能力**：`ConfinedTarget` 是句柄不是路径快照——撤销/重登记/根替换后旧 token 一切 op 得 `RootGone`（代次 + 身份复核）。客户端路径首段撞上 `.uniclipboard-trash-`/`.uniclipboard-staging-` 保留前缀一律拒绝。
+7. **清单唯一写路径**：`ShareRootsRegistry`（`reconcile_startup`/`replace_doc`/`revoke_all`）——装配/未来写路径不得绕过它直接 `register_root`。
+8. **暂存原子落位**：`CommitUpload` 等 fetch 收敛再逐条 rename；staging_id commit 后进墓碑，重复 commit/迟到 abort 得 `TooLate`；`AbortUpload` 幂等且撕在途 fetch。
 
-## 4. 仍未闭合的安全保证（P4/P5 开工前置决定）
+## 4. 已闭合的前置项（2026-10-15，随 `90141f9e`）
 
-P1/P2 无破坏性消费者，故当前可接受；**P4（落盘）/P5（变更 RPC）不得在其上建破坏性操作**，下列三项需在开工前裁定：
+原 §4 三项未闭合保证已全部按裁定方案落地：
 
-1. **`real_path` 是快照，不是能力。** 约束内核从不打开末段，交回的绝对路径由调用方用环境权限重开 —— 正是 ADR-034 决定 2 排除的"先校验字符串、再按绝对路径重开"两步式。彻底修法：端口交出 **不透明句柄** 并提供 **相对已保留 `Dir` 的操作**。列为 **P4 开工前置决定**。
-2. **根生命周期检测不全。** 实测：改名挪走且不重植 ⇒ 可检测（`is_dir()` false → `RootGone`）；**改名后在同路径重植** ⇒ 检测不到，`real_path` 指向未校验的新树；**删除后重建** ⇒ 检测不到。修法：登记时从 **已打开的句柄** 取身份（Linux `dev`/`ino`，Windows file index），存活检查里复核，不匹配 fail-closed。
-3. **注册期 `canonicalize` 与 `open_ambient_dir` 不互证。** 两次独立环境解析之间可被换掉，使 `dir` 与 `path` 指向不同树。身份复核与第 2 条同一批修。
+1. **`real_path` 快照 → 不透明句柄**。`ConfinedTarget` 内嵌已验证父目录 `Dir` fd + 末段名 + 登记代次；`ShareConfinementPort` 全动词相对保留句柄操作，检查对象与被操作对象是同一个 fd；末段一律 `cap-fs-ext` no-follow 打开。
+2. **根生命周期**。登记时从已打开句柄取 `dev`/`ino`（Windows `volume_serial_number`/`file_index`）作 `RootIdentity`；存活检查比对登记路径 stat 身份——挪走、替换、删除重建全部 fail-closed 成 `RootGone`（探针 25 测覆盖）。
+3. **`canonicalize` 与 `open_ambient_dir` 互证**。同一次登记比对定稿路径 stat 与句柄 stat 身份，不一致即拒绝。
 
-## 5. 下一步任务清单（P4 → P5 → P7，建议顺序）
+§19 裁定：**接受内容寻址残余风险**（持 digest 者可拉取同字节属既有属性，残余为存在性预言机 + 带宽占用），不加盐、不建白名单，写入 ADR-036。
 
-### P4 传输编排（Engine 仓）
+## 5. 下一步任务清单（P5 → P7 → P9，建议顺序）
 
-- StageUpload / CommitUpload / AbortUpload 两阶段（iroh-blobs publish/fetch）+ 原子落盘 + 进度/取消。
-- **前置决定（spec §19）**：blob 按 digest 寻址、任何持 digest 的 Space 成员可拉 → 需定（盐化 digest / 短命 digest 白名单 / ADR-015 接受并文档化）。
-- 落盘目标必须经 P1 约束内核 `resolve` 到 **已授权根内**，不落白名单外；复用现有「发送到设备」(resend) 的 iroh-blobs 字节层。
+### ~~P4 传输编排（Engine 仓）~~ 已完成（`90141f9e`，未推送）
+
+holder 侧全部落地：两阶段上传（StageUpload 含 ticket 清单 + `transfer_id` → 有界 fetch → CommitUpload 原子落位/墓碑 → AbortUpload 幂等撕取）、Export（`publish_reader` 流式发布 + `RemoteShareExport` 30min lease）、变更 RPC 与回收站全线打通、§5.3 审计记录、`ShareRootsRegistry` 启动收敛。**上传方（peer 侧）的 publish + ticket 发放 + 上传循环属于 P5 出站 client 一并实现**——当前只有 holder 侧 serve 面。
 
 ### P5 daemon 路由 + 出站 client（本仓 + Engine 仓）
 
-- **出站 client 端口**：dial 对端 `remote-share/1` 的 `ListRoots`/`List`/`Stat`（列出某台远程设备的目录树）。**本轮 holder 侧无出站 client，明确延后到 P5（无 consumer，YAGNI）**。
+- **出站 client 端口**：dial 对端 `remote-share/1` 发全部 op——清单/browse（ListRoots/List/Stat/ListTrash）、变更（Mkdir/Rename/Delete/Restore/EmptyTrash/CopyWithin）、传输（本地 `publish_path`+`issue_ticket` 得票后 StageUpload → Commit/Abort；Export 回 ticket 后 `fetch_to_path` 落地）。进度消费反向 `transfer-progress/1` 帧（`transfer_id` 关联）。
 - daemon 路由：`POST /peers/{id}/share/upload|download|...` + WS `remote-share.*`；OpenAPI/SDK 再生成（`crates/uc-webserver`/`uc-daemon-contract`/`Cargo.toml` rev bump）。
 - 到这一步才有用户可感知能力 + 能端到端验证。
 
@@ -100,20 +108,22 @@ P1/P2 无破坏性消费者，故当前可接受；**P4（落盘）/P5（变更 
 ### 6.1 命令
 
 - Engine 仓（worktree `/home/hank/Documents/Engine-share-port`）：`cargo test --workspace --locked`、`cargo fmt --all -- --check`、`node scripts/architecture/check-rust-style.mjs`、`node scripts/architecture/check-engine-repository.mjs`、`node scripts/architecture/check-observability-privacy.mjs`。
-- 本改动相关 crate 快验：`cargo test -p uc-infra-p2p remote_share`（serve-adapter 5 判定 + pull_serve 7）、`cargo test -p uc-application remote_share`（serve-handler 13）、`cargo check -p uc-engine`。
+- 本改动相关 crate 快验：`cargo test -p uc-infra-p2p remote_share`（serve-adapter 7 判定）、`cargo test -p uc-application remote_share`（serve-handler 20 + transfer 编排 + registry 5）、`cargo test -p uc-infra-local --test share_confinement_escape_probe`（25 探针）、`cargo test -p uc-sync-protocol remote_share`（codec + golden 向量）、`cargo check -p uc-engine`。
 
-### 6.2 本机构 `cargo test --workspace` 的 3 条环境性失败（**非本改动回归**，2026-10-14 逐条 A/B/环境诊断）
+### 6.2 本机构 `cargo test --workspace` 的环境性失败（**非本改动回归**）
 
-1. `space_leave::repeated_leaves_do_not_accumulate_tasks_or_descriptors`（uc-engine）—— 负载敏感的资源计数 canary，`--workspace` 高并发下 flaky。冷却 A/B：baseline 6/6 绿 vs 带 B3 3/3 绿（一致）；隔离/冷却下稳定通过。
+1. `space_leave::repeated_leaves_do_not_accumulate_tasks_or_descriptors`（uc-engine）—— 负载敏感的资源计数 canary，高并发下 flaky；单独重跑即绿（2026-10-15 复验）。
 2. `peer_address_read_diagnostics`（uc-infra-profile，**非本改动 crate**）—— backtrace 符号化测试，需 `UC_EXPECT_DIAGNOSTIC_STACK=available`（CI `pr-check.yml` 已设）。本地裸跑默认 `captured` 会 `unresolved` 失败；带该 env 即通过。
-3. `uc-upgrade-matrix` `d1::*`（13 条整组 `anchor-host-missing → skip`，**非本改动 crate**）—— 需 CI `build-upgrade-anchors.sh` 预构建的旧版 Engine anchor 二进制，本地 worktree 没有。
+3. `uc-upgrade-matrix` `d*::*`（整组 `anchor-host-missing → skip`，**非本改动 crate**）—— 需 CI `build-upgrade-anchors.sh` 预构建的旧版 Engine anchor 二进制，本地 worktree 没有（2026-10-15 复验：66 cell 全为此因）。
 
-**结论**：本机跑全 workspace gate 时加 `UC_EXPECT_DIAGNOSTIC_STACK=available`，且以上 3 条环境性失败 **不作为本改动回归判断依据**；权威 gate 是 CI（构建 anchor、设 env、干净环境）。
+**结论**：本机跑全 workspace gate 时加 `UC_EXPECT_DIAGNOSTIC_STACK=available`，且以上环境性失败 **不作为本改动回归判断依据**；权威 gate 是 CI（构建 anchor、设 env、干净环境）。
 
 ### 6.3 仍不能声称
 
-- **Windows / macOS 全程未执行**（ADR-034 实测表那两列"跳过"，非"通过"）。P9 端到端验收才覆盖。
+- **Windows / macOS 全程未执行**（ADR-034 实测表那两列"跳过"，非"通过"；句柄身份字段取的是 `cap-std::fs::MetadataExt` 的 windows 侧 `volume_serial_number`/`file_index`，真机未验）。P9 端到端验收才覆盖。
 - "锁定 ⇒ 清单不可读"仅手写 stub 验证，未对真实 Space 会话验证（等 P5 路由）。
+- **导出/上传全路径未做双 peer 真机验证**（`publish_reader`/`fetch_to_path` 经 blobs 实例的栈均以 stub 或单测覆盖；真机流量验证随 P5 出站 client 一并做）。
+- **出站 client 不存在**——当前无消费者可发起任何 remote-share 请求；P5 才有。
 
 ## 7. 硬约束（接手 agent 必读）
 
@@ -131,7 +141,8 @@ P1/P2 无破坏性消费者，故当前可接受；**P4（落盘）/P5（变更 
 | --- | --- |
 | 规格（权威） | 本仓 `docs/specs/2026-10-12-device-file-share-spec.md` |
 | 执行计划（Phase 1，含交付订正层） | Engine 仓 `docs/exec-plans/active/2026-10-12-device-file-share-phase1.md` |
-| ADR-034 / ADR-035 | Engine 仓 `docs/design-docs/decisions/034-…`、`035-…` |
+| 执行计划（P3/P4，已完结归档） | Engine 仓 `docs/exec-plans/completed/2026-10-14-device-file-share-p3-p4.md` |
+| ADR-034 / ADR-035 / ADR-036 | Engine 仓 `docs/design-docs/decisions/034-…`、`035-…`、`036-…` |
 | **38 条裁定 + 逐任务评审记录（唯一载体）** | Engine 仓 `.superpowers/sdd/2026-10-12-device-file-share-phase1/progress.md`（**不要删**） |
 | 本交接文档 | 本仓 `.planning/2026-10-13-device-file-share-status.md` |
 | 线框稿（UI 方案对比） | 本仓 `.superpowers/brainstorm/1190761-1791828190/content/` |
