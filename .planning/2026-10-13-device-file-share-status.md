@@ -2,7 +2,7 @@
 
 - **最近更新**：2026-10-15（首次快照 2026-10-13）。
 - **性质**：进度快照 + **Agent 交接文档**，供接手 P5/P7 的 agent 快速进入上下文。需求与决策见 §1/§2；已落地代码位置与不变量见 §3；下一步任务清单见 §5；gate 与硬约束见 §6/§7。
-- **一句话状态**：Engine 侧 holder 面 **全部完成**（句柄化约束内核 + 变更 RPC + 回收站 + 两阶段上传编排 + 导出 + §5.3 审计 + 根注册责任人 + 启动 reconcile），`remote-share/1` 线格式已定稿为显式 opcode + DenyCode 全集，T9 门禁全绿（除交接文档 §6.2 登记的环境性项）。§4 三项未闭合保证已全部关闭；§19 裁定接受残余风险并写入 ADR-036。P3/P4 工作已落本地 commit `90141f9e`（**未推送**，推 fork 需授权）。剩余：出站 client + daemon 路由（P5）、前端（P7）、三平台/双 peer 端到端（P9，推送 + rev-pin 后）。
+- **一句话状态**：Engine 侧 holder 面与出站 client 面 **均已落地**：句柄化约束内核 + 变更 RPC + 回收站 + 两阶段上传编排 + 导出 + §5.3 审计 + 根注册责任人 + 启动 reconcile，加 `RemoteShareClientPort` + iroh 请求方适配器 + `RemoteShareClient` 编排（browse/mutation 直通、分片上传、export→fetch 下载）。`remote-share/1` 线格式已定稿为显式 opcode + DenyCode 全集，门禁全绿（除 §6.2 登记的环境性项）。分支已推 `Killea/Engine` fork 至 `d0096330`，三台开发机已同步。剩余：daemon 路由/SDK + Engine op 暴露（P5 下半）、前端（P7）、三平台/双 peer 端到端（P9，rev-pin 后）。
 
 ## 1. 原始需求
 
@@ -28,7 +28,7 @@
 
 ## 3. 已落地（Engine 仓，分支 `feat/device-file-share-p1-port`）
 
-基线 `origin/main` = `0e25f418`（14-crate 布局）。**工作树 = git worktree `/home/hank/Documents/Engine-share-port`**（主仓 `/home/hank/Documents/Engine` 保持未动）。前 5 个 commit 已推到 `github.com/Killea/Engine`；**`90141f9e` 仅落本地，未推送**（推 `fork` 需明确授权，见 §7-1）。
+基线 `origin/main` = `0e25f418`（14-crate 布局）。**工作树 = git worktree `/home/hank/Documents/Engine-share-port`**（主仓 `/home/hank/Documents/Engine` 保持未动）。**全部 7 个 commit 已推到 `github.com/Killea/Engine`**（用户 2026-10-15 明确授权直接同步三台机器）；`UniClipboard/Engine` upstream 与产品仓 rev-pin 未动，需 §7 的授权流程。
 
 | commit | 内容 |
 | --- | --- |
@@ -37,7 +37,8 @@
 | `54c6544d` | **B1**：serve 端口 + domain 类型 + `ShareRootId` wire 字节助手 |
 | `033e3b59` | **B2**：serve 逻辑（authorize→confine→read AND，fail-closed）+ 13 单测 |
 | `33aa08b8` | **B3**：iroh serve 适配器 + `install_remote_share` + bind-time ALPN + 引擎装配 + 5 条端点级判定 |
-| `90141f9e` | **P2–P4 收尾（未推送）**：句柄化约束内核 + 显式 opcode 线格式 + DenyCode 全集 + 变更 RPC（mkdir/rename/delete/copy_within）+ 回收站 + 两阶段上传（StageUpload/Commit/Abort，bounded fetch + transfer_id 进度）+ 导出（publish_reader → ticket）+ §5.3 审计记录 + `ShareRootsRegistry` 启动 reconcile / `replace_doc` / `revoke_all` + ADR-036 |
+| `90141f9e` | **P2–P4 收尾**：句柄化约束内核 + 显式 opcode 线格式 + DenyCode 全集 + 变更 RPC（mkdir/rename/delete/copy_within）+ 回收站 + 两阶段上传（StageUpload/Commit/Abort，bounded fetch + transfer_id 进度）+ 导出（publish_reader → ticket）+ §5.3 审计记录 + `ShareRootsRegistry` 启动 reconcile / `replace_doc` / `revoke_all` + ADR-036 |
+| `d0096330` | **P5 出站 client**：`RemoteShareClientPort`（`uc-core`，ShareClientDeny 17 码领域镜像 + Unreachable/Refused/UnexpectedReply/Io 分类）+ `IrohRemoteShareClientAdapter`（地址解析 → staggered-retry dial → 单 bi-stream 请求/应答 → 主动 close）+ `RemoteShareClient` 编排（枚举 → publish+ 签票 → 48KiB 预算分片 stage → commit，`TooLate` 视为已落盘；export→`fetch_to_path`；会话拆除 `release_inflight` 清算在途上传租约）+ `install_remote_share` 改返回 `RemoteShareHandlers{client}` + 会话装配持有。无对应 `Operation` 变体——daemon 路由落地时一并加 Engine op 面 |
 
 ### 3.1 各件代码位置（14-crate 布局，均在 Engine 仓 worktree）
 
@@ -86,10 +87,11 @@
 
 holder 侧全部落地：两阶段上传（StageUpload 含 ticket 清单 + `transfer_id` → 有界 fetch → CommitUpload 原子落位/墓碑 → AbortUpload 幂等撕取）、Export（`publish_reader` 流式发布 + `RemoteShareExport` 30min lease）、变更 RPC 与回收站全线打通、§5.3 审计记录、`ShareRootsRegistry` 启动收敛。**上传方（peer 侧）的 publish + ticket 发放 + 上传循环属于 P5 出站 client 一并实现**——当前只有 holder 侧 serve 面。
 
-### P5 daemon 路由 + 出站 client（本仓 + Engine 仓）
+### P5 daemon 路由 + Engine op 暴露（本仓 + Engine 仓）——出站 client 已完成（`d0096330`，已推 fork）
 
-- **出站 client 端口**：dial 对端 `remote-share/1` 发全部 op——清单/browse（ListRoots/List/Stat/ListTrash）、变更（Mkdir/Rename/Delete/Restore/EmptyTrash/CopyWithin）、传输（本地 `publish_path`+`issue_ticket` 得票后 StageUpload → Commit/Abort；Export 回 ticket 后 `fetch_to_path` 落地）。进度消费反向 `transfer-progress/1` 帧（`transfer_id` 关联）。
-- daemon 路由：`POST /peers/{id}/share/upload|download|...` + WS `remote-share.*`；OpenAPI/SDK 再生成（`crates/uc-webserver`/`uc-daemon-contract`/`Cargo.toml` rev bump）。
+- ~~出站 client 端口~~：`RemoteShareClientPort` + `IrohRemoteShareClientAdapter` + `RemoteShareClient` 已落地并经会话装配持有（`SyncSessionAssembly.remote_share_client`），测试：p2p loopback 9 判定 + application 编排 7 判定。
+- **Engine op 暴露（Engine 仓，未做）**：client 现只被会话 shutdown 消费（`release_inflight`）；对外要加 `Operation`/`OperationResult` 变体 + `SessionSupervisor` 的 client accessor + dispatch——契约 DTO 形状应随 daemon 路由契约一起定，不提前盲建。
+- daemon 路由：`POST /peers/{id}/share/upload|download|...` + WS `remote-share.*`；OpenAPI/SDK 再生成（`crates/uc-webserver`/`uc-daemon-contract`/`Cargo.toml` rev bump）。前置：Engine rev-pin（需授权推 `UniClipboard/Engine`）。
 - 到这一步才有用户可感知能力 + 能端到端验证。
 
 ### P7 前端（本仓）
@@ -122,8 +124,8 @@ holder 侧全部落地：两阶段上传（StageUpload 含 ticket 清单 + `tran
 
 - **Windows / macOS 全程未执行**（ADR-034 实测表那两列"跳过"，非"通过"；句柄身份字段取的是 `cap-std::fs::MetadataExt` 的 windows 侧 `volume_serial_number`/`file_index`，真机未验）。P9 端到端验收才覆盖。
 - "锁定 ⇒ 清单不可读"仅手写 stub 验证，未对真实 Space 会话验证（等 P5 路由）。
-- **导出/上传全路径未做双 peer 真机验证**（`publish_reader`/`fetch_to_path` 经 blobs 实例的栈均以 stub 或单测覆盖；真机流量验证随 P5 出站 client 一并做）。
-- **出站 client 不存在**——当前无消费者可发起任何 remote-share 请求；P5 才有。
+- **导出/上传全路径未做双 peer 真机验证**（`publish_reader`/`fetch_to_path` 经 blobs 实例的栈均以 stub 或单测覆盖；真机流量验证随 daemon 路由 + 端到端验收做）。
+- **出站 client 尚无宿主内消费者**——`RemoteShareClient` 经会话装配持有，但 `Engine::execute` 还没有 remote-share `Operation` 变体可触达它（P5 下半的 Engine op 暴露项）。
 
 ## 7. 硬约束（接手 agent 必读）
 
