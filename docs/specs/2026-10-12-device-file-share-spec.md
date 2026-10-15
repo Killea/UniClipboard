@@ -183,20 +183,23 @@ pub fn resolve(root: &Dir, client_rel: &str) -> Result<CapPath, ConfineDenied>;
 
 | 逃逸形式 | P1 交付状态 | 关闭它的机制与阶段 |
 | --- | --- | --- |
-| 两次调用之间的 TOCTOU 竞态 | **未覆盖**。约束内核从不打开末段，`ConfinedTarget::real_path` 是解析那一刻的字符串快照，随后的读写与改名走调用方的环境权限；P1 也没有并发改名的压力用例。逐段行走只把窗口 **收窄**（判定与下行都相对同一个父句柄），没有闭合。 | P2 的前置决定：端口交出 **对外不透明的句柄** 并提供 **相对该句柄（相对已保留的 `Dir`）的操作**，使"检查过的对象"与"被改的对象"在类型上是同一个 fd。在该重画定稿前，P2/P3 不得在 `real_path` 上直接建破坏性操作。 |
-| 根目录被替换为指向他处的链接（登记后根被挪走、删除后在同路径重建） | **未覆盖**。根的身份没有从已持有的句柄复核过。`RootGone` 有多个否定来源（登记表未命中、登记路径的 `is_dir()` 存活检查、`register_root` 打不开根），它 **不** 区分"目录消失"与"根从未登记"，后者要另经 `is_registered` 判定；正因如此，根被挪走的三种形态里只有"删除且不重建"可检测并有 committed 断言，而"改名挪走并在同路径重建"与"删除后重建"都检测不到。 | P2：登记时从 **已打开的句柄** 取身份（Linux `dev`/`ino`，Windows file index），在存活检查里复核，不匹配即 fail-closed 成 `RootGone`。 |
+| 两次调用之间的 TOCTOU 竞态 | **P3–P4 阶段已闭合**。`ShareConfinementPort` 已重画为不透明句柄：`ConfinedTarget` 内嵌 token（父目录 `Dir` 的独立 fd + 末段名 + 登记代次），不再交回 `real_path`；全部动词（`target_metadata`/`target_read_dir`/`target_open_read`/`target_create_dir`/`target_rename`/`target_copy_into`/`target_move_to_trash` 等）留在端口上，每个 op 先复核登记代次（撤销或重登记后旧 target 一律 `RootGone`），再相对 token 内的 `Dir` 做 cap-std 操作——检查过的对象与被操作的对象是同一个 fd。末段读取/下行用 `cap-fs-ext` 的 no-follow 打开，"resolve 期非符号链接、op 期被换成符号链接"的最后一缝被关闭。 | 本阶段（句柄化端口 + Dir 相对操作 + 代次复核 + no-follow 末段）已交付。 |
+| 根目录被替换为指向他处的链接（登记后根被挪走、删除后在同路径重建） | **P3–P4 阶段已闭合**。登记时从 **已打开的句柄** 取 `dir_metadata()` 的 `dev`/`ino`（Windows：`volume_serial_number`/`file_index`）作为 `RootIdentity`，并与 `std::fs::metadata(canonical)` 互证（同时闭合"canonicalize 与 open_ambient_dir 两次独立解析可指向不同树"那条缝）；存活检查复核登记路径 stat 的身份，不匹配 fail-closed 成 `RootGone`。"改名挪走不重植"（`is_dir` false）、"同路径重植"、"删除后重建"三形态全部可检测。 | 本阶段已交付。 |
 
-这两类的可达前提都是能对根路径的父目录写入（本机用户或同机进程）；对端经协议既删不掉也改不了共享根本身（`..`、绝对路径一律被拒）。因此它们是范围决定，不是对端可达的新通道，但 **不得** 在 P2 之前把它当作已闭合的保证。
+这两类的可达前提都是能对根路径的父目录写入（本机用户或同机进程）；对端经协议既删不掉也改不了共享根本身（`..`、绝对路径一律被拒）。残留的诚实记录：`Dir::copy` 的源符号链接仍靠"先 `symlink_metadata` 再 copy"收窄，残窗内最坏读到根内另一文件（不出授权边界）。
 
 根目录 `open` 失败（被移走、权限不足）时该根进入 `unavailable` 态并向对端报告 `root_gone`，不降级为全盘可见。
 
-### 6.1 回收目录前缀保留
+### 6.1 保留命名空间：回收目录与暂存目录
 
-每个共享根在 **根内** 有一个回收目录，真实名为 `.uniclipboard-trash-<root_id>`（`root_id` 为该根的 UUID）。
+每个共享根在 **根内** 有两类内核专有目录：
 
-约束层额外施加一条规则：**任何客户端提供的相对路径，其首段匹配 `.uniclipboard-trash-*` 一律拒绝**，返回 `denied`。因此该目录物理位于根内（保证删除是同盘 `rename`，O(1)），但在协议上不可寻址——对端既不能列举、也不能读写、也不能把它改名或删掉。`List` 在序列化边界就过滤掉该前缀，不依赖 UI 约定。
+- **回收目录** `.uniclipboard-trash-<root_id>`（`root_id` 为该根的 UUID）：`Delete` 的目标，保证删除是同盘 `rename`（O(1)）。条目布局为每条目一个子目录 `<trash_id>/`，内含 `payload`（被删条目本体）与 `meta.json`（`original_rel`、`deleted_at_ms`、`is_dir`、`size_bytes`）；`trash_id` 是不可枚举目录名的不透明名。
+- **上传暂存目录** `.uniclipboard-staging-<staging_id>`：`StageUpload` 登记的条目先落进这里，`CommitUpload` 再原子 `rename` 进目标目录（与目标同盘，保证落位是元数据操作）。`staging_id` 只由 `StageUpload` 回复给出，不可由客户端构造。
 
-启用某个根时须检查根内是否已存在匹配该模式的条目；存在则拒绝启用并报 `reserved_name`，使该不变量由强制检查保证，而非依赖 UUID 碰撞概率极低这一假设。
+约束层额外施加一条规则：**任何客户端提供的相对路径，其首段匹配 `.uniclipboard-trash-*` 或 `.uniclipboard-staging-*` 一律拒绝**，返回 `denied`。因此两类目录物理位于根内，但在协议上不可寻址——对端既不能列举、也不能读写、也不能把它们改名或删掉。`List` 在序列化边界就过滤掉这两个前缀，不依赖 UI 约定。
+
+启用某个根时须检查根内是否已存在匹配该模式的条目：`.uniclipboard-trash-*`（非本根 id）与任何 `.uniclipboard-staging-*` 之外的占用报 `reserved_name` 拒绝启用；`.uniclipboard-staging-*` 一律视为崩溃残留由内核直接清掉（该前缀只有内核会写，peer 端不可寻址）；本根自己的 `.uniclipboard-trash-<root_id>` 保留（含历史回收条目）。
 
 回收目录自身的内容只能经 §7 的 `ListTrash`/`Restore`/`EmptyTrash` 操作。
 
@@ -221,10 +224,10 @@ ALPN：`uniclipboard/remote-share/1`。线格式落在 `ENGINE:crates/uc-infra/s
 | `Restore { root, trash_id, to }` | 从回收目录还原到树内某处 | write + delete |
 | `EmptyTrash { root }` | 永久清空该根的回收目录（唯一的永久删除入口） | delete |
 | `CopyWithin { root, from, to }` | 设备内拷贝 | write |
-| `StageUpload { root, dir, entries[] }` | 开暂存区并登记一批清单，返回 `staging_id`；可多次调用累积 | write |
+| `StageUpload { root, dir, transfer_id, entries[] }` | 开暂存区并登记一批清单，返回 `staging_id`；可多次调用累积；`entries[]` 每项为 `{ticket, rel, size}`（ticket 为 `BlobTicket` 字节，含发布方地址与 digest） | write |
 | `CommitUpload { staging_ids[] }` | 校验并原子落位这批暂存 | write |
 | `AbortUpload { staging_ids[] }` | 丢弃暂存 | write |
-| `Export { root, rel }` | 请求对端发布 blob，返回 digest + size | read |
+| `Export { root, rel }` | 请求对端发布 blob，返回 ticket + size | read |
 
 响应统一 `status byte + envelope`。`Hello` 的 status 区分四种对端态：`ok` / `locked` / `unsupported` / `suspended`，前端据此决定 Tab 呈现（§11.4）。
 
@@ -245,9 +248,9 @@ ALPN：`uniclipboard/remote-share/1`。线格式落在 `ENGINE:crates/uc-infra/s
 ### 8.1 上传（A → B，两阶段）
 
 1. A 侧 daemon 把本地路径展开为清单，相对路径复用 `ENGINE:crates/uc-core/src/clipboard/file_set.rs` 的 `FileSetMemberLocation` 语义（ADR-010）。
-2. A 对每项 `publish_path` 得到 digest。
-3. A 发 `StageUpload{root, dir, entries:[{digest, rel, size}]}`；B 校验 write、在 **根内** 建暂存目录、返回 `staging_id`。清单按 §7 的 64 KiB 请求上限分片，一个上传任务可对应多个 `staging_id`；父任务在全部清单登记完成前不得进入提交。
-4. B 逐项 `fetch_to_path(digest, staging/rel)`。此步是标准 blob pull，因此既有 `transfer-progress/1` 反向帧可直接给 A 提供字节级进度，无需新协议。
+2. A 对每项 `publish_path` 得到 digest，并 `issue_ticket(digest)` 得 ticket（含自身 endpoint 地址）。
+3. A 发 `StageUpload{root, dir, transfer_id, entries:[{ticket, rel, size}]}`；B 校验 write、在 **根内** 建暂存目录 `.uniclipboard-staging-<staging_id>`、返回 `staging_id`。清单按 §7 的 64 KiB 请求上限分片，一个上传任务可对应多个 `staging_id`；父任务在全部清单登记完成前不得进入提交。
+4. B 逐项 `fetch_to_path(ticket, staging/rel)`。此步是标准 blob pull，因此既有 `transfer-progress/1` 反向帧可直接给 A 提供字节级进度，无需新协议（`transfer_id` 即 A 的任务号）。
 5. A 发 `CommitUpload`；B 校验 size 与 digest 后原子移动到目标目录。
 
 失败语义：第 4/5 步任何失败均触发暂存丢弃，目标目录不受影响。取消晚于提交点返回 `too_late`（对齐 `crates/uc-webserver/src/api/clipboard.rs:211` 的既有先例）。
@@ -256,10 +259,10 @@ ALPN：`uniclipboard/remote-share/1`。线格式落在 `ENGINE:crates/uc-infra/s
 
 ### 8.2 下载（B → A）
 
-1. A 发 `Export{root, rel}`；B 校验 read、`publish_path` 该文件、返回 digest + size。
-2. A 本地 `fetch_to_path(digest, 用户选定路径)`。
+1. A 发 `Export{root, rel}`；B 校验 read、经约束内核以 no-follow 打开该文件、流式发布 blob、返回 ticket + size。
+2. A 本地 `fetch_to_path(ticket, 用户选定路径)`。
 3. 进度由 A 侧本地报告器产生（B 不生成反向帧），走同一 WS topic。
-4. B 侧临时 blob 由既有 `_temp_tag` 机制抗 GC，完成后解标回收。
+4. B 侧临时 blob 由 retain-tag 机制抗 GC，TTL 或对端断开后回收。
 
 ### 8.3 任务模型
 
@@ -291,6 +294,34 @@ WS 复用既有 `file-transfer` topic（其 `build_snapshot_event` 返回 `None`
 两条写路由 `PUT /remote-share/roots`、`POST /remote-share/suspend` 读写 §5.1 的密文文档，因此 **未解锁时返回 `423 session_locked`**，与内容路由的既有行为一致；不得为渲染设置页而把该文档放进 `content_lock.rs:460` 的锁屏放行清单。`GET /remote-share/state` 只读，锁屏下返回 `200 {locked: true, rootCount: null, suspended: null}`，不含任何路径，使设置页能如实呈现"解锁后方可管理"。
 
 改动面约 10–14 个文件，含 `uc-daemon-contract` 常量与 DTO、`uc-webserver` 路由与 OpenAPI 注册（须同步递增其冻结的基数断言）、`schema/openapi.json` 重生成与 hey-api SDK 重生成。
+
+### 9.1 Engine 操作契约（`uc-engine` 稳定入口）
+
+daemon 路由按下表映射到 `Operation`/`OperationResult`。全部 remote-share 操作是 **session-scoped**：Space 未解锁或会话未建时 Engine 统一返回 `unavailable`，daemon 译为 §9 约定的 `423 session_locked`；不为此面新增锁屏放行。
+
+| 路由 | Operation | OperationResult |
+| --- | --- | --- |
+| `GET /remote-share/state` | `QueryRemoteShareState` | `RemoteShareStateSummary { suspended, roots[] }` |
+| `PUT /remote-share/roots` | `ReplaceRemoteShareRoots { roots[] }` | `RemoteShareReconcileSummary { registered, failed, unregistered }`；doc 的 `suspended` 保留现值 |
+| `POST /remote-share/suspend` | `SetRemoteShareSuspended { suspended }` | 同上的收敛摘要 |
+| `GET /peers/{id}/share/state` | `QueryPeerShareState { peer }` | `PeerShareStateSummary { state: ok\|locked\|unsupported\|suspended }` |
+| `GET …/share/list`（根列表 / `?root&dir&cursor`） | `ListPeerShareRoots` / `ListPeerShareDirectory` / `StatPeerShareEntry` | 根数组 / `PeerShareDirectoryPage { entries, cursor, truncated }` / `PeerShareEntrySummary` |
+| `GET …/share/trash` | `ListPeerShareTrash { peer, root, cursor }` | `PeerShareTrashPage` |
+| `POST …/share/mkdir\|rename\|delete\|copy\|empty-trash`、`…/trash/restore` | `MutatePeerShare { peer, root, action: PeerShareAction }`（枚举：`Mkdir`/`Rename`/`Delete`/`CopyWithin`/`Restore`/`EmptyTrash`；先例：`MutateCustomRelay`） | `PeerShareMutationOutcome { ack / deleted{trash_id} / restored{rel} }` |
+| `POST …/share/upload` | `UploadPeerShare { peer, root, dest_dir, transfer_id, sources[] }` | `PeerShareUploadSummary { transfer_id, files, dirs, skipped, total_bytes }` |
+| `POST …/share/download` | `DownloadPeerShare { peer, root, rel, transfer_id, target }` | `PeerShareDownloadSummary { transfer_id, bytes }` |
+| `POST /remote-share/transfers/{id}/cancel` | `CancelPeerShareTransfer { transfer_id }` | `PeerShareTransferCancelOutcome { cancelled / not_inflight / too_late }` |
+
+约定：
+
+- **`transfer_id` 由调用方签发**：daemon 在 POST 时生成 UUID 填入 op 入参并立即回给前端；上传/下载的字节进度事件自 t=0 即按此 id 关联。`RemoteShareClient` 不再内部生成。
+- **上传/下载 op 同步承担完整生命周期**（§8.1/§8.2 的编排不变）；daemon 把 `execute` 包进自己的任务实现 §8.3 的「POST 立即返回」。
+- **取消**：`CancelPeerShareTransfer` 经 `RemoteShareClient` 的在途登记表生效——上传命中则取消该任务的 token，`upload` 在分片/commit 边界观察到取消后走 `abort` 回收暂存并以 `cancelled` 终了；下载命中则对该 `ticket` 调 `shutdown_inflight_fetch` 撕裂在途拉取。任务已终了回 `too_late`，无此 id 回 `not_inflight`。会话拆除时对全部在途任务做同一清算（`release_inflight` 扩展为连取消带释租）。
+- **进度与终态事件**：上传的字节进度来自 holder 反向 `transfer-progress/1` 帧（`direction=Sending`，复用既有出站进度翻译器，不新增通道）；下载进度由 client 内部 sink 发 `HostEvent::Transfer(Progress, direction=Receiving)`。两者终态（`completed`/`failed`/`cancelled`）一律由 client 经 `HostEventBus` 发 `TransferHostEvent::StatusChanged`——daemon 只翻译事件，不靠 op 返回值推断终态。
+- **错误通道**：`Denied{code}` 的 17 个稳定码按 `EngineError.code` 数字块 **2101–2117** 一一透传，`category` 按语义归 `NotFound`/`Conflict`/`Unavailable`/`InvalidState`/`Unauthorized`；daemon 契约按这张数字码表翻译成 §12 的 API 字符串码。`Unreachable` 与帧 IO → `Unavailable`（不可达可重试，`retryable=true`）；`UnexpectedReply` → `Internal`；本地枚举/发布失败 → `Internal`；取消 → `EngineErrorCategory::Cancelled`（新增枚举值，additive）。
+- **路径脱敏**：`sources[]` 与 `target` 一律 `HostFileHandle`（Debug 自动脱敏，先例：`ExportEntryInput.destination`）。`rel`/`dir`/`label`/`trash_id`/`root_id` 为协议内容不是本机绝对路径，契约用普通 `String`，同样不进日志。
+- **会话可达性**：`RemoteShareClient` 与 `ShareRootsRegistry` 继续挂在会话装配上，ops 经 `SessionSupervisor` 的句柄访问器取得（先例：`current_mobile_sync`）；不为此面新增 `AppFacade` 子门面。
+- `Restore` 的 `to` 在 op 契约上必填（与 wire 一致）；「默认还原到 `original_rel`」由 daemon/前端先 `ListTrash` 自取，Engine 不做隐式回填。
 
 ## 10. Go 宿主职责
 
@@ -366,7 +397,7 @@ Linux 上任何外部程序派生须走 `host_helper_env_linux.go` 的清理路�
 - **I6** 本功能不新增任何中心存储、离线投递或 store-and-forward。
 - **I7** 本功能不使用 LAN HTTP 兼容通道，也不改变其边界。
 - **I8** 遥测事件名与既有分析 ID 隔离规则不变；本功能不得新增可关联真实身份的字段。
-- **I9** 回收目录前缀对客户端不可寻址：任何以 `.uniclipboard-trash-*` 为首段的路径一律在约束层拒绝，且 `List` 永不返回该前缀。回收条目只能经 §7 的专用 RPC 操作。
+- **I9** 保留命名空间对客户端不可寻址：任何以 `.uniclipboard-trash-*` 或 `.uniclipboard-staging-*` 为首段的路径一律在约束层拒绝，且 `List` 永不返回该前缀。回收条目只能经 §7 的专用 RPC 操作；暂存条目只能经 `StageUpload`/`CommitUpload`/`AbortUpload` 操作。
 
 ## 14. 网络路径可见性
 
@@ -379,7 +410,7 @@ RTT 是否可在不引入 `unstable` 接口的前提下取到，P8 开工前须�
 ## 15. 兼容性与升级
 
 - 旧版本对端无 `remote-share/1`：ALPN 协商失败，`Hello` 得 `unsupported`，Tab 不渲染。不产生错误弹窗，不重试风暴。
-- 协议版本后缀 `/1` 起即预留演进位。**双向兼容要求**：任一侧收到自己不认识的操作码，必须回 `unsupported_request` 状态字节，不得解码崩溃或挂断连接让对端超时。新增操作码因此总是向后兼容的；破坏性变更只能靠新增 ALPN 版本号承载。
+- 协议版本后缀 `/1` 起即预留演进位。**双向兼容要求**：任一侧收到自己不认识的操作码，必须回 `unsupported_request` 状态字节，不得解码崩溃或挂断连接让对端超时。新增操作码因此总是向后兼容的；破坏性变更只能靠新增 ALPN 版本号承载。实现上帧体 = `u32 opcode` + 按 op 的 postcard payload：未知 opcode 解码为 `Unknown{opcode}` 而非解码失败，serve 回 `Denied{unsupported_request}`。
 - `ShareStore` 为新增文档，无历史数据需迁移；但其内部自带 `schema_version`，后续演进须按"未知字段忽略 + 版本递增"读取，使旧版本 daemon 仍能读新版本写入的文档。
 - Engine 变更须先发发布标签，本仓只改 `Cargo.toml` 唯一固定标签并同步 `Cargo.lock`。
 
@@ -425,4 +456,4 @@ P1–P4 完成即可用 CLI 与集成测试验收，不依赖 UI。
 
 ## 19. 待确认项
 
-- **内容寻址导致的跨会话可读性**（P4 前必须定稿）。`ENGINE:crates/uc-infra-p2p/src/network/iroh/blobs.rs` 的 blob 服务当前只按 ALPN 与会话门控，**不按请求授权**：任何已准入的 Space 成员只要知道 digest 即可拉取。本规格的 digest 只在授权后的 `Export` 响应中于两设备间传递，正常路径下第三方无从得知；但内容寻址意味着 **相同字节即相同 digest**，若某文件已通过剪贴板历史等其它途径让第三方持有过同一 digest，它即可绕过共享授权直接拉取本功能导出的同一内容。这是既有属性，本功能会放大其影响面。可选处置：为导出内容加一次性随机盐后再寻址（破坏去重收益）、在 blob 服务侧引入按 digest 的短期授权登记表、或接受并在 ADR-015 中书面记录该残余风险。
+- **内容寻址导致的跨会话可读性**（P4 前必须定稿 → **已裁定，2026-10-14**）。`ENGINE:crates/uc-infra-p2p/src/network/iroh/blobs.rs` 的 blob 服务当前只按 ALPN 与会话门控，**不按请求授权**：任何已准入的 Space 成员只要知道 digest 即可拉取。本规格的 digest 只在授权后的 `Export` 响应中于两设备间传递，正常路径下第三方无从得知；但内容寻址意味着 **相同字节即相同 digest**，若某文件已通过剪贴板历史等其它途径让第三方持有过同一 digest，它即可绕过共享授权直接拉取本功能导出的同一内容。这是既有属性，本功能会放大其影响面。**裁定：接受残余风险并写入 ADR-036。** 理由：能算出某文件 digest 的实体本就持有相同字节，拉取不带来新内容；残余仅为「经旁路得知 digest 但无字节」的存在性预言机与带宽占用，威胁增量有限。不为导出加盐（会破坏去重收益且需自定义字节层）、不建短命 digest 白名单（机制成本与边际威胁不成比例）；将来如需收紧，可在 blob 服务侧加按 digest 的授权登记，属兼容演进。
