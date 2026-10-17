@@ -2,7 +2,7 @@
 
 import type { Client, Options as Options2, TDataShape } from './client';
 import { client } from './client.gen';
-import type { AcknowledgeUpgradeData, AcknowledgeUpgradeErrors, AcknowledgeUpgradeResponses, AddHistoryTagToEntriesData, AddHistoryTagToEntriesErrors, AddHistoryTagToEntriesResponses, AuthConnectData, AuthConnectErrors, AuthConnectResponses, CancelClipboardTransferData, CancelClipboardTransferErrors, CancelClipboardTransferResponses, CancelEntryReceiveData, CancelEntryReceiveErrors, CancelEntryReceiveResponses, CaptureCurrentClipboardData, CaptureCurrentClipboardErrors, CaptureCurrentClipboardResponses, ChangeEncryptionPassphraseData, ChangeEncryptionPassphraseErrors, ChangeEncryptionPassphraseResponses, ChooseDeviceGroupData, ChooseDeviceGroupResponses, ClearClipboardHistoryData, ClearClipboardHistoryErrors, ClearClipboardHistoryResponses, ClearStorageCacheData, ClearStorageCacheErrors, ClearStorageCacheResponses, CountSearchEntriesData, CountSearchEntriesErrors, CountSearchEntriesResponses, CreateHistoryTagData, CreateHistoryTagErrors, CreateHistoryTagResponses, DeleteClipboardEntryData, DeleteClipboardEntryErrors, DeleteClipboardEntryResponses, DeleteHistoryTagData, DeleteHistoryTagErrors, DeleteHistoryTagResponses, DeleteUpgradeBackupData, DeleteUpgradeBackupErrors, DeleteUpgradeBackupResponses, DispatchClipboardFileData, DispatchClipboardFileErrors, DispatchClipboardFileResponses, DispatchClipboardTextData, DispatchClipboardTextErrors, DispatchClipboardTextResponses, ExportConfigData, ExportConfigErrors, ExportConfigResponses, ExportLogsData, ExportLogsErrors, ExportLogsResponses, FactoryResetSpaceData, FactoryResetSpaceErrors, FactoryResetSpaceResponses, GetClipboardBlobData, GetClipboardBlobErrors, GetClipboardBlobResponses, GetClipboardEntryData, GetClipboardEntryDeliveryData, GetClipboardEntryDeliveryErrors, GetClipboardEntryDeliveryResponses, GetClipboardEntryErrors, GetClipboardEntryFileData, GetClipboardEntryFileErrors, GetClipboardEntryFileResponses, GetClipboardEntryResourceData, GetClipboardEntryResourceErrors, GetClipboardEntryResourceResponses, GetClipboardEntryResponses, GetClipboardStatsData, GetClipboardStatsErrors, GetClipboardStatsResponses, GetClipboardThumbnailData, GetClipboardThumbnailErrors, GetClipboardThumbnailResponses, GetContentLockData, GetContentLockErrors, GetContentLockResponses, GetCustomRelaysData, GetCustomRelaysErrors, GetCustomRelaysResponses, GetDebugStatusData, GetDebugStatusErrors, GetDebugStatusResponses, GetDeviceGroupChoicesData, GetDeviceGroupChoicesResponses, GetDiagnosticCaptureStatusData, GetDiagnosticCaptureStatusErrors, GetDiagnosticCaptureStatusResponses, GetEncryptionStateData, GetEncryptionStateErrors, GetEncryptionStateResponses, GetEntryReceiveProgressData, GetEntryReceiveProgressErrors, GetEntryReceiveProgressResponses, GetHealthData, GetHealthResponses, GetHistoryTagLayoutData, GetHistoryTagLayoutErrors, GetHistoryTagLayoutResponses, GetLifecycleStatusData, GetLifecycleStatusErrors, GetLifecycleStatusResponses, GetLocalDeviceInfoData, GetLocalDeviceInfoErrors, GetLocalDeviceInfoResponses, GetMemberSyncPreferencesData, GetMemberSyncPreferencesErrors, GetMemberSyncPreferencesResponses, GetMobileSyncSettingsData, GetMobileSyncSettingsErrors, GetMobileSyncSettingsResponses, GetNetworkRecoveryStatusData, GetNetworkRecoveryStatusErrors, GetNetworkRecoveryStatusResponses, GetProfileRecoveryData, GetProfileRecoveryResponses, GetRelayCredentialStatusData, GetRelayCredentialStatusErrors, GetRelayCredentialStatusResponses, GetRelayOverviewData, GetRelayOverviewErrors, GetRelayOverviewResponses, GetSearchStatusData, GetSearchStatusErrors, GetSearchStatusResponses, GetSearchTagsData, GetSearchTagsErrors, GetSearchTagsResponses, GetSettingsData, GetSettingsErrors, GetSettingsResponses, GetSpaceProtectionData, GetSpaceProtectionErrors, GetSpaceProtectionResponses, GetStatusData, GetStatusResponses, GetStorageStatsData, GetStorageStatsErrors, GetStorageStatsResponses, GetUpgradeStatusData, GetUpgradeStatusErrors, GetUpgradeStatusResponses, ImportConfigData, ImportConfigErrors, ImportConfigResponses, ListClipboardEntriesData, ListClipboardEntriesErrors, ListClipboardEntriesResponses, ListEntryReceiveProgressData, ListEntryReceiveProgressErrors, ListEntryReceiveProgressResponses, ListHistoryTagsData, ListHistoryTagsErrors, ListHistoryTagsResponses, ListMobileDevicesData, ListMobileDevicesErrors, ListMobileDevicesResponses, ListMobileLanInterfacesData, ListMobileLanInterfacesErrors, ListMobileLanInterfacesResponses, ListPairedDevicesData, ListPairedDevicesErrors, ListPairedDevicesResponses, ListPeersData, ListPeersErrors, ListPeersResponses, ListUpgradeBackupsData, ListUpgradeBackupsErrors, ListUpgradeBackupsResponses, LockEncryptionSessionData, LockEncryptionSessionErrors, LockEncryptionSessionResponses, MergeHistoryTagsData, MergeHistoryTagsErrors, MergeHistoryTagsResponses, MutateCustomRelayData, MutateCustomRelayErrors, MutateCustomRelayResponses, NotifyConnectivityOpportunityData, NotifyConnectivityOpportunityErrors, NotifyConnectivityOpportunityResponses, PreviewConfigImportData, PreviewConfigImportErrors, PreviewConfigImportResponses, ProbeRelayUrlData, ProbeRelayUrlErrors, ProbeRelayUrlResponses, RebuildSearchIndexData, RebuildSearchIndexErrors, RebuildSearchIndexResponses, RecoverNetworkData, RecoverNetworkErrors, RecoverNetworkResponses, RefreshPresenceData, RefreshPresenceErrors, RefreshPresenceResponses, RegisterMobileDeviceData, RegisterMobileDeviceErrors, RegisterMobileDeviceResponses, RemoveHistoryTagFromEntriesData, RemoveHistoryTagFromEntriesErrors, RemoveHistoryTagFromEntriesResponses, RenameHistoryTagData, RenameHistoryTagErrors, RenameHistoryTagResponses, RequestGracefulStopData, RequestGracefulStopResponses, RequestLifecycleRestartData, RequestLifecycleRestartErrors, RequestLifecycleRestartResponses, ResendClipboardEntryData, ResendClipboardEntryErrors, ResendClipboardEntryResponses, RestoreClipboardEntryData, RestoreClipboardEntryErrors, RestoreClipboardEntryResponses, RetryLifecycleData, RetryLifecycleErrors, RetryLifecycleResponses, RevokeContentAccessData, RevokeContentAccessResponses, RevokeMobileDeviceData, RevokeMobileDeviceErrors, RevokeMobileDeviceResponses, RotateMobilePasswordData, RotateMobilePasswordErrors, RotateMobilePasswordResponses, SaveRelayData, SaveRelayErrors, SaveRelayResponses, SearchQueryData, SearchQueryErrors, SearchQueryResponses, SetHistoryTagColorData, SetHistoryTagColorErrors, SetHistoryTagColorResponses, SetHistoryTagInSidebarData, SetHistoryTagInSidebarErrors, SetHistoryTagInSidebarResponses, SetHistoryTagSidebarData, SetHistoryTagSidebarErrors, SetHistoryTagSidebarResponses, SetupV2CancelData, SetupV2CancelErrors, SetupV2CancelJoinData, SetupV2CancelJoinErrors, SetupV2CancelJoinResponses, SetupV2CancelResponses, SetupV2GetStateData, SetupV2GetStateErrors, SetupV2GetStateResponses, SetupV2InitializeData, SetupV2InitializeErrors, SetupV2InitializeResponses, SetupV2IssueInvitationData, SetupV2IssueInvitationErrors, SetupV2IssueInvitationResponses, SetupV2RedeemData, SetupV2RedeemErrors, SetupV2RedeemResponses, SetupV2ResetData, SetupV2ResetErrors, SetupV2ResetResponses, SetupV2SwitchSpaceData, SetupV2SwitchSpaceErrors, SetupV2SwitchSpaceResponses, SignalLifecycleReadyData, SignalLifecycleReadyResponses, StartDiagnosticCaptureData, StartDiagnosticCaptureErrors, StartDiagnosticCaptureResponses, StopDiagnosticCaptureData, StopDiagnosticCaptureErrors, StopDiagnosticCaptureResponses, SummarizeHistoryEntryTagsData, SummarizeHistoryEntryTagsErrors, SummarizeHistoryEntryTagsResponses, ToggleClipboardEntryFavoriteData, ToggleClipboardEntryFavoriteErrors, ToggleClipboardEntryFavoriteResponses, UnlockContentData, UnlockContentErrors, UnlockContentFromKeyringData, UnlockContentFromKeyringErrors, UnlockContentFromKeyringResponses, UnlockContentResponses, UnlockEncryptionSessionData, UnlockEncryptionSessionErrors, UnlockEncryptionSessionResponses, UnlockSpaceWithPassphraseData, UnlockSpaceWithPassphraseErrors, UnlockSpaceWithPassphraseResponses, UnpairDeviceData, UnpairDeviceErrors, UnpairDeviceResponses, UpdateDebugModeData, UpdateDebugModeErrors, UpdateDebugModeResponses, UpdateMemberSyncPreferencesData, UpdateMemberSyncPreferencesErrors, UpdateMemberSyncPreferencesResponses, UpdateMobileDeviceData, UpdateMobileDeviceErrors, UpdateMobileDeviceResponses, UpdateMobileSyncSettingsData, UpdateMobileSyncSettingsErrors, UpdateMobileSyncSettingsResponses, UpdateSettingsData, UpdateSettingsErrors, UpdateSettingsResponses, VerifyKeychainAccessData, VerifyKeychainAccessErrors, VerifyKeychainAccessResponses, WebsocketUpgradeData, WebsocketUpgradeErrors } from './types.gen';
+import type { AcknowledgeUpgradeData, AcknowledgeUpgradeErrors, AcknowledgeUpgradeResponses, AddHistoryTagToEntriesData, AddHistoryTagToEntriesErrors, AddHistoryTagToEntriesResponses, AuthConnectData, AuthConnectErrors, AuthConnectResponses, CancelClipboardTransferData, CancelClipboardTransferErrors, CancelClipboardTransferResponses, CancelEntryReceiveData, CancelEntryReceiveErrors, CancelEntryReceiveResponses, CancelRemoteShareTransferData, CancelRemoteShareTransferErrors, CancelRemoteShareTransferResponses, CaptureCurrentClipboardData, CaptureCurrentClipboardErrors, CaptureCurrentClipboardResponses, ChangeEncryptionPassphraseData, ChangeEncryptionPassphraseErrors, ChangeEncryptionPassphraseResponses, ChooseDeviceGroupData, ChooseDeviceGroupResponses, ClearClipboardHistoryData, ClearClipboardHistoryErrors, ClearClipboardHistoryResponses, ClearStorageCacheData, ClearStorageCacheErrors, ClearStorageCacheResponses, CopyPeerShareEntryData, CopyPeerShareEntryErrors, CopyPeerShareEntryResponses, CountSearchEntriesData, CountSearchEntriesErrors, CountSearchEntriesResponses, CreateHistoryTagData, CreateHistoryTagErrors, CreateHistoryTagResponses, DeleteClipboardEntryData, DeleteClipboardEntryErrors, DeleteClipboardEntryResponses, DeleteHistoryTagData, DeleteHistoryTagErrors, DeleteHistoryTagResponses, DeletePeerShareEntryData, DeletePeerShareEntryErrors, DeletePeerShareEntryResponses, DeleteUpgradeBackupData, DeleteUpgradeBackupErrors, DeleteUpgradeBackupResponses, DispatchClipboardFileData, DispatchClipboardFileErrors, DispatchClipboardFileResponses, DispatchClipboardTextData, DispatchClipboardTextErrors, DispatchClipboardTextResponses, DownloadPeerShareData, DownloadPeerShareErrors, DownloadPeerShareResponses, EmptyPeerShareTrashData, EmptyPeerShareTrashErrors, EmptyPeerShareTrashResponses, ExportConfigData, ExportConfigErrors, ExportConfigResponses, ExportLogsData, ExportLogsErrors, ExportLogsResponses, FactoryResetSpaceData, FactoryResetSpaceErrors, FactoryResetSpaceResponses, GetClipboardBlobData, GetClipboardBlobErrors, GetClipboardBlobResponses, GetClipboardEntryData, GetClipboardEntryDeliveryData, GetClipboardEntryDeliveryErrors, GetClipboardEntryDeliveryResponses, GetClipboardEntryErrors, GetClipboardEntryFileData, GetClipboardEntryFileErrors, GetClipboardEntryFileResponses, GetClipboardEntryResourceData, GetClipboardEntryResourceErrors, GetClipboardEntryResourceResponses, GetClipboardEntryResponses, GetClipboardStatsData, GetClipboardStatsErrors, GetClipboardStatsResponses, GetClipboardThumbnailData, GetClipboardThumbnailErrors, GetClipboardThumbnailResponses, GetContentLockData, GetContentLockErrors, GetContentLockResponses, GetCustomRelaysData, GetCustomRelaysErrors, GetCustomRelaysResponses, GetDebugStatusData, GetDebugStatusErrors, GetDebugStatusResponses, GetDeviceGroupChoicesData, GetDeviceGroupChoicesResponses, GetDiagnosticCaptureStatusData, GetDiagnosticCaptureStatusErrors, GetDiagnosticCaptureStatusResponses, GetEncryptionStateData, GetEncryptionStateErrors, GetEncryptionStateResponses, GetEntryReceiveProgressData, GetEntryReceiveProgressErrors, GetEntryReceiveProgressResponses, GetHealthData, GetHealthResponses, GetHistoryTagLayoutData, GetHistoryTagLayoutErrors, GetHistoryTagLayoutResponses, GetLifecycleStatusData, GetLifecycleStatusErrors, GetLifecycleStatusResponses, GetLocalDeviceInfoData, GetLocalDeviceInfoErrors, GetLocalDeviceInfoResponses, GetMemberSyncPreferencesData, GetMemberSyncPreferencesErrors, GetMemberSyncPreferencesResponses, GetMobileSyncSettingsData, GetMobileSyncSettingsErrors, GetMobileSyncSettingsResponses, GetNetworkRecoveryStatusData, GetNetworkRecoveryStatusErrors, GetNetworkRecoveryStatusResponses, GetPeerShareStateData, GetPeerShareStateErrors, GetPeerShareStateResponses, GetProfileRecoveryData, GetProfileRecoveryResponses, GetRelayCredentialStatusData, GetRelayCredentialStatusErrors, GetRelayCredentialStatusResponses, GetRelayOverviewData, GetRelayOverviewErrors, GetRelayOverviewResponses, GetRemoteShareStateData, GetRemoteShareStateErrors, GetRemoteShareStateResponses, GetSearchStatusData, GetSearchStatusErrors, GetSearchStatusResponses, GetSearchTagsData, GetSearchTagsErrors, GetSearchTagsResponses, GetSettingsData, GetSettingsErrors, GetSettingsResponses, GetSpaceProtectionData, GetSpaceProtectionErrors, GetSpaceProtectionResponses, GetStatusData, GetStatusResponses, GetStorageStatsData, GetStorageStatsErrors, GetStorageStatsResponses, GetUpgradeStatusData, GetUpgradeStatusErrors, GetUpgradeStatusResponses, ImportConfigData, ImportConfigErrors, ImportConfigResponses, ListClipboardEntriesData, ListClipboardEntriesErrors, ListClipboardEntriesResponses, ListEntryReceiveProgressData, ListEntryReceiveProgressErrors, ListEntryReceiveProgressResponses, ListHistoryTagsData, ListHistoryTagsErrors, ListHistoryTagsResponses, ListMobileDevicesData, ListMobileDevicesErrors, ListMobileDevicesResponses, ListMobileLanInterfacesData, ListMobileLanInterfacesErrors, ListMobileLanInterfacesResponses, ListPairedDevicesData, ListPairedDevicesErrors, ListPairedDevicesResponses, ListPeersData, ListPeersErrors, ListPeerShareData, ListPeerShareErrors, ListPeerShareResponses, ListPeerShareTrashData, ListPeerShareTrashErrors, ListPeerShareTrashResponses, ListPeersResponses, ListUpgradeBackupsData, ListUpgradeBackupsErrors, ListUpgradeBackupsResponses, LockEncryptionSessionData, LockEncryptionSessionErrors, LockEncryptionSessionResponses, MergeHistoryTagsData, MergeHistoryTagsErrors, MergeHistoryTagsResponses, MkdirPeerShareData, MkdirPeerShareErrors, MkdirPeerShareResponses, MutateCustomRelayData, MutateCustomRelayErrors, MutateCustomRelayResponses, NotifyConnectivityOpportunityData, NotifyConnectivityOpportunityErrors, NotifyConnectivityOpportunityResponses, PreviewConfigImportData, PreviewConfigImportErrors, PreviewConfigImportResponses, ProbeRelayUrlData, ProbeRelayUrlErrors, ProbeRelayUrlResponses, RebuildSearchIndexData, RebuildSearchIndexErrors, RebuildSearchIndexResponses, RecoverNetworkData, RecoverNetworkErrors, RecoverNetworkResponses, RefreshPresenceData, RefreshPresenceErrors, RefreshPresenceResponses, RegisterMobileDeviceData, RegisterMobileDeviceErrors, RegisterMobileDeviceResponses, RemoveHistoryTagFromEntriesData, RemoveHistoryTagFromEntriesErrors, RemoveHistoryTagFromEntriesResponses, RenameHistoryTagData, RenameHistoryTagErrors, RenameHistoryTagResponses, RenamePeerShareData, RenamePeerShareErrors, RenamePeerShareResponses, ReplaceRemoteShareRootsData, ReplaceRemoteShareRootsErrors, ReplaceRemoteShareRootsResponses, RequestGracefulStopData, RequestGracefulStopResponses, RequestLifecycleRestartData, RequestLifecycleRestartErrors, RequestLifecycleRestartResponses, ResendClipboardEntryData, ResendClipboardEntryErrors, ResendClipboardEntryResponses, RestoreClipboardEntryData, RestoreClipboardEntryErrors, RestoreClipboardEntryResponses, RestorePeerShareTrashData, RestorePeerShareTrashErrors, RestorePeerShareTrashResponses, RetryLifecycleData, RetryLifecycleErrors, RetryLifecycleResponses, RevokeContentAccessData, RevokeContentAccessResponses, RevokeMobileDeviceData, RevokeMobileDeviceErrors, RevokeMobileDeviceResponses, RotateMobilePasswordData, RotateMobilePasswordErrors, RotateMobilePasswordResponses, SaveRelayData, SaveRelayErrors, SaveRelayResponses, SearchQueryData, SearchQueryErrors, SearchQueryResponses, SetHistoryTagColorData, SetHistoryTagColorErrors, SetHistoryTagColorResponses, SetHistoryTagInSidebarData, SetHistoryTagInSidebarErrors, SetHistoryTagInSidebarResponses, SetHistoryTagSidebarData, SetHistoryTagSidebarErrors, SetHistoryTagSidebarResponses, SetRemoteShareSuspendedData, SetRemoteShareSuspendedErrors, SetRemoteShareSuspendedResponses, SetupV2CancelData, SetupV2CancelErrors, SetupV2CancelJoinData, SetupV2CancelJoinErrors, SetupV2CancelJoinResponses, SetupV2CancelResponses, SetupV2GetStateData, SetupV2GetStateErrors, SetupV2GetStateResponses, SetupV2InitializeData, SetupV2InitializeErrors, SetupV2InitializeResponses, SetupV2IssueInvitationData, SetupV2IssueInvitationErrors, SetupV2IssueInvitationResponses, SetupV2RedeemData, SetupV2RedeemErrors, SetupV2RedeemResponses, SetupV2ResetData, SetupV2ResetErrors, SetupV2ResetResponses, SetupV2SwitchSpaceData, SetupV2SwitchSpaceErrors, SetupV2SwitchSpaceResponses, SignalLifecycleReadyData, SignalLifecycleReadyResponses, StartDiagnosticCaptureData, StartDiagnosticCaptureErrors, StartDiagnosticCaptureResponses, StatPeerShareEntryData, StatPeerShareEntryErrors, StatPeerShareEntryResponses, StopDiagnosticCaptureData, StopDiagnosticCaptureErrors, StopDiagnosticCaptureResponses, SummarizeHistoryEntryTagsData, SummarizeHistoryEntryTagsErrors, SummarizeHistoryEntryTagsResponses, ToggleClipboardEntryFavoriteData, ToggleClipboardEntryFavoriteErrors, ToggleClipboardEntryFavoriteResponses, UnlockContentData, UnlockContentErrors, UnlockContentFromKeyringData, UnlockContentFromKeyringErrors, UnlockContentFromKeyringResponses, UnlockContentResponses, UnlockEncryptionSessionData, UnlockEncryptionSessionErrors, UnlockEncryptionSessionResponses, UnlockSpaceWithPassphraseData, UnlockSpaceWithPassphraseErrors, UnlockSpaceWithPassphraseResponses, UnpairDeviceData, UnpairDeviceErrors, UnpairDeviceResponses, UpdateDebugModeData, UpdateDebugModeErrors, UpdateDebugModeResponses, UpdateMemberSyncPreferencesData, UpdateMemberSyncPreferencesErrors, UpdateMemberSyncPreferencesResponses, UpdateMobileDeviceData, UpdateMobileDeviceErrors, UpdateMobileDeviceResponses, UpdateMobileSyncSettingsData, UpdateMobileSyncSettingsErrors, UpdateMobileSyncSettingsResponses, UpdateSettingsData, UpdateSettingsErrors, UpdateSettingsResponses, UploadPeerShareData, UploadPeerShareErrors, UploadPeerShareResponses, VerifyKeychainAccessData, VerifyKeychainAccessErrors, VerifyKeychainAccessResponses, WebsocketUpgradeData, WebsocketUpgradeErrors } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -1370,6 +1370,179 @@ export const listPeers = <ThrowOnError extends boolean = false>(options?: Option
     ...options
 });
 
+export const copyPeerShareEntry = <ThrowOnError extends boolean = false>(options: Options<CopyPeerShareEntryData, ThrowOnError>) => (options.client ?? client).post<CopyPeerShareEntryResponses, CopyPeerShareEntryErrors, ThrowOnError>({
+    security: [{
+            in: 'query',
+            name: 'auth',
+            type: 'apiKey'
+        }, { name: 'Authorization', type: 'apiKey' }],
+    url: '/peers/{peer_id}/share/copy',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+export const deletePeerShareEntry = <ThrowOnError extends boolean = false>(options: Options<DeletePeerShareEntryData, ThrowOnError>) => (options.client ?? client).post<DeletePeerShareEntryResponses, DeletePeerShareEntryErrors, ThrowOnError>({
+    security: [{
+            in: 'query',
+            name: 'auth',
+            type: 'apiKey'
+        }, { name: 'Authorization', type: 'apiKey' }],
+    url: '/peers/{peer_id}/share/delete',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * POST /peers/:peer_id/share/download — start a download; `202 { transferId }`.
+ */
+export const downloadPeerShare = <ThrowOnError extends boolean = false>(options: Options<DownloadPeerShareData, ThrowOnError>) => (options.client ?? client).post<DownloadPeerShareResponses, DownloadPeerShareErrors, ThrowOnError>({
+    security: [{
+            in: 'query',
+            name: 'auth',
+            type: 'apiKey'
+        }, { name: 'Authorization', type: 'apiKey' }],
+    url: '/peers/{peer_id}/share/download',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+export const emptyPeerShareTrash = <ThrowOnError extends boolean = false>(options: Options<EmptyPeerShareTrashData, ThrowOnError>) => (options.client ?? client).post<EmptyPeerShareTrashResponses, EmptyPeerShareTrashErrors, ThrowOnError>({
+    security: [{
+            in: 'query',
+            name: 'auth',
+            type: 'apiKey'
+        }, { name: 'Authorization', type: 'apiKey' }],
+    url: '/peers/{peer_id}/share/empty-trash',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * GET /peers/:peer_id/share/list — root list or one directory page.
+ */
+export const listPeerShare = <ThrowOnError extends boolean = false>(options: Options<ListPeerShareData, ThrowOnError>) => (options.client ?? client).get<ListPeerShareResponses, ListPeerShareErrors, ThrowOnError>({
+    security: [{
+            in: 'query',
+            name: 'auth',
+            type: 'apiKey'
+        }, { name: 'Authorization', type: 'apiKey' }],
+    url: '/peers/{peer_id}/share/list',
+    ...options
+});
+
+export const mkdirPeerShare = <ThrowOnError extends boolean = false>(options: Options<MkdirPeerShareData, ThrowOnError>) => (options.client ?? client).post<MkdirPeerShareResponses, MkdirPeerShareErrors, ThrowOnError>({
+    security: [{
+            in: 'query',
+            name: 'auth',
+            type: 'apiKey'
+        }, { name: 'Authorization', type: 'apiKey' }],
+    url: '/peers/{peer_id}/share/mkdir',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+export const renamePeerShare = <ThrowOnError extends boolean = false>(options: Options<RenamePeerShareData, ThrowOnError>) => (options.client ?? client).post<RenamePeerShareResponses, RenamePeerShareErrors, ThrowOnError>({
+    security: [{
+            in: 'query',
+            name: 'auth',
+            type: 'apiKey'
+        }, { name: 'Authorization', type: 'apiKey' }],
+    url: '/peers/{peer_id}/share/rename',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * GET /peers/:peer_id/share/stat — single entry metadata.
+ */
+export const statPeerShareEntry = <ThrowOnError extends boolean = false>(options: Options<StatPeerShareEntryData, ThrowOnError>) => (options.client ?? client).get<StatPeerShareEntryResponses, StatPeerShareEntryErrors, ThrowOnError>({
+    security: [{
+            in: 'query',
+            name: 'auth',
+            type: 'apiKey'
+        }, { name: 'Authorization', type: 'apiKey' }],
+    url: '/peers/{peer_id}/share/stat',
+    ...options
+});
+
+/**
+ * GET /peers/:peer_id/share/state — peer share availability (Hello).
+ */
+export const getPeerShareState = <ThrowOnError extends boolean = false>(options: Options<GetPeerShareStateData, ThrowOnError>) => (options.client ?? client).get<GetPeerShareStateResponses, GetPeerShareStateErrors, ThrowOnError>({
+    security: [{
+            in: 'query',
+            name: 'auth',
+            type: 'apiKey'
+        }, { name: 'Authorization', type: 'apiKey' }],
+    url: '/peers/{peer_id}/share/state',
+    ...options
+});
+
+/**
+ * GET /peers/:peer_id/share/trash — trash listing page.
+ */
+export const listPeerShareTrash = <ThrowOnError extends boolean = false>(options: Options<ListPeerShareTrashData, ThrowOnError>) => (options.client ?? client).get<ListPeerShareTrashResponses, ListPeerShareTrashErrors, ThrowOnError>({
+    security: [{
+            in: 'query',
+            name: 'auth',
+            type: 'apiKey'
+        }, { name: 'Authorization', type: 'apiKey' }],
+    url: '/peers/{peer_id}/share/trash',
+    ...options
+});
+
+/**
+ * POST /peers/:peer_id/share/trash/restore — restore a trash entry.
+ */
+export const restorePeerShareTrash = <ThrowOnError extends boolean = false>(options: Options<RestorePeerShareTrashData, ThrowOnError>) => (options.client ?? client).post<RestorePeerShareTrashResponses, RestorePeerShareTrashErrors, ThrowOnError>({
+    security: [{
+            in: 'query',
+            name: 'auth',
+            type: 'apiKey'
+        }, { name: 'Authorization', type: 'apiKey' }],
+    url: '/peers/{peer_id}/share/trash/restore',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * POST /peers/:peer_id/share/upload — start an upload; `202 { transferId }`.
+ */
+export const uploadPeerShare = <ThrowOnError extends boolean = false>(options: Options<UploadPeerShareData, ThrowOnError>) => (options.client ?? client).post<UploadPeerShareResponses, UploadPeerShareErrors, ThrowOnError>({
+    security: [{
+            in: 'query',
+            name: 'auth',
+            type: 'apiKey'
+        }, { name: 'Authorization', type: 'apiKey' }],
+    url: '/peers/{peer_id}/share/upload',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
 /**
  * Accept a host opportunity without waiting for peer connections.
  */
@@ -1401,6 +1574,70 @@ export const refreshPresence = <ThrowOnError extends boolean = false>(options?: 
             type: 'apiKey'
         }, { name: 'Authorization', type: 'apiKey' }],
     url: '/presence/refresh',
+    ...options
+});
+
+/**
+ * PUT /remote-share/roots — replace the whole whitelist (423 while locked).
+ */
+export const replaceRemoteShareRoots = <ThrowOnError extends boolean = false>(options: Options<ReplaceRemoteShareRootsData, ThrowOnError>) => (options.client ?? client).put<ReplaceRemoteShareRootsResponses, ReplaceRemoteShareRootsErrors, ThrowOnError>({
+    security: [{
+            in: 'query',
+            name: 'auth',
+            type: 'apiKey'
+        }, { name: 'Authorization', type: 'apiKey' }],
+    url: '/remote-share/roots',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * GET /remote-share/state — local share state; locked shape `200` while the
+ *
+ * session is absent (spec §9).
+ */
+export const getRemoteShareState = <ThrowOnError extends boolean = false>(options?: Options<GetRemoteShareStateData, ThrowOnError>) => (options?.client ?? client).get<GetRemoteShareStateResponses, GetRemoteShareStateErrors, ThrowOnError>({
+    security: [{
+            in: 'query',
+            name: 'auth',
+            type: 'apiKey'
+        }, { name: 'Authorization', type: 'apiKey' }],
+    url: '/remote-share/state',
+    ...options
+});
+
+/**
+ * POST /remote-share/suspend — suspend or resume every share root.
+ */
+export const setRemoteShareSuspended = <ThrowOnError extends boolean = false>(options: Options<SetRemoteShareSuspendedData, ThrowOnError>) => (options.client ?? client).post<SetRemoteShareSuspendedResponses, SetRemoteShareSuspendedErrors, ThrowOnError>({
+    security: [{
+            in: 'query',
+            name: 'auth',
+            type: 'apiKey'
+        }, { name: 'Authorization', type: 'apiKey' }],
+    url: '/remote-share/suspend',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * POST /remote-share/transfers/:transfer_id/cancel — cancel an in-flight
+ *
+ * remote-share upload or download.
+ */
+export const cancelRemoteShareTransfer = <ThrowOnError extends boolean = false>(options: Options<CancelRemoteShareTransferData, ThrowOnError>) => (options.client ?? client).post<CancelRemoteShareTransferResponses, CancelRemoteShareTransferErrors, ThrowOnError>({
+    security: [{
+            in: 'query',
+            name: 'auth',
+            type: 'apiKey'
+        }, { name: 'Authorization', type: 'apiKey' }],
+    url: '/remote-share/transfers/{transfer_id}/cancel',
     ...options
 });
 

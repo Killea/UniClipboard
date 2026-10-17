@@ -9,10 +9,52 @@ use uc_engine::{
     PeerConnectionChannelSummary, PeerConnectionSummary,
 };
 
+use uc_webserver::api::remote_share::{RemoteShareTracker, RemoteShareTransferMark};
+
 use super::mobile_lan_lifecycle::{mobile_lan_target, MobileLanLifecycleController};
 
 fn daemon_ws_event(event: EngineEvent) -> Option<DaemonWsEvent> {
     uc_webserver::api::event_emitter::engine_event_to_ws(event)
+}
+
+/// Forward a transfer progress/status event, retagging daemon-issued
+/// remote-share transfer ids onto the `remote-share.*` event names (spec
+/// 2026-10-12 §9). The tracker is the only reliable discriminator: upload
+/// progress reuses the outbound `transfer-progress/1` translator which copies
+/// `transfer_id` into `entry_id`, and mobile-lan emits `entry_id: None`.
+/// Duplicate terminals (the holder's progress-frame terminal plus the client's
+/// own) collapse to one event; late duplicates are dropped silently.
+fn forward_transfer_event(
+    remote_share: &RemoteShareTracker,
+    event_tx: &broadcast::Sender<DaemonWsEvent>,
+    event: EngineEvent,
+) {
+    let transfer_id = match &event {
+        EngineEvent::TransferProgress(progress) => progress.transfer_id.as_str(),
+        EngineEvent::TransferStatusChanged(change) => change.transfer_id.as_str(),
+        _ => return,
+    };
+    let mark = remote_share.mark(transfer_id);
+    if mark == RemoteShareTransferMark::Finished {
+        return;
+    }
+    if mark == RemoteShareTransferMark::Inflight
+        && matches!(event, EngineEvent::TransferStatusChanged(_))
+    {
+        remote_share.finish(transfer_id);
+    }
+    let Some(mut ws) = daemon_ws_event(event) else {
+        return;
+    };
+    if mark == RemoteShareTransferMark::Inflight {
+        ws.event_type = match ws.event_type.as_str() {
+            ws_event::FILE_TRANSFER_PROGRESS => ws_event::REMOTE_SHARE_PROGRESS,
+            ws_event::FILE_TRANSFER_STATUS_CHANGED => ws_event::REMOTE_SHARE_STATUS_CHANGED,
+            other => other,
+        }
+        .to_string();
+    }
+    let _ = event_tx.send(ws);
 }
 
 pub(crate) async fn forward_engine_events(
@@ -21,6 +63,7 @@ pub(crate) async fn forward_engine_events(
     event_tx: broadcast::Sender<DaemonWsEvent>,
     active_clipboard_tx: broadcast::Sender<ActiveClipboardChanged>,
     mobile_lan: Arc<MobileLanLifecycleController>,
+    remote_share: RemoteShareTracker,
     cancel: CancellationToken,
 ) {
     loop {
@@ -64,6 +107,10 @@ pub(crate) async fn forward_engine_events(
                         category = %error.category(),
                         "engine reported an unrecoverable error"
                     ),
+                    event @ (EngineEvent::TransferProgress(_)
+                    | EngineEvent::TransferStatusChanged(_)) => {
+                        forward_transfer_event(&remote_share, &event_tx, event);
+                    }
                     event => {
                         if let Some(event) = daemon_ws_event(event) {
                             let _ = event_tx.send(event);

@@ -4504,6 +4504,563 @@
         },
         "type": "object"
       },
+      "PeerShareAvailability": {
+        "description": "Peer share-service availability (wire `Hello.state` mirror).",
+        "enum": [
+          "ok",
+          "locked",
+          "unsupported",
+          "suspended"
+        ],
+        "type": "string"
+      },
+      "PeerShareCopyRequest": {
+        "description": "`POST …/share/copy` body.",
+        "properties": {
+          "from": {
+            "type": "string"
+          },
+          "root": {
+            "type": "string"
+          },
+          "to": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "root",
+          "from",
+          "to"
+        ],
+        "type": "object"
+      },
+      "PeerShareDeleteRequest": {
+        "description": "`POST …/share/delete` body.",
+        "properties": {
+          "rel": {
+            "description": "Root-relative path moved into the peer's trash.",
+            "type": "string"
+          },
+          "root": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "root",
+          "rel"
+        ],
+        "type": "object"
+      },
+      "PeerShareDownloadRequest": {
+        "description": "`POST …/share/download` body.",
+        "properties": {
+          "rel": {
+            "description": "Root-relative path of the file to pull.",
+            "type": "string"
+          },
+          "root": {
+            "type": "string"
+          },
+          "target": {
+            "description": "Local absolute target file path.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "root",
+          "rel",
+          "target"
+        ],
+        "type": "object"
+      },
+      "PeerShareEmptyTrashRequest": {
+        "description": "`POST …/share/empty-trash` body.",
+        "properties": {
+          "root": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "root"
+        ],
+        "type": "object"
+      },
+      "PeerShareEntryDto": {
+        "description": "One directory entry inside a peer share root.",
+        "properties": {
+          "isDir": {
+            "type": "boolean"
+          },
+          "isSymlink": {
+            "description": "Listed faithfully but not addressable (the holder's confinement layer\nrefuses every verb on it).",
+            "type": "boolean"
+          },
+          "modifiedAtMs": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "name": {
+            "description": "Single path segment.",
+            "type": "string"
+          },
+          "sizeBytes": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "name",
+          "isDir",
+          "isSymlink",
+          "sizeBytes",
+          "modifiedAtMs"
+        ],
+        "type": "object"
+      },
+      "PeerShareEntryEnvelope": {
+        "description": "Canonical success envelope: `{ \"data\": T, \"ts\": <unix millis i64> }`.\n\n`ts` is `chrono::Utc::now().timestamp_millis()`, set in the webserver handler\nvia [`ApiEnvelope::now`] (the contract carries only the type + the clock\nhelper, not a hard dependency on when the handler reads the clock).\n`rename_all = \"camelCase\"` is a no-op for the single-word fields here but is\ndeclared for forward-compat.\n\nIMPORTANT (utoipa v4): every concrete `ApiEnvelope<X>` that needs a named\nOpenAPI component is declared in the `#[aliases(...)]` block below. Add a new\nalias line whenever a new payload type needs enveloping. NEVER register the\nbare `ApiEnvelope` in `components(schemas(...))` — utoipa errors on a bare\ngeneric, and an un-aliased generic inlines an anonymous schema.",
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/PeerShareEntryDto"
+          },
+          "ts": {
+            "description": "Server time when the response was built (unix epoch milliseconds).",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "data",
+          "ts"
+        ],
+        "type": "object"
+      },
+      "PeerShareListEnvelope": {
+        "description": "Canonical success envelope: `{ \"data\": T, \"ts\": <unix millis i64> }`.\n\n`ts` is `chrono::Utc::now().timestamp_millis()`, set in the webserver handler\nvia [`ApiEnvelope::now`] (the contract carries only the type + the clock\nhelper, not a hard dependency on when the handler reads the clock).\n`rename_all = \"camelCase\"` is a no-op for the single-word fields here but is\ndeclared for forward-compat.\n\nIMPORTANT (utoipa v4): every concrete `ApiEnvelope<X>` that needs a named\nOpenAPI component is declared in the `#[aliases(...)]` block below. Add a new\nalias line whenever a new payload type needs enveloping. NEVER register the\nbare `ApiEnvelope` in `components(schemas(...))` — utoipa errors on a bare\ngeneric, and an un-aliased generic inlines an anonymous schema.",
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/PeerShareListResponse"
+          },
+          "ts": {
+            "description": "Server time when the response was built (unix epoch milliseconds).",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "data",
+          "ts"
+        ],
+        "type": "object"
+      },
+      "PeerShareListResponse": {
+        "description": "`GET /peers/{peerId}/share/list` response: without `root` it is the root\nlist; with `root` it is one directory page.",
+        "discriminator": {
+          "propertyName": "kind"
+        },
+        "oneOf": [
+          {
+            "description": "Root list (`kind: \"roots\"`).",
+            "properties": {
+              "kind": {
+                "enum": [
+                  "roots"
+                ],
+                "type": "string"
+              },
+              "roots": {
+                "items": {
+                  "$ref": "#/components/schemas/PeerShareRootDto"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "roots",
+              "kind"
+            ],
+            "type": "object"
+          },
+          {
+            "description": "One directory page (`kind: \"directory\"`).",
+            "properties": {
+              "cursor": {
+                "description": "Resume cursor for the next page (`after` on the next request).",
+                "nullable": true,
+                "type": "string"
+              },
+              "entries": {
+                "items": {
+                  "$ref": "#/components/schemas/PeerShareEntryDto"
+                },
+                "type": "array"
+              },
+              "kind": {
+                "enum": [
+                  "directory"
+                ],
+                "type": "string"
+              },
+              "truncated": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "entries",
+              "truncated",
+              "kind"
+            ],
+            "type": "object"
+          }
+        ]
+      },
+      "PeerShareMkdirRequest": {
+        "description": "`POST …/share/mkdir` body.",
+        "properties": {
+          "rel": {
+            "description": "Root-relative path of the directory to create.",
+            "type": "string"
+          },
+          "root": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "root",
+          "rel"
+        ],
+        "type": "object"
+      },
+      "PeerShareMutationResultDto": {
+        "description": "Stable result of every mutation verb.",
+        "discriminator": {
+          "propertyName": "kind"
+        },
+        "oneOf": [
+          {
+            "properties": {
+              "kind": {
+                "enum": [
+                  "ack"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind"
+            ],
+            "type": "object"
+          },
+          {
+            "description": "delete result: the opaque id the entry got inside the peer's trash.",
+            "properties": {
+              "kind": {
+                "enum": [
+                  "deleted"
+                ],
+                "type": "string"
+              },
+              "trash_id": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "trash_id",
+              "kind"
+            ],
+            "type": "object"
+          }
+        ]
+      },
+      "PeerShareMutationResultEnvelope": {
+        "description": "Canonical success envelope: `{ \"data\": T, \"ts\": <unix millis i64> }`.\n\n`ts` is `chrono::Utc::now().timestamp_millis()`, set in the webserver handler\nvia [`ApiEnvelope::now`] (the contract carries only the type + the clock\nhelper, not a hard dependency on when the handler reads the clock).\n`rename_all = \"camelCase\"` is a no-op for the single-word fields here but is\ndeclared for forward-compat.\n\nIMPORTANT (utoipa v4): every concrete `ApiEnvelope<X>` that needs a named\nOpenAPI component is declared in the `#[aliases(...)]` block below. Add a new\nalias line whenever a new payload type needs enveloping. NEVER register the\nbare `ApiEnvelope` in `components(schemas(...))` — utoipa errors on a bare\ngeneric, and an un-aliased generic inlines an anonymous schema.",
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/PeerShareMutationResultDto"
+          },
+          "ts": {
+            "description": "Server time when the response was built (unix epoch milliseconds).",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "data",
+          "ts"
+        ],
+        "type": "object"
+      },
+      "PeerShareRenameRequest": {
+        "description": "`POST …/share/rename` body.",
+        "properties": {
+          "from": {
+            "type": "string"
+          },
+          "root": {
+            "type": "string"
+          },
+          "to": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "root",
+          "from",
+          "to"
+        ],
+        "type": "object"
+      },
+      "PeerShareRestoreRequest": {
+        "description": "`POST …/share/trash/restore` body. `to` is required on the wire (spec §9.1);\nthe frontend takes the default from `originalRel` after `ListTrash`.",
+        "properties": {
+          "root": {
+            "type": "string"
+          },
+          "to": {
+            "description": "Root-relative restore target.",
+            "type": "string"
+          },
+          "trashId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "root",
+          "trashId",
+          "to"
+        ],
+        "type": "object"
+      },
+      "PeerShareRootDto": {
+        "description": "A share root the peer exposes to us (no host path — spec §13 I2).",
+        "properties": {
+          "delete": {
+            "type": "boolean"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "id": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "read": {
+            "type": "boolean"
+          },
+          "write": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "read",
+          "write",
+          "delete",
+          "enabled"
+        ],
+        "type": "object"
+      },
+      "PeerShareStateDto": {
+        "description": "`GET /peers/{peerId}/share/state` response.",
+        "properties": {
+          "state": {
+            "$ref": "#/components/schemas/PeerShareAvailability"
+          }
+        },
+        "required": [
+          "state"
+        ],
+        "type": "object"
+      },
+      "PeerShareStateEnvelope": {
+        "description": "Canonical success envelope: `{ \"data\": T, \"ts\": <unix millis i64> }`.\n\n`ts` is `chrono::Utc::now().timestamp_millis()`, set in the webserver handler\nvia [`ApiEnvelope::now`] (the contract carries only the type + the clock\nhelper, not a hard dependency on when the handler reads the clock).\n`rename_all = \"camelCase\"` is a no-op for the single-word fields here but is\ndeclared for forward-compat.\n\nIMPORTANT (utoipa v4): every concrete `ApiEnvelope<X>` that needs a named\nOpenAPI component is declared in the `#[aliases(...)]` block below. Add a new\nalias line whenever a new payload type needs enveloping. NEVER register the\nbare `ApiEnvelope` in `components(schemas(...))` — utoipa errors on a bare\ngeneric, and an un-aliased generic inlines an anonymous schema.",
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/PeerShareStateDto"
+          },
+          "ts": {
+            "description": "Server time when the response was built (unix epoch milliseconds).",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "data",
+          "ts"
+        ],
+        "type": "object"
+      },
+      "PeerShareTransferCancelEnvelope": {
+        "description": "Canonical success envelope: `{ \"data\": T, \"ts\": <unix millis i64> }`.\n\n`ts` is `chrono::Utc::now().timestamp_millis()`, set in the webserver handler\nvia [`ApiEnvelope::now`] (the contract carries only the type + the clock\nhelper, not a hard dependency on when the handler reads the clock).\n`rename_all = \"camelCase\"` is a no-op for the single-word fields here but is\ndeclared for forward-compat.\n\nIMPORTANT (utoipa v4): every concrete `ApiEnvelope<X>` that needs a named\nOpenAPI component is declared in the `#[aliases(...)]` block below. Add a new\nalias line whenever a new payload type needs enveloping. NEVER register the\nbare `ApiEnvelope` in `components(schemas(...))` — utoipa errors on a bare\ngeneric, and an un-aliased generic inlines an anonymous schema.",
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/PeerShareTransferCancelResultDto"
+          },
+          "ts": {
+            "description": "Server time when the response was built (unix epoch milliseconds).",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "data",
+          "ts"
+        ],
+        "type": "object"
+      },
+      "PeerShareTransferCancelOutcomeDto": {
+        "description": "`POST /remote-share/transfers/{id}/cancel` outcome.",
+        "enum": [
+          "cancelled",
+          "not_inflight",
+          "too_late"
+        ],
+        "type": "string"
+      },
+      "PeerShareTransferCancelResultDto": {
+        "description": "`POST /remote-share/transfers/{id}/cancel` response.",
+        "properties": {
+          "outcome": {
+            "$ref": "#/components/schemas/PeerShareTransferCancelOutcomeDto"
+          }
+        },
+        "required": [
+          "outcome"
+        ],
+        "type": "object"
+      },
+      "PeerShareTransferStartedDto": {
+        "description": "`202` response for upload/download: the caller-issued transfer id the\n`remote-share.progress` / `remote-share.status_changed` WS events key off.",
+        "properties": {
+          "transferId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "transferId"
+        ],
+        "type": "object"
+      },
+      "PeerShareTransferStartedEnvelope": {
+        "description": "Canonical success envelope: `{ \"data\": T, \"ts\": <unix millis i64> }`.\n\n`ts` is `chrono::Utc::now().timestamp_millis()`, set in the webserver handler\nvia [`ApiEnvelope::now`] (the contract carries only the type + the clock\nhelper, not a hard dependency on when the handler reads the clock).\n`rename_all = \"camelCase\"` is a no-op for the single-word fields here but is\ndeclared for forward-compat.\n\nIMPORTANT (utoipa v4): every concrete `ApiEnvelope<X>` that needs a named\nOpenAPI component is declared in the `#[aliases(...)]` block below. Add a new\nalias line whenever a new payload type needs enveloping. NEVER register the\nbare `ApiEnvelope` in `components(schemas(...))` — utoipa errors on a bare\ngeneric, and an un-aliased generic inlines an anonymous schema.",
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/PeerShareTransferStartedDto"
+          },
+          "ts": {
+            "description": "Server time when the response was built (unix epoch milliseconds).",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "data",
+          "ts"
+        ],
+        "type": "object"
+      },
+      "PeerShareTrashEntryDto": {
+        "description": "One trash entry inside a peer share root.",
+        "properties": {
+          "deletedAtMs": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "isDir": {
+            "type": "boolean"
+          },
+          "originalRel": {
+            "description": "Root-relative path the entry had before deletion.",
+            "type": "string"
+          },
+          "sizeBytes": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "trashId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "trashId",
+          "originalRel",
+          "deletedAtMs",
+          "isDir",
+          "sizeBytes"
+        ],
+        "type": "object"
+      },
+      "PeerShareTrashPageDto": {
+        "description": "`GET /peers/{peerId}/share/trash` response page.",
+        "properties": {
+          "cursor": {
+            "nullable": true,
+            "type": "string"
+          },
+          "entries": {
+            "items": {
+              "$ref": "#/components/schemas/PeerShareTrashEntryDto"
+            },
+            "type": "array"
+          },
+          "truncated": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "entries",
+          "truncated"
+        ],
+        "type": "object"
+      },
+      "PeerShareTrashPageEnvelope": {
+        "description": "Canonical success envelope: `{ \"data\": T, \"ts\": <unix millis i64> }`.\n\n`ts` is `chrono::Utc::now().timestamp_millis()`, set in the webserver handler\nvia [`ApiEnvelope::now`] (the contract carries only the type + the clock\nhelper, not a hard dependency on when the handler reads the clock).\n`rename_all = \"camelCase\"` is a no-op for the single-word fields here but is\ndeclared for forward-compat.\n\nIMPORTANT (utoipa v4): every concrete `ApiEnvelope<X>` that needs a named\nOpenAPI component is declared in the `#[aliases(...)]` block below. Add a new\nalias line whenever a new payload type needs enveloping. NEVER register the\nbare `ApiEnvelope` in `components(schemas(...))` — utoipa errors on a bare\ngeneric, and an un-aliased generic inlines an anonymous schema.",
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/PeerShareTrashPageDto"
+          },
+          "ts": {
+            "description": "Server time when the response was built (unix epoch milliseconds).",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "data",
+          "ts"
+        ],
+        "type": "object"
+      },
+      "PeerShareUploadRequest": {
+        "description": "`POST …/share/upload` body. `sources` are local host file/directory paths;\nthe daemon registers them as `HostFileHandle`s so they never hit logs.",
+        "properties": {
+          "destDir": {
+            "description": "Root-relative destination directory (absent/empty = root top level).",
+            "nullable": true,
+            "type": "string"
+          },
+          "root": {
+            "type": "string"
+          },
+          "sources": {
+            "description": "Local absolute paths of the files/directories to upload.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "root",
+          "sources"
+        ],
+        "type": "object"
+      },
       "PeerSnapshotDto": {
         "properties": {
           "addresses": {
@@ -5466,6 +6023,166 @@
         ],
         "type": "object"
       },
+      "RemoteShareReconcileDto": {
+        "description": "Reconcile summary shared by `PUT /remote-share/roots` and\n`POST /remote-share/suspend`.",
+        "properties": {
+          "failed": {
+            "format": "int32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "registered": {
+            "format": "int32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "unregistered": {
+            "format": "int32",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "registered",
+          "failed",
+          "unregistered"
+        ],
+        "type": "object"
+      },
+      "RemoteShareReconcileEnvelope": {
+        "description": "Canonical success envelope: `{ \"data\": T, \"ts\": <unix millis i64> }`.\n\n`ts` is `chrono::Utc::now().timestamp_millis()`, set in the webserver handler\nvia [`ApiEnvelope::now`] (the contract carries only the type + the clock\nhelper, not a hard dependency on when the handler reads the clock).\n`rename_all = \"camelCase\"` is a no-op for the single-word fields here but is\ndeclared for forward-compat.\n\nIMPORTANT (utoipa v4): every concrete `ApiEnvelope<X>` that needs a named\nOpenAPI component is declared in the `#[aliases(...)]` block below. Add a new\nalias line whenever a new payload type needs enveloping. NEVER register the\nbare `ApiEnvelope` in `components(schemas(...))` — utoipa errors on a bare\ngeneric, and an un-aliased generic inlines an anonymous schema.",
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/RemoteShareReconcileDto"
+          },
+          "ts": {
+            "description": "Server time when the response was built (unix epoch milliseconds).",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "data",
+          "ts"
+        ],
+        "type": "object"
+      },
+      "RemoteShareRootDto": {
+        "description": "One authorized share root as the local owner sees it.",
+        "properties": {
+          "delete": {
+            "type": "boolean"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "id": {
+            "description": "Opaque root id assigned by the engine (stable across restarts).",
+            "type": "string"
+          },
+          "label": {
+            "description": "Label the peer sees in its directory tree.",
+            "type": "string"
+          },
+          "path": {
+            "description": "Absolute host path of the shared directory (local API only).",
+            "type": "string"
+          },
+          "read": {
+            "type": "boolean"
+          },
+          "write": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "path",
+          "label",
+          "read",
+          "write",
+          "delete",
+          "enabled"
+        ],
+        "type": "object"
+      },
+      "RemoteShareRootInputDto": {
+        "description": "One entry of the `PUT /remote-share/roots` whitelist write. `id` absent =\nnew root (the engine assigns one).",
+        "properties": {
+          "delete": {
+            "type": "boolean"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "id": {
+            "nullable": true,
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "path": {
+            "description": "Absolute host path of the directory to share.",
+            "type": "string"
+          },
+          "read": {
+            "type": "boolean"
+          },
+          "write": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "path",
+          "label",
+          "read",
+          "write",
+          "delete"
+        ],
+        "type": "object"
+      },
+      "RemoteShareStateDto": {
+        "description": "`GET /remote-share/state` response. While the encryption session is locked\nthe route returns 200 with `locked: true` and null `suspended`/`roots` so\nthe settings page can render \"unlock to manage\" without exposing paths.",
+        "properties": {
+          "locked": {
+            "type": "boolean"
+          },
+          "roots": {
+            "items": {
+              "$ref": "#/components/schemas/RemoteShareRootDto"
+            },
+            "nullable": true,
+            "type": "array"
+          },
+          "suspended": {
+            "nullable": true,
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "locked"
+        ],
+        "type": "object"
+      },
+      "RemoteShareStateEnvelope": {
+        "description": "Canonical success envelope: `{ \"data\": T, \"ts\": <unix millis i64> }`.\n\n`ts` is `chrono::Utc::now().timestamp_millis()`, set in the webserver handler\nvia [`ApiEnvelope::now`] (the contract carries only the type + the clock\nhelper, not a hard dependency on when the handler reads the clock).\n`rename_all = \"camelCase\"` is a no-op for the single-word fields here but is\ndeclared for forward-compat.\n\nIMPORTANT (utoipa v4): every concrete `ApiEnvelope<X>` that needs a named\nOpenAPI component is declared in the `#[aliases(...)]` block below. Add a new\nalias line whenever a new payload type needs enveloping. NEVER register the\nbare `ApiEnvelope` in `components(schemas(...))` — utoipa errors on a bare\ngeneric, and an un-aliased generic inlines an anonymous schema.",
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/RemoteShareStateDto"
+          },
+          "ts": {
+            "description": "Server time when the response was built (unix epoch milliseconds).",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "data",
+          "ts"
+        ],
+        "type": "object"
+      },
       "RenameHistoryTagRequest": {
         "description": "`PATCH /history/tags/{tag_id}` body.",
         "properties": {
@@ -5475,6 +6192,21 @@
         },
         "required": [
           "name"
+        ],
+        "type": "object"
+      },
+      "ReplaceRemoteShareRootsRequest": {
+        "description": "Request body for `PUT /remote-share/roots` — replaces the whole whitelist.",
+        "properties": {
+          "roots": {
+            "items": {
+              "$ref": "#/components/schemas/RemoteShareRootInputDto"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "roots"
         ],
         "type": "object"
       },
@@ -6322,6 +7054,18 @@
         },
         "required": [
           "tagIds"
+        ],
+        "type": "object"
+      },
+      "SetRemoteShareSuspendedRequest": {
+        "description": "Request body for `POST /remote-share/suspend`.",
+        "properties": {
+          "suspended": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "suspended"
         ],
         "type": "object"
       },
@@ -12292,6 +13036,1278 @@
         ]
       }
     },
+    "/peers/{peer_id}/share/copy": {
+      "post": {
+        "operationId": "copyPeerShareEntry",
+        "parameters": [
+          {
+            "description": "Peer device id",
+            "in": "path",
+            "name": "peer_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PeerShareCopyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PeerShareMutationResultEnvelope"
+                }
+              }
+            },
+            "description": "Mutation outcome"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Denied by the peer"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Entry not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "423": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Encryption session locked or peer locked"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Internal server error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Peer unreachable"
+          }
+        },
+        "security": [
+          {
+            "session_query": []
+          },
+          {
+            "session_header": []
+          }
+        ],
+        "tags": [
+          "remote-share"
+        ]
+      }
+    },
+    "/peers/{peer_id}/share/delete": {
+      "post": {
+        "operationId": "deletePeerShareEntry",
+        "parameters": [
+          {
+            "description": "Peer device id",
+            "in": "path",
+            "name": "peer_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PeerShareDeleteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PeerShareMutationResultEnvelope"
+                }
+              }
+            },
+            "description": "Mutation outcome"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Denied by the peer"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Entry not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "423": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Encryption session locked or peer locked"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Internal server error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Peer unreachable"
+          }
+        },
+        "security": [
+          {
+            "session_query": []
+          },
+          {
+            "session_header": []
+          }
+        ],
+        "tags": [
+          "remote-share"
+        ]
+      }
+    },
+    "/peers/{peer_id}/share/download": {
+      "post": {
+        "operationId": "downloadPeerShare",
+        "parameters": [
+          {
+            "description": "Peer device id",
+            "in": "path",
+            "name": "peer_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PeerShareDownloadRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PeerShareTransferStartedEnvelope"
+                }
+              }
+            },
+            "description": "Download accepted; track via remote-share.* events"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Denied by the peer"
+          },
+          "423": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Encryption session locked or peer locked"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Internal server error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Peer unreachable"
+          }
+        },
+        "security": [
+          {
+            "session_query": []
+          },
+          {
+            "session_header": []
+          }
+        ],
+        "summary": "POST /peers/:peer_id/share/download — start a download; `202 { transferId }`.",
+        "tags": [
+          "remote-share"
+        ]
+      }
+    },
+    "/peers/{peer_id}/share/empty-trash": {
+      "post": {
+        "operationId": "emptyPeerShareTrash",
+        "parameters": [
+          {
+            "description": "Peer device id",
+            "in": "path",
+            "name": "peer_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PeerShareEmptyTrashRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PeerShareMutationResultEnvelope"
+                }
+              }
+            },
+            "description": "Mutation outcome"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Denied by the peer"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Entry not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "423": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Encryption session locked or peer locked"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Internal server error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Peer unreachable"
+          }
+        },
+        "security": [
+          {
+            "session_query": []
+          },
+          {
+            "session_header": []
+          }
+        ],
+        "tags": [
+          "remote-share"
+        ]
+      }
+    },
+    "/peers/{peer_id}/share/list": {
+      "get": {
+        "operationId": "listPeerShare",
+        "parameters": [
+          {
+            "description": "Peer device id",
+            "in": "path",
+            "name": "peer_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Share-root id. Absent → root list.",
+            "in": "query",
+            "name": "root",
+            "required": false,
+            "schema": {
+              "nullable": true,
+              "type": "string"
+            }
+          },
+          {
+            "description": "Root-relative directory path (default: root top level).",
+            "in": "query",
+            "name": "dir",
+            "required": false,
+            "schema": {
+              "nullable": true,
+              "type": "string"
+            }
+          },
+          {
+            "description": "Resume cursor from a previous page.",
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "nullable": true,
+              "type": "string"
+            }
+          },
+          {
+            "description": "Page size (default 2000 — the client-side cap, spec §11.3).",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "format": "int32",
+              "minimum": 0,
+              "nullable": true,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PeerShareListEnvelope"
+                }
+              }
+            },
+            "description": "Root list or directory page"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Denied by the peer"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Root or entry not found"
+          },
+          "423": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Encryption session locked or peer locked"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Internal server error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Peer unreachable"
+          }
+        },
+        "security": [
+          {
+            "session_query": []
+          },
+          {
+            "session_header": []
+          }
+        ],
+        "summary": "GET /peers/:peer_id/share/list — root list or one directory page.",
+        "tags": [
+          "remote-share"
+        ]
+      }
+    },
+    "/peers/{peer_id}/share/mkdir": {
+      "post": {
+        "operationId": "mkdirPeerShare",
+        "parameters": [
+          {
+            "description": "Peer device id",
+            "in": "path",
+            "name": "peer_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PeerShareMkdirRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PeerShareMutationResultEnvelope"
+                }
+              }
+            },
+            "description": "Mutation outcome"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Denied by the peer"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Entry not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "423": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Encryption session locked or peer locked"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Internal server error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Peer unreachable"
+          }
+        },
+        "security": [
+          {
+            "session_query": []
+          },
+          {
+            "session_header": []
+          }
+        ],
+        "tags": [
+          "remote-share"
+        ]
+      }
+    },
+    "/peers/{peer_id}/share/rename": {
+      "post": {
+        "operationId": "renamePeerShare",
+        "parameters": [
+          {
+            "description": "Peer device id",
+            "in": "path",
+            "name": "peer_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PeerShareRenameRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PeerShareMutationResultEnvelope"
+                }
+              }
+            },
+            "description": "Mutation outcome"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Denied by the peer"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Entry not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "423": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Encryption session locked or peer locked"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Internal server error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Peer unreachable"
+          }
+        },
+        "security": [
+          {
+            "session_query": []
+          },
+          {
+            "session_header": []
+          }
+        ],
+        "tags": [
+          "remote-share"
+        ]
+      }
+    },
+    "/peers/{peer_id}/share/stat": {
+      "get": {
+        "operationId": "statPeerShareEntry",
+        "parameters": [
+          {
+            "description": "Peer device id",
+            "in": "path",
+            "name": "peer_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "root",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Root-relative path of the entry.",
+            "in": "query",
+            "name": "rel",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PeerShareEntryEnvelope"
+                }
+              }
+            },
+            "description": "Entry metadata"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Entry not found"
+          },
+          "423": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Encryption session locked or peer locked"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Internal server error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Peer unreachable"
+          }
+        },
+        "security": [
+          {
+            "session_query": []
+          },
+          {
+            "session_header": []
+          }
+        ],
+        "summary": "GET /peers/:peer_id/share/stat — single entry metadata.",
+        "tags": [
+          "remote-share"
+        ]
+      }
+    },
+    "/peers/{peer_id}/share/state": {
+      "get": {
+        "operationId": "getPeerShareState",
+        "parameters": [
+          {
+            "description": "Peer device id",
+            "in": "path",
+            "name": "peer_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PeerShareStateEnvelope"
+                }
+              }
+            },
+            "description": "Peer share availability"
+          },
+          "423": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Encryption session locked"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Internal server error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Peer unreachable"
+          }
+        },
+        "security": [
+          {
+            "session_query": []
+          },
+          {
+            "session_header": []
+          }
+        ],
+        "summary": "GET /peers/:peer_id/share/state — peer share availability (Hello).",
+        "tags": [
+          "remote-share"
+        ]
+      }
+    },
+    "/peers/{peer_id}/share/trash": {
+      "get": {
+        "operationId": "listPeerShareTrash",
+        "parameters": [
+          {
+            "description": "Peer device id",
+            "in": "path",
+            "name": "peer_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "root",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "nullable": true,
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "format": "int32",
+              "minimum": 0,
+              "nullable": true,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PeerShareTrashPageEnvelope"
+                }
+              }
+            },
+            "description": "Trash page"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Root not found"
+          },
+          "423": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Encryption session locked or peer locked"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Internal server error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Peer unreachable"
+          }
+        },
+        "security": [
+          {
+            "session_query": []
+          },
+          {
+            "session_header": []
+          }
+        ],
+        "summary": "GET /peers/:peer_id/share/trash — trash listing page.",
+        "tags": [
+          "remote-share"
+        ]
+      }
+    },
+    "/peers/{peer_id}/share/trash/restore": {
+      "post": {
+        "operationId": "restorePeerShareTrash",
+        "parameters": [
+          {
+            "description": "Peer device id",
+            "in": "path",
+            "name": "peer_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PeerShareRestoreRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PeerShareMutationResultEnvelope"
+                }
+              }
+            },
+            "description": "Mutation outcome"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Denied by the peer"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Trash entry not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "423": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Encryption session locked or peer locked"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Internal server error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Peer unreachable"
+          }
+        },
+        "security": [
+          {
+            "session_query": []
+          },
+          {
+            "session_header": []
+          }
+        ],
+        "summary": "POST /peers/:peer_id/share/trash/restore — restore a trash entry.",
+        "tags": [
+          "remote-share"
+        ]
+      }
+    },
+    "/peers/{peer_id}/share/upload": {
+      "post": {
+        "operationId": "uploadPeerShare",
+        "parameters": [
+          {
+            "description": "Peer device id",
+            "in": "path",
+            "name": "peer_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PeerShareUploadRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PeerShareTransferStartedEnvelope"
+                }
+              }
+            },
+            "description": "Upload accepted; track via remote-share.* events"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Denied by the peer"
+          },
+          "423": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Encryption session locked or peer locked"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Internal server error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Peer unreachable"
+          }
+        },
+        "security": [
+          {
+            "session_query": []
+          },
+          {
+            "session_header": []
+          }
+        ],
+        "summary": "POST /peers/:peer_id/share/upload — start an upload; `202 { transferId }`.",
+        "tags": [
+          "remote-share"
+        ]
+      }
+    },
     "/presence/opportunity": {
       "post": {
         "operationId": "notifyConnectivityOpportunity",
@@ -12381,6 +14397,235 @@
         "summary": "POST /presence/refresh",
         "tags": [
           "system"
+        ]
+      }
+    },
+    "/remote-share/roots": {
+      "put": {
+        "operationId": "replaceRemoteShareRoots",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReplaceRemoteShareRootsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RemoteShareReconcileEnvelope"
+                }
+              }
+            },
+            "description": "Whitelist reconciled"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "423": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Encryption session locked"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "session_query": []
+          },
+          {
+            "session_header": []
+          }
+        ],
+        "summary": "PUT /remote-share/roots — replace the whole whitelist (423 while locked).",
+        "tags": [
+          "remote-share"
+        ]
+      }
+    },
+    "/remote-share/state": {
+      "get": {
+        "description": "session is absent (spec §9).",
+        "operationId": "getRemoteShareState",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RemoteShareStateEnvelope"
+                }
+              }
+            },
+            "description": "Local share state (locked shape while locked)"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "session_query": []
+          },
+          {
+            "session_header": []
+          }
+        ],
+        "summary": "GET /remote-share/state — local share state; locked shape `200` while the",
+        "tags": [
+          "remote-share"
+        ]
+      }
+    },
+    "/remote-share/suspend": {
+      "post": {
+        "operationId": "setRemoteShareSuspended",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetRemoteShareSuspendedRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RemoteShareReconcileEnvelope"
+                }
+              }
+            },
+            "description": "Suspend state reconciled"
+          },
+          "423": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Encryption session locked"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "session_query": []
+          },
+          {
+            "session_header": []
+          }
+        ],
+        "summary": "POST /remote-share/suspend — suspend or resume every share root.",
+        "tags": [
+          "remote-share"
+        ]
+      }
+    },
+    "/remote-share/transfers/{transfer_id}/cancel": {
+      "post": {
+        "description": "remote-share upload or download.",
+        "operationId": "cancelRemoteShareTransfer",
+        "parameters": [
+          {
+            "description": "Caller-issued transfer id",
+            "in": "path",
+            "name": "transfer_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PeerShareTransferCancelEnvelope"
+                }
+              }
+            },
+            "description": "Cancel outcome"
+          },
+          "423": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Encryption session locked"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "session_query": []
+          },
+          {
+            "session_header": []
+          }
+        ],
+        "summary": "POST /remote-share/transfers/:transfer_id/cancel — cancel an in-flight",
+        "tags": [
+          "remote-share"
         ]
       }
     },

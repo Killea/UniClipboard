@@ -309,11 +309,11 @@ fn mobile_engine_error_to_api(error: EngineError) -> ApiError {
         EngineErrorCategory::Unauthorized => {
             ApiError::unauthorized("mobile-sync request was not authorized")
         }
-        EngineErrorCategory::InvalidState | EngineErrorCategory::Internal => {
-            ApiError::from(MobileSyncError::PersistenceFailed {
-                message: "mobile-sync operation failed".to_string(),
-            })
-        }
+        EngineErrorCategory::InvalidState
+        | EngineErrorCategory::Cancelled
+        | EngineErrorCategory::Internal => ApiError::from(MobileSyncError::PersistenceFailed {
+            message: "mobile-sync operation failed".to_string(),
+        }),
     }
 }
 

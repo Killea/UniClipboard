@@ -146,6 +146,11 @@ pub struct DaemonApiState {
     /// The History sidebar's tags and each tag's color. In memory unless the
     /// daemon injects its file-backed store via [`Self::with_tag_layout`].
     pub tag_layout: Arc<crate::api::tag_layout::TagLayoutStore>,
+    /// Daemon-side registry of caller-issued remote-share transfer ids and
+    /// last-observed per-peer share availability (spec 2026-10-12 §9). The
+    /// engine-event forwarder uses it to retag `file-transfer.*` events for
+    /// those ids as `remote-share.*`.
+    pub remote_share: crate::api::remote_share::RemoteShareTracker,
 }
 
 /// Max concurrent full-buffer blob pulls (D6 interim RSS guard; see
@@ -189,6 +194,7 @@ impl DaemonApiState {
             run_marker: None,
             graceful_stop_requested: Arc::new(tokio::sync::Notify::new()),
             tag_layout: Arc::new(crate::api::tag_layout::TagLayoutStore::in_memory()),
+            remote_share: crate::api::remote_share::RemoteShareTracker::default(),
         }
     }
 

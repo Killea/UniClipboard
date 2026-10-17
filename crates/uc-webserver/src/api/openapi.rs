@@ -74,6 +74,15 @@ use crate::api::dto::mobile_sync::{
     UpdateMobileSyncSettingsResultDto,
 };
 use crate::api::dto::pairing::UnpairDeviceRequest;
+use crate::api::dto::remote_share::{
+    PeerShareAvailability, PeerShareCopyRequest, PeerShareDeleteRequest, PeerShareDownloadRequest,
+    PeerShareEmptyTrashRequest, PeerShareEntryDto, PeerShareListResponse, PeerShareMkdirRequest,
+    PeerShareMutationResultDto, PeerShareRenameRequest, PeerShareRestoreRequest, PeerShareRootDto,
+    PeerShareStateDto, PeerShareTransferCancelOutcomeDto, PeerShareTransferCancelResultDto,
+    PeerShareTransferStartedDto, PeerShareTrashEntryDto, PeerShareTrashPageDto,
+    PeerShareUploadRequest, RemoteShareReconcileDto, RemoteShareRootDto, RemoteShareRootInputDto,
+    RemoteShareStateDto, ReplaceRemoteShareRootsRequest, SetRemoteShareSuspendedRequest,
+};
 use crate::api::dto::search::{
     SearchCountQueryDto, SearchCountRequestDto, SearchCountResultDto, SearchQueryResultDto,
     SearchRebuildAcceptedData, SearchResultDto, SearchStatusData, SearchTagDto,
@@ -126,10 +135,13 @@ use uc_daemon_contract::api::dto::envelope::{
     LifecycleStatusEnvelope, ListEntriesEnvelope, LocalDeviceInfoEnvelope, LogExportEnvelope,
     MemberSyncPreferencesEnvelope, MemberSyncResultEnvelope, MobileDeviceListEnvelope,
     MobileSyncActionEnvelope, MobileSyncSettingsEnvelope, NetworkRecoveryStatusEnvelope,
-    PeerSnapshotListEnvelope, PresenceRefreshEnvelope, PreviewImportEnvelope,
-    ProfileRecoveryEnvelope, RegisterMobileDeviceEnvelope, RelayCredentialStatusEnvelope,
-    RelayOverviewEnvelope, RelayProbeOutcomeEnvelope, RelaySaveResultEnvelope, ResendEnvelope,
-    RestartAcceptedEnvelope, RestoreEntryEnvelope, RotateMobilePasswordEnvelope,
+    PeerShareEntryEnvelope, PeerShareListEnvelope, PeerShareMutationResultEnvelope,
+    PeerShareStateEnvelope, PeerShareTransferCancelEnvelope, PeerShareTransferStartedEnvelope,
+    PeerShareTrashPageEnvelope, PeerSnapshotListEnvelope, PresenceRefreshEnvelope,
+    PreviewImportEnvelope, ProfileRecoveryEnvelope, RegisterMobileDeviceEnvelope,
+    RelayCredentialStatusEnvelope, RelayOverviewEnvelope, RelayProbeOutcomeEnvelope,
+    RelaySaveResultEnvelope, RemoteShareReconcileEnvelope, RemoteShareStateEnvelope,
+    ResendEnvelope, RestartAcceptedEnvelope, RestoreEntryEnvelope, RotateMobilePasswordEnvelope,
     SearchCountEnvelope, SearchQueryEnvelope, SearchRebuildEnvelope, SearchStatusEnvelope,
     SearchTagsEnvelope, SessionTokenEnvelope, SettingsEnvelope, SettingsUpdateResultEnvelope,
     SetupCancelJoinEnvelope, SetupInitializeEnvelope, SetupIssueInvitationEnvelope,
@@ -252,6 +264,23 @@ impl Modify for ContractMeta {
         crate::api::mobile_sync::get_mobile_sync_settings_handler,
         crate::api::mobile_sync::update_mobile_sync_settings_handler,
         crate::api::mobile_sync::list_mobile_lan_interfaces_handler,
+        // ── remote-share (device file share, spec 2026-10-12 §9) ──
+        crate::api::remote_share::get_remote_share_state,
+        crate::api::remote_share::put_remote_share_roots,
+        crate::api::remote_share::post_remote_share_suspend,
+        crate::api::remote_share::post_transfer_cancel,
+        crate::api::remote_share::get_peer_share_state,
+        crate::api::remote_share::get_peer_share_list,
+        crate::api::remote_share::get_peer_share_stat,
+        crate::api::remote_share::get_peer_share_trash,
+        crate::api::remote_share::post_peer_share_restore,
+        crate::api::remote_share::post_peer_share_upload,
+        crate::api::remote_share::post_peer_share_download,
+        crate::api::remote_share::post_peer_share_mkdir,
+        crate::api::remote_share::post_peer_share_rename,
+        crate::api::remote_share::post_peer_share_delete,
+        crate::api::remote_share::post_peer_share_copy,
+        crate::api::remote_share::post_peer_share_empty_trash,
         // ── pairing ────────────────────────────────────────────────
         crate::api::pairing::handle_unpair_device,
         // ── encryption ─────────────────────────────────────────────
@@ -637,6 +666,41 @@ impl Modify for ContractMeta {
             PresenceRefreshResponse,
             NetworkRecoveryPhase,
             NetworkRecoveryStatusResponse,
+            // ── remote-share (device file share) ───────────────────
+            RemoteShareStateEnvelope,
+            RemoteShareReconcileEnvelope,
+            PeerShareStateEnvelope,
+            PeerShareListEnvelope,
+            PeerShareEntryEnvelope,
+            PeerShareTrashPageEnvelope,
+            PeerShareMutationResultEnvelope,
+            PeerShareTransferStartedEnvelope,
+            PeerShareTransferCancelEnvelope,
+            RemoteShareStateDto,
+            RemoteShareRootDto,
+            RemoteShareRootInputDto,
+            ReplaceRemoteShareRootsRequest,
+            SetRemoteShareSuspendedRequest,
+            RemoteShareReconcileDto,
+            PeerShareStateDto,
+            PeerShareAvailability,
+            PeerShareRootDto,
+            PeerShareEntryDto,
+            PeerShareListResponse,
+            PeerShareTrashEntryDto,
+            PeerShareTrashPageDto,
+            PeerShareMkdirRequest,
+            PeerShareRenameRequest,
+            PeerShareDeleteRequest,
+            PeerShareCopyRequest,
+            PeerShareEmptyTrashRequest,
+            PeerShareRestoreRequest,
+            PeerShareMutationResultDto,
+            PeerShareUploadRequest,
+            PeerShareDownloadRequest,
+            PeerShareTransferStartedDto,
+            PeerShareTransferCancelResultDto,
+            PeerShareTransferCancelOutcomeDto,
             // ── websocket protocol schemas ─────────────────────────
             DaemonWsEvent,
             WsSubscribeRequest,
@@ -806,6 +870,12 @@ mod assembly_smoke_tests {
         // Batch search counting adds one path and operation: 89 / 99.
         // Local history tags add six paths and eight operations: 95 / 107.
         // The tag layout adds four paths and four operations: 99 / 111.
+        // The updater telemetry removal dropped POST /analytics/capture:
+        // 98 / 110.
+        // Device file share (spec 2026-10-12 §9) adds sixteen single-method
+        // paths: /remote-share/state, /remote-share/roots, /remote-share/suspend,
+        // /remote-share/transfers/{id}/cancel and the twelve /peers/{id}/share/*
+        // routes: 114 / 126.
         const HTTP_METHODS: [&str; 7] =
             ["get", "put", "post", "delete", "patch", "head", "options"];
         let paths = value
@@ -814,8 +884,8 @@ mod assembly_smoke_tests {
             .expect("OpenAPI doc must declare paths");
         assert_eq!(
             paths.len(),
-            99,
-            "expected exactly 99 path templates, found {}: {:?}",
+            114,
+            "expected exactly 114 path templates, found {}: {:?}",
             paths.len(),
             paths.keys().collect::<Vec<_>>()
         );
@@ -829,8 +899,8 @@ mod assembly_smoke_tests {
             })
             .sum();
         assert_eq!(
-            operation_count, 111,
-            "expected exactly 111 operations across all paths, found {operation_count}"
+            operation_count, 126,
+            "expected exactly 126 operations across all paths, found {operation_count}"
         );
 
         // A few frozen operationIds (§D) must be present somewhere in the doc.

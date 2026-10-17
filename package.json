@@ -29,25 +29,6 @@
     "e2e:relay-overview": "node apps/gui/e2e/relay-overview.e2e.mjs",
     "doctor": "bun run --cwd apps/gui doctor"
   },
-  "lint-staged": {
-    "Cargo.toml": [
-      "node scripts/refresh-agents-structure.mjs"
-    ],
-    "*.{js,jsx,ts,tsx}": [
-      "oxlint --fix",
-      "oxfmt --write --no-error-on-unmatched-pattern"
-    ],
-    "*.md": [
-      "node scripts/fix-md-cjk-emphasis.mjs",
-      "autocorrect --fix"
-    ],
-    "*.{json,css,html}": [
-      "oxfmt --write --no-error-on-unmatched-pattern"
-    ],
-    "{apps,crates}/**/*.rs": [
-      "rustfmt --edition 2021"
-    ]
-  },
   "devDependencies": {
     "@hey-api/openapi-ts": "0.97.3",
     "@react-grab/mcp": "^0.1.37",

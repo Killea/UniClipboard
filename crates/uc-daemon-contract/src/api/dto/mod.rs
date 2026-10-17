@@ -12,6 +12,7 @@ pub mod history_tags;
 pub mod member;
 pub mod mobile_sync;
 pub mod pairing;
+pub mod remote_share;
 pub mod search;
 pub mod settings;
 pub mod setup;

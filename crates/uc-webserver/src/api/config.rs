@@ -61,6 +61,7 @@ fn map_config_engine_error(op: &'static str, error: EngineError) -> ApiError {
         EngineErrorCategory::InvalidState
         | EngineErrorCategory::NotFound
         | EngineErrorCategory::Conflict
+        | EngineErrorCategory::Cancelled
         | EngineErrorCategory::Internal => (
             "operation_failed",
             ApiError::internal("configuration operation failed"),

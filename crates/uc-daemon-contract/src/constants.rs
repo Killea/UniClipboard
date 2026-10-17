@@ -62,6 +62,15 @@ pub mod ws_event {
     /// status 的唯一真相源(语义见 `DeliveryHostEvent`)。在 `clipboard` topic 上
     /// 发,与 GUI 详情页的 delivery badge 配套;LAN 客户端不订阅即可忽略。
     pub const CLIPBOARD_DELIVERY_STATUS_CHANGED: &str = "clipboard.delivery_status_changed";
+    /// `remote-share.progress` — remote-share upload/download byte progress,
+    /// emitted on the shared `file-transfer` topic (spec §9).
+    pub const REMOTE_SHARE_PROGRESS: &str = "remote-share.progress";
+    /// `remote-share.status_changed` — terminal state of a remote-share
+    /// transfer (completed/failed/cancelled) on the `file-transfer` topic.
+    pub const REMOTE_SHARE_STATUS_CHANGED: &str = "remote-share.status_changed";
+    /// `remote-share.availability_changed` — a peer's share service moved
+    /// between ok/locked/unsupported/suspended on the `file-transfer` topic.
+    pub const REMOTE_SHARE_AVAILABILITY_CHANGED: &str = "remote-share.availability_changed";
     pub const ENCRYPTION_SESSION_READY: &str = "encryption.session_ready";
     pub const PROFILE_RECOVERY_CHANGED: &str = "encryption.profile_recovery_changed";
     /// Search availability snapshot event (Phase 92).
@@ -110,6 +119,36 @@ pub mod pairing_error_code {
 /// HTTP/JSON error codes shared across daemon API endpoints.
 pub mod daemon_error_code {
     pub const RUNTIME_UNAVAILABLE: &str = "runtime_unavailable";
+    /// 423 for every remote-share operation while the encryption session is
+    /// absent (all remote-share ops are session-scoped, spec §9.1).
+    pub const SESSION_LOCKED: &str = "session_locked";
+}
+
+/// Stable `code` strings for remote-share API errors (spec §12). The daemon
+/// translates the Engine's numeric deny block 2101–2117 plus the
+/// transport/local codes 2118–2121 onto these one-to-one.
+pub mod remote_share_code {
+    pub const LOCKED: &str = "locked";
+    pub const UNSUPPORTED: &str = "unsupported";
+    pub const UNSUPPORTED_REQUEST: &str = "unsupported_request";
+    pub const SUSPENDED: &str = "suspended";
+    pub const REVOKED: &str = "revoked";
+    pub const DENIED: &str = "denied";
+    pub const RESERVED_NAME: &str = "reserved_name";
+    pub const NOT_FOUND: &str = "not_found";
+    pub const CONFLICT: &str = "conflict";
+    pub const ROOT_GONE: &str = "root_gone";
+    pub const QUOTA: &str = "quota";
+    pub const TOO_LARGE: &str = "too_large";
+    pub const TOO_MANY_ENTRIES: &str = "too_many_entries";
+    pub const IO: &str = "io";
+    pub const CANCELLED: &str = "cancelled";
+    pub const TOO_LATE: &str = "too_late";
+    pub const INTERRUPTED: &str = "interrupted";
+    /// Peer unreachable / frame IO (`retryable: true` in `details`).
+    pub const UNAVAILABLE: &str = "unavailable";
+    /// Protocol violation or local orchestration failure.
+    pub const INTERNAL: &str = "internal";
 }
 
 /// HTTP route path prefixes for daemon REST endpoints.
@@ -222,6 +261,41 @@ pub mod http_route {
     pub const CONFIG_IMPORT_PREVIEW: &str = "/config/import/preview";
     /// POST /config/import — validate + stage a configuration bundle for the next boot to apply (issue #1110)
     pub const CONFIG_IMPORT: &str = "/config/import";
+    // ── remote-share (device file share, spec 2026-10-12 §9) ────────
+    /// GET /remote-share/state — local share state (suspended / roots / locked shape).
+    pub const REMOTE_SHARE_STATE: &str = "/remote-share/state";
+    /// PUT /remote-share/roots — replace the local share-root whitelist.
+    pub const REMOTE_SHARE_ROOTS: &str = "/remote-share/roots";
+    /// POST /remote-share/suspend — suspend or resume every local share root.
+    pub const REMOTE_SHARE_SUSPEND: &str = "/remote-share/suspend";
+    /// POST /remote-share/transfers/:transfer_id/cancel — cancel an in-flight
+    /// remote-share upload or download.
+    pub const REMOTE_SHARE_TRANSFER_CANCEL: &str = "/remote-share/transfers/:transfer_id/cancel";
+    /// GET /peers/:peer_id/share/state — peer share availability (Hello).
+    pub const PEER_SHARE_STATE: &str = "/peers/:peer_id/share/state";
+    /// GET /peers/:peer_id/share/list — peer root list (no `root` query) or one
+    /// directory page (`?root&dir&after&limit`).
+    pub const PEER_SHARE_LIST: &str = "/peers/:peer_id/share/list";
+    /// GET /peers/:peer_id/share/stat — single entry metadata (`?root&rel`).
+    pub const PEER_SHARE_STAT: &str = "/peers/:peer_id/share/stat";
+    /// POST /peers/:peer_id/share/upload — start an upload; returns `transferId`.
+    pub const PEER_SHARE_UPLOAD: &str = "/peers/:peer_id/share/upload";
+    /// POST /peers/:peer_id/share/download — start a download; returns `transferId`.
+    pub const PEER_SHARE_DOWNLOAD: &str = "/peers/:peer_id/share/download";
+    /// POST /peers/:peer_id/share/mkdir — create a directory under a root.
+    pub const PEER_SHARE_MKDIR: &str = "/peers/:peer_id/share/mkdir";
+    /// POST /peers/:peer_id/share/rename — rename/move an entry within a root.
+    pub const PEER_SHARE_RENAME: &str = "/peers/:peer_id/share/rename";
+    /// POST /peers/:peer_id/share/delete — move an entry into the peer's trash.
+    pub const PEER_SHARE_DELETE: &str = "/peers/:peer_id/share/delete";
+    /// POST /peers/:peer_id/share/copy — copy an entry within a root.
+    pub const PEER_SHARE_COPY: &str = "/peers/:peer_id/share/copy";
+    /// POST /peers/:peer_id/share/empty-trash — permanently empty a root's trash.
+    pub const PEER_SHARE_EMPTY_TRASH: &str = "/peers/:peer_id/share/empty-trash";
+    /// GET /peers/:peer_id/share/trash — trash listing (`?root&after&limit`).
+    pub const PEER_SHARE_TRASH: &str = "/peers/:peer_id/share/trash";
+    /// POST /peers/:peer_id/share/trash/restore — restore a trash entry.
+    pub const PEER_SHARE_TRASH_RESTORE: &str = "/peers/:peer_id/share/trash/restore";
 }
 
 /// HTTP route paths for the v2 daemon REST endpoints (Slice4 P3 T3.2).

@@ -244,6 +244,7 @@ fn diagnostics_error_to_api(op: &'static str, error: EngineError) -> ApiError {
         EngineErrorCategory::InvalidState
         | EngineErrorCategory::NotFound
         | EngineErrorCategory::Conflict
+        | EngineErrorCategory::Cancelled
         | EngineErrorCategory::Internal => (
             "operation_failed",
             ApiError::internal("diagnostics operation failed"),

@@ -46,6 +46,11 @@ use crate::api::dto::mobile_sync::{
     RegisterMobileDeviceResultDto, RotateMobilePasswordResultDto, UpdateMobileDeviceResultDto,
     UpdateMobileSyncSettingsResultDto,
 };
+use crate::api::dto::remote_share::{
+    PeerShareEntryDto, PeerShareListResponse, PeerShareMutationResultDto, PeerShareStateDto,
+    PeerShareTransferCancelResultDto, PeerShareTransferStartedDto, PeerShareTrashPageDto,
+    RemoteShareReconcileDto, RemoteShareStateDto,
+};
 use crate::api::dto::search::{
     SearchCountResultDto, SearchQueryResultDto, SearchRebuildAcceptedData, SearchStatusData,
     SearchTagDto,
@@ -176,6 +181,16 @@ use crate::api::types::{
     NetworkRecoveryStatusEnvelope = ApiEnvelope<NetworkRecoveryStatusResponse>,
     // ── auth/connect (newly enveloped, §H) ─────────────────────────
     SessionTokenEnvelope = ApiEnvelope<SessionTokenResponse>,
+    // ── remote-share (device file share, spec 2026-10-12 §9) ────────
+    RemoteShareStateEnvelope = ApiEnvelope<RemoteShareStateDto>,
+    RemoteShareReconcileEnvelope = ApiEnvelope<RemoteShareReconcileDto>,
+    PeerShareStateEnvelope = ApiEnvelope<PeerShareStateDto>,
+    PeerShareListEnvelope = ApiEnvelope<PeerShareListResponse>,
+    PeerShareEntryEnvelope = ApiEnvelope<PeerShareEntryDto>,
+    PeerShareTrashPageEnvelope = ApiEnvelope<PeerShareTrashPageDto>,
+    PeerShareMutationResultEnvelope = ApiEnvelope<PeerShareMutationResultDto>,
+    PeerShareTransferStartedEnvelope = ApiEnvelope<PeerShareTransferStartedDto>,
+    PeerShareTransferCancelEnvelope = ApiEnvelope<PeerShareTransferCancelResultDto>,
     // ── setup-v2 (all 6 bodies newly enveloped, §H) ────────────────
     SetupInitializeEnvelope = ApiEnvelope<InitializeSpaceResponse>,
     SetupIssueInvitationEnvelope = ApiEnvelope<IssueInvitationResponse>,

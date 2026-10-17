@@ -1,8 +1,8 @@
 # 设备文件共享 —— 现状与 Agent 交接
 
-- **最近更新**：2026-10-15（首次快照 2026-10-13）。
-- **性质**：进度快照 + **Agent 交接文档**，供接手 P5/P7 的 agent 快速进入上下文。需求与决策见 §1/§2；已落地代码位置与不变量见 §3；下一步任务清单见 §5；gate 与硬约束见 §6/§7。
-- **一句话状态**：Engine 侧 holder 面与出站 client 面 **均已落地**：句柄化约束内核 + 变更 RPC + 回收站 + 两阶段上传编排 + 导出 + §5.3 审计 + 根注册责任人 + 启动 reconcile，加 `RemoteShareClientPort` + iroh 请求方适配器 + `RemoteShareClient` 编排（browse/mutation 直通、分片上传、export→fetch 下载），以及 **Engine op 暴露**：12 个 remote-share `Operation`/`OperationResult` 变体经 dispatch 调 client/registry，`DenyCode` 17 码 → 数字错误块 2101–2117，caller-issued `transfer_id` 关联进度/终态事件与取消。`remote-share/1` 线格式已定稿为显式 opcode + DenyCode 全集，门禁全绿（除 §6.2 登记的环境性项）。分支已推 `Killea/Engine` fork 至 `b3e2e792`，三台开发机已同步。剩余：daemon 路由/SDK（P5 下半，需 rev-pin 授权）、前端（P7）、三平台/双 peer 端到端（P9，rev-pin 后）。
+- **最近更新**：2026-10-16（首次快照 2026-10-13）。
+- **性质**：进度快照 + **Agent 交接文档**，供接手 P7/Go 宿主的 agent 快速进入上下文。需求与决策见 §1/§2；已落地代码位置与不变量见 §3；下一步任务清单见 §5；gate 与硬约束见 §6/§7。
+- **一句话状态**：Engine 侧 holder 面、出站 client 面、Engine op 暴露与 **本仓 daemon HTTP/WS 面（P5）均已落地**：16 条 session-scoped 路由 + 2101–2121→稳定码 + 423 锁定语义 + `remote-share.*` 事件改名（daemon 登记表判别）+ OpenAPI/TS client 已重生成，本仓检查全绿（除按预期红的 provenance gate）。Engine 暂经本地 path 依赖消费。剩余：Go 宿主（拖放/`stat_local_paths`/选择器）、前端（P7）、三平台/双 peer 端到端（P9），以及合并前的 upstream 推送授权 + repin。
 
 ## 1. 原始需求
 
@@ -82,18 +82,34 @@
 
 §19 裁定：**接受内容寻址残余风险**（持 digest 者可拉取同字节属既有属性，残余为存在性预言机 + 带宽占用），不加盐、不建白名单，写入 ADR-036。
 
+## 4.5 P5 daemon/API（本仓，hank_dev 工作树，未提交）
+
+2026-10-16：daemon HTTP/WS 面已按 spec §9/§12 落地并全绿。Engine 消费方式从 fork rev-pin 改为 **本地 path 依赖**（`Cargo.toml` → `../Engine-share-port/crates/uc-engine`），省掉每次 Engine 迭代的 push/rev 仪式；**合并前必须换回 `UniClipboard/Engine` 固定 rev**（`check-engine-repository.mjs` 当前按预期红）。
+
+| 件 | 位置 / 内容 |
+| --- | --- |
+| 路由/WS/错误码常量 | `crates/uc-daemon-contract/src/constants.rs`：16 条 `http_route` 常量 + `remote-share.progress`/`remote-share.status_changed`/`remote-share.availability_changed` + `remote_share_code` 稳定字符串块 |
+| DTO | `crates/uc-daemon-contract/src/api/dto/remote_share.rs`：全 camelCase；可选字段 `skip_serializing_if`；`PeerShareListResponse`/`PeerShareMutationResultDto` 为 `kind` 标记联合；9 个 envelope alias 注册在 `envelope.rs` |
+| handler | `crates/uc-webserver/src/api/remote_share.rs`（约 1440 行）：16 条路由全 session-scoped；Engine 数字码 2101–2121 → 稳定字符串码；`1103`/`2121` → `423 session_locked`；`GET /remote-share/state` 锁定态返回 200 无路径形态；upload/download 走 `spawn_transfer`（daemon 签发 UUID `transfer_id`，立即 202，后台跑 Engine op，execute 前置失败时合成终态事件）；cancel → `cancelled`/`not_inflight`/`too_late` |
+| 事件归属 | `RemoteShareTracker`（同文件）：inflight/finished 集合 + per-peer availability 基线。`entry_id` 不可用作判别式（outbound 翻译器把 `transfer_id` 填进 `entry_id`，mobile-lan 也有 `entry_id=None`），必须以登记表为准；`StatusChanged` 对 remote-share 只发终态（Engine `emit_terminal`），重复终态折叠、迟到丢弃 |
+| 事件转发 | `apps/daemon/src/daemon/engine_events.rs`：`forward_transfer_event` 拦 `TransferProgress`/`TransferStatusChanged`，登记 id 改名 `remote-share.*` 后转发 `file-transfer` topic；availability 变化由 state/error 路径触发 `publish_availability` |
+| 接线 | `routes.rs`（`router_l2_plus` merge）、`server.rs`（`DaemonApiState.remote_share`）、`api/mod.rs`、`openapi.rs`（16 op + 33 schema 注册，冻结断言 114 路径 / 126 op）|
+| 门禁修正 | `content_lock.rs`：`/remote-share/` 归类 Open（handler 自回 423/锁定形态），`/peers/*` 已 Open；顺手删掉已移除的 `/analytics/capture` OPEN_ROUTES 残项。openapi.rs 里 99/111 的冻结断言本就是 stale（98287e52 删 analytics 没改断言，gen-openapi.rs 的 98/110 才是真的）——已一并改正 |
+
+验证：`cargo check --workspace --all-targets` 绿；`cargo test -p uc-webserver`（196 lib 测，含 remote_share 5 测）/`-p uc-daemon-contract`（111）/`-p uc-daemon` 绿；`cargo fmt --all -- --check`、`git diff --check` 绿；`bun run gen:api` 已重生成（363 schema / 114 路径 / 126 op，TS client 同步）。`check-engine-repository.mjs` 按预期红（path 依赖期）。
+
 ## 5. 下一步任务清单（P5 → P7 → P9，建议顺序）
 
 ### ~~P4 传输编排（Engine 仓）~~ 已完成（`90141f9e`，未推送）
 
 holder 侧全部落地：两阶段上传（StageUpload 含 ticket 清单 + `transfer_id` → 有界 fetch → CommitUpload 原子落位/墓碑 → AbortUpload 幂等撕取）、Export（`publish_reader` 流式发布 + `RemoteShareExport` 30min lease）、变更 RPC 与回收站全线打通、§5.3 审计记录、`ShareRootsRegistry` 启动收敛。**上传方（peer 侧）的 publish + ticket 发放 + 上传循环属于 P5 出站 client 一并实现**——当前只有 holder 侧 serve 面。
 
-### P5 daemon 路由（本仓）——出站 client 与 Engine op 暴露已完成（`b3e2e792`，已推 fork）
+### ~~P5 daemon 路由（本仓）~~ 已完成（2026-10-16，见 §4.5）
 
 - ~~出站 client 端口~~：`RemoteShareClientPort` + `IrohRemoteShareClientAdapter` + `RemoteShareClient` 已落地并经会话装配持有（`SyncSessionAssembly.remote_share_client`），测试：p2p loopback 9 判定 + application 编排 7 判定。
 - ~~Engine op 暴露~~：`b3e2e792` 已落地——12 个 op 变体 + dispatch + supervisor accessor + caller-issued `transfer_id` + `Cancelled` 类别 + deny 数字块映射，spec §9.1 定稿。
-- daemon 路由：`POST /peers/{id}/share/upload|download|...` + WS `remote-share.*`；OpenAPI/SDK 再生成（`crates/uc-webserver`/`uc-daemon-contract`/`Cargo.toml` rev bump）。前置：Engine rev-pin（需授权推 `UniClipboard/Engine`）。
-- 到这一步才有用户可感知能力 + 能端到端验证。
+- ~~daemon 路由~~：16 条路由 + WS `remote-share.*` 改名 + OpenAPI/SDK 再生成全部落地；Engine 暂经本地 path 依赖消费（合并前换回 pinned rev）。
+- 下一步是 Go 宿主（拖放/`stat_local_paths`/选择器）与 P7 前端，之后才有用户可感知能力 + 端到端验证。
 
 ### P7 前端（本仓）
 

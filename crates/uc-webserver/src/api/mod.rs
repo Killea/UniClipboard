@@ -18,6 +18,7 @@ pub mod mobile_sync;
 pub mod openapi;
 pub mod pairing;
 pub mod projection;
+pub mod remote_share;
 pub mod restart;
 pub mod routes;
 pub mod search;

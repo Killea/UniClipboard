@@ -742,6 +742,7 @@ fn settings_error_to_api(op: &'static str, error: EngineError) -> ApiError {
         | EngineErrorCategory::Unauthorized
         | EngineErrorCategory::NotFound
         | EngineErrorCategory::Conflict
+        | EngineErrorCategory::Cancelled
         | EngineErrorCategory::Internal => (
             "operation_failed",
             ApiError::internal("settings operation failed"),
@@ -765,6 +766,7 @@ fn relay_credential_error_to_api(op: &'static str, error: EngineError) -> ApiErr
         | EngineErrorCategory::Unauthorized
         | EngineErrorCategory::NotFound
         | EngineErrorCategory::Conflict
+        | EngineErrorCategory::Cancelled
         | EngineErrorCategory::Internal => (
             "operation_failed",
             ApiError::internal("relay credential operation failed"),

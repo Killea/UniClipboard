@@ -46,6 +46,7 @@ fn map_storage_engine_err(op: &'static str, error: EngineError) -> ApiError {
         EngineErrorCategory::InvalidState
         | EngineErrorCategory::Unauthorized
         | EngineErrorCategory::Conflict
+        | EngineErrorCategory::Cancelled
         | EngineErrorCategory::Internal => ApiError::internal("storage operation failed"),
     };
     log_facade_failure("storage", op, variant, api.status, &api.message);

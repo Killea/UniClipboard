@@ -74,8 +74,13 @@ use uc_webserver::api::openapi::ApiDoc;
 /// Batch search counting adds one path and operation: 89 / 99.
 /// Local history tags add six paths and eight operations: 95 / 107.
 /// The tag layout adds four paths and four operations: 99 / 111.
-const EXPECTED_PATHS: usize = 98;
-const EXPECTED_OPERATIONS: usize = 110;
+/// The updater telemetry removal dropped POST /analytics/capture: 98 / 110.
+/// Device file share (spec 2026-10-12 §9) adds sixteen single-method paths:
+/// /remote-share/state, /remote-share/roots, /remote-share/suspend,
+/// /remote-share/transfers/{id}/cancel and the twelve /peers/{id}/share/*
+/// routes: 114 / 126.
+const EXPECTED_PATHS: usize = 114;
+const EXPECTED_OPERATIONS: usize = 126;
 const SCHEMA_PREFIX: &str = "#/components/schemas/";
 const HTTP_METHODS: [&str; 7] = ["get", "put", "post", "delete", "patch", "head", "options"];
 

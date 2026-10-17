@@ -280,8 +280,9 @@ GET    /remote-share/state                         本机共享态：suspended /
 PUT    /remote-share/roots                         本机白名单整体写入
 POST   /remote-share/suspend                       一键暂停 / 恢复
 GET    /peers/{peerId}/share/state                 转发 Hello
-GET    /peers/{peerId}/share/list                  浏览
-POST   /peers/{peerId}/share/upload                返回 transferId[]
+GET    /peers/{peerId}/share/list                  浏览（无 root → 根列表；带 root → 目录页）
+GET    /peers/{peerId}/share/stat                  StatPeerShareEntry（?root&rel）
+POST   /peers/{peerId}/share/upload                返回 transferId
 POST   /peers/{peerId}/share/download              返回 transferId
 POST   /peers/{peerId}/share/mkdir|rename|delete|copy|empty-trash
 GET    /peers/{peerId}/share/trash                   ListTrash，分页
@@ -291,7 +292,7 @@ POST   /remote-share/transfers/{id}/cancel
 
 WS 复用既有 `file-transfer` topic（其 `build_snapshot_event` 返回 `None`，无需做快照），新增事件名 `remote-share.progress`、`remote-share.status_changed`、`remote-share.availability_changed`。事件字段一律 camelCase。
 
-两条写路由 `PUT /remote-share/roots`、`POST /remote-share/suspend` 读写 §5.1 的密文文档，因此 **未解锁时返回 `423 session_locked`**，与内容路由的既有行为一致；不得为渲染设置页而把该文档放进 `content_lock.rs:460` 的锁屏放行清单。`GET /remote-share/state` 只读，锁屏下返回 `200 {locked: true, rootCount: null, suspended: null}`，不含任何路径，使设置页能如实呈现"解锁后方可管理"。
+两条写路由 `PUT /remote-share/roots`、`POST /remote-share/suspend` 读写 §5.1 的密文文档，因此 **未解锁时返回 `423 session_locked`**，与内容路由的既有行为一致；不得为渲染设置页而把该文档放进 `content_lock.rs:460` 的锁屏放行清单。`GET /remote-share/state` 只读，锁屏下返回 `200 {locked: true, suspended: null, roots: null}`，不含任何路径，使设置页能如实呈现"解锁后方可管理"；解锁态 `roots` 携带完整根数组（含本机路径与授权位），供管理界面直接渲染编辑。
 
 改动面约 10–14 个文件，含 `uc-daemon-contract` 常量与 DTO、`uc-webserver` 路由与 OpenAPI 注册（须同步递增其冻结的基数断言）、`schema/openapi.json` 重生成与 hey-api SDK 重生成。
 
@@ -318,7 +319,7 @@ daemon 路由按下表映射到 `Operation`/`OperationResult`。全部 remote-sh
 - **上传/下载 op 同步承担完整生命周期**（§8.1/§8.2 的编排不变）；daemon 把 `execute` 包进自己的任务实现 §8.3 的「POST 立即返回」。
 - **取消**：`CancelPeerShareTransfer` 经 `RemoteShareClient` 的在途登记表生效——上传命中则取消该任务的 token，`upload` 在分片/commit 边界观察到取消后走 `abort` 回收暂存并以 `cancelled` 终了；下载命中则对该 `ticket` 调 `shutdown_inflight_fetch` 撕裂在途拉取。任务已终了回 `too_late`，无此 id 回 `not_inflight`。会话拆除时对全部在途任务做同一清算（`release_inflight` 扩展为连取消带释租）。
 - **进度与终态事件**：上传的字节进度来自 holder 反向 `transfer-progress/1` 帧（`direction=Sending`，复用既有出站进度翻译器，不新增通道）；下载进度由 client 内部 sink 发 `HostEvent::Transfer(Progress, direction=Receiving)`。两者终态（`completed`/`failed`/`cancelled`）一律由 client 经 `HostEventBus` 发 `TransferHostEvent::StatusChanged`——daemon 只翻译事件，不靠 op 返回值推断终态。
-- **错误通道**：`Denied{code}` 的 17 个稳定码按 `EngineError.code` 数字块 **2101–2117** 一一透传，`category` 按语义归 `NotFound`/`Conflict`/`Unavailable`/`InvalidState`/`Unauthorized`；daemon 契约按这张数字码表翻译成 §12 的 API 字符串码。`Unreachable` 与帧 IO → `Unavailable`（不可达可重试，`retryable=true`）；`UnexpectedReply` → `Internal`；本地枚举/发布失败 → `Internal`；取消 → `EngineErrorCategory::Cancelled`（新增枚举值，additive）。
+- **错误通道**：`Denied{code}` 的 17 个稳定码按 `EngineError.code` 数字块 **2101–2117** 一一透传，`category` 按语义归 `NotFound`/`Conflict`/`Unavailable`/`InvalidState`/`Unauthorized`；daemon 契约按这张数字码表翻译成 §12 的 API 字符串码。`Unreachable` 与帧 IO → `Unavailable`（`2118`，不可达可重试，`retryable=true`）；`UnexpectedReply` → `Internal`（`2119`）；本地枚举/发布失败 → `Internal`；取消 → `EngineErrorCategory::Cancelled`（新增枚举值，additive）。本机管理面另有 `2120`（清单 IO/损坏，`internal`）与 `2121`（清单因 Space 未解锁不可读）；`GET /remote-share/state` 命中 `2121` 时按上面约定的锁定形态返回 `200`，写路由命中 `2121` 或会话缺失（`OPERATION_UNAVAILABLE_CODE = 1103`）时返回 `423 session_locked`。
 - **路径脱敏**：`sources[]` 与 `target` 一律 `HostFileHandle`（Debug 自动脱敏，先例：`ExportEntryInput.destination`）。`rel`/`dir`/`label`/`trash_id`/`root_id` 为协议内容不是本机绝对路径，契约用普通 `String`，同样不进日志。
 - **会话可达性**：`RemoteShareClient` 与 `ShareRootsRegistry` 继续挂在会话装配上，ops 经 `SessionSupervisor` 的句柄访问器取得（先例：`current_mobile_sync`）；不为此面新增 `AppFacade` 子门面。
 - `Restore` 的 `to` 在 op 契约上必填（与 wire 一致）；「默认还原到 `original_rel`」由 daemon/前端先 `ListTrash` 自取，Engine 不做隐式回填。

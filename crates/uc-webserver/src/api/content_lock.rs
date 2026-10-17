@@ -425,10 +425,6 @@ const CONTENT_ROUTES: &[&str] = &[
 /// Routes that stay open while locked, with the reason. Kept as data so the audit test can tell
 /// "decided open" from "forgotten".
 pub const OPEN_ROUTES: &[(&str, &str)] = &[
-    (
-        "/analytics/capture",
-        "UI telemetry events, no history content",
-    ),
     ("/auth/connect", "bootstrap of a session"),
     ("/health", "liveness"),
     (
@@ -453,7 +449,14 @@ pub const OPEN_ROUTES: &[(&str, &str)] = &[
     ("/network/recovery", "network state"),
     ("/paired-devices", "device list"),
     ("/pairing/unpair", "device management"),
-    ("/peers", "device list"),
+    (
+        "/peers",
+        "device list; peer-share routes fail 423 in the engine while locked",
+    ),
+    (
+        "/remote-share/",
+        "local share-root management; handlers return 423/a locked shape while locked",
+    ),
     ("/presence/", "device presence"),
     ("/search/rebuild", "index maintenance, returns no content"),
     ("/search/status", "index availability, no content"),

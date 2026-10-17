@@ -2467,6 +2467,370 @@ export type PairingSettingsPatchDto = {
     userVerificationTimeout?: number | null;
 };
 
+/**
+ * Peer share-service availability (wire `Hello.state` mirror).
+ */
+export type PeerShareAvailability = 'ok' | 'locked' | 'unsupported' | 'suspended';
+
+/**
+ * `POST …/share/copy` body.
+ */
+export type PeerShareCopyRequest = {
+    from: string;
+    root: string;
+    to: string;
+};
+
+/**
+ * `POST …/share/delete` body.
+ */
+export type PeerShareDeleteRequest = {
+    /**
+     * Root-relative path moved into the peer's trash.
+     */
+    rel: string;
+    root: string;
+};
+
+/**
+ * `POST …/share/download` body.
+ */
+export type PeerShareDownloadRequest = {
+    /**
+     * Root-relative path of the file to pull.
+     */
+    rel: string;
+    root: string;
+    /**
+     * Local absolute target file path.
+     */
+    target: string;
+};
+
+/**
+ * `POST …/share/empty-trash` body.
+ */
+export type PeerShareEmptyTrashRequest = {
+    root: string;
+};
+
+/**
+ * One directory entry inside a peer share root.
+ */
+export type PeerShareEntryDto = {
+    isDir: boolean;
+    /**
+     * Listed faithfully but not addressable (the holder's confinement layer
+     * refuses every verb on it).
+     */
+    isSymlink: boolean;
+    modifiedAtMs: number;
+    /**
+     * Single path segment.
+     */
+    name: string;
+    sizeBytes: number;
+};
+
+/**
+ * Canonical success envelope: `{ "data": T, "ts": <unix millis i64> }`.
+ *
+ * `ts` is `chrono::Utc::now().timestamp_millis()`, set in the webserver handler
+ * via [`ApiEnvelope::now`] (the contract carries only the type + the clock
+ * helper, not a hard dependency on when the handler reads the clock).
+ * `rename_all = "camelCase"` is a no-op for the single-word fields here but is
+ * declared for forward-compat.
+ *
+ * IMPORTANT (utoipa v4): every concrete `ApiEnvelope<X>` that needs a named
+ * OpenAPI component is declared in the `#[aliases(...)]` block below. Add a new
+ * alias line whenever a new payload type needs enveloping. NEVER register the
+ * bare `ApiEnvelope` in `components(schemas(...))` — utoipa errors on a bare
+ * generic, and an un-aliased generic inlines an anonymous schema.
+ */
+export type PeerShareEntryEnvelope = {
+    data: PeerShareEntryDto;
+    /**
+     * Server time when the response was built (unix epoch milliseconds).
+     */
+    ts: number;
+};
+
+/**
+ * Canonical success envelope: `{ "data": T, "ts": <unix millis i64> }`.
+ *
+ * `ts` is `chrono::Utc::now().timestamp_millis()`, set in the webserver handler
+ * via [`ApiEnvelope::now`] (the contract carries only the type + the clock
+ * helper, not a hard dependency on when the handler reads the clock).
+ * `rename_all = "camelCase"` is a no-op for the single-word fields here but is
+ * declared for forward-compat.
+ *
+ * IMPORTANT (utoipa v4): every concrete `ApiEnvelope<X>` that needs a named
+ * OpenAPI component is declared in the `#[aliases(...)]` block below. Add a new
+ * alias line whenever a new payload type needs enveloping. NEVER register the
+ * bare `ApiEnvelope` in `components(schemas(...))` — utoipa errors on a bare
+ * generic, and an un-aliased generic inlines an anonymous schema.
+ */
+export type PeerShareListEnvelope = {
+    data: PeerShareListResponse;
+    /**
+     * Server time when the response was built (unix epoch milliseconds).
+     */
+    ts: number;
+};
+
+/**
+ * `GET /peers/{peerId}/share/list` response: without `root` it is the root
+ * list; with `root` it is one directory page.
+ */
+export type PeerShareListResponse = {
+    kind: 'roots';
+    roots: Array<PeerShareRootDto>;
+} | {
+    /**
+     * Resume cursor for the next page (`after` on the next request).
+     */
+    cursor?: string | null;
+    entries: Array<PeerShareEntryDto>;
+    kind: 'directory';
+    truncated: boolean;
+};
+
+/**
+ * `POST …/share/mkdir` body.
+ */
+export type PeerShareMkdirRequest = {
+    /**
+     * Root-relative path of the directory to create.
+     */
+    rel: string;
+    root: string;
+};
+
+/**
+ * Stable result of every mutation verb.
+ */
+export type PeerShareMutationResultDto = {
+    kind: 'ack';
+} | {
+    kind: 'deleted';
+    trash_id: string;
+};
+
+/**
+ * Canonical success envelope: `{ "data": T, "ts": <unix millis i64> }`.
+ *
+ * `ts` is `chrono::Utc::now().timestamp_millis()`, set in the webserver handler
+ * via [`ApiEnvelope::now`] (the contract carries only the type + the clock
+ * helper, not a hard dependency on when the handler reads the clock).
+ * `rename_all = "camelCase"` is a no-op for the single-word fields here but is
+ * declared for forward-compat.
+ *
+ * IMPORTANT (utoipa v4): every concrete `ApiEnvelope<X>` that needs a named
+ * OpenAPI component is declared in the `#[aliases(...)]` block below. Add a new
+ * alias line whenever a new payload type needs enveloping. NEVER register the
+ * bare `ApiEnvelope` in `components(schemas(...))` — utoipa errors on a bare
+ * generic, and an un-aliased generic inlines an anonymous schema.
+ */
+export type PeerShareMutationResultEnvelope = {
+    data: PeerShareMutationResultDto;
+    /**
+     * Server time when the response was built (unix epoch milliseconds).
+     */
+    ts: number;
+};
+
+/**
+ * `POST …/share/rename` body.
+ */
+export type PeerShareRenameRequest = {
+    from: string;
+    root: string;
+    to: string;
+};
+
+/**
+ * `POST …/share/trash/restore` body. `to` is required on the wire (spec §9.1);
+ * the frontend takes the default from `originalRel` after `ListTrash`.
+ */
+export type PeerShareRestoreRequest = {
+    root: string;
+    /**
+     * Root-relative restore target.
+     */
+    to: string;
+    trashId: string;
+};
+
+/**
+ * A share root the peer exposes to us (no host path — spec §13 I2).
+ */
+export type PeerShareRootDto = {
+    delete: boolean;
+    enabled: boolean;
+    id: string;
+    label: string;
+    read: boolean;
+    write: boolean;
+};
+
+/**
+ * `GET /peers/{peerId}/share/state` response.
+ */
+export type PeerShareStateDto = {
+    state: PeerShareAvailability;
+};
+
+/**
+ * Canonical success envelope: `{ "data": T, "ts": <unix millis i64> }`.
+ *
+ * `ts` is `chrono::Utc::now().timestamp_millis()`, set in the webserver handler
+ * via [`ApiEnvelope::now`] (the contract carries only the type + the clock
+ * helper, not a hard dependency on when the handler reads the clock).
+ * `rename_all = "camelCase"` is a no-op for the single-word fields here but is
+ * declared for forward-compat.
+ *
+ * IMPORTANT (utoipa v4): every concrete `ApiEnvelope<X>` that needs a named
+ * OpenAPI component is declared in the `#[aliases(...)]` block below. Add a new
+ * alias line whenever a new payload type needs enveloping. NEVER register the
+ * bare `ApiEnvelope` in `components(schemas(...))` — utoipa errors on a bare
+ * generic, and an un-aliased generic inlines an anonymous schema.
+ */
+export type PeerShareStateEnvelope = {
+    data: PeerShareStateDto;
+    /**
+     * Server time when the response was built (unix epoch milliseconds).
+     */
+    ts: number;
+};
+
+/**
+ * Canonical success envelope: `{ "data": T, "ts": <unix millis i64> }`.
+ *
+ * `ts` is `chrono::Utc::now().timestamp_millis()`, set in the webserver handler
+ * via [`ApiEnvelope::now`] (the contract carries only the type + the clock
+ * helper, not a hard dependency on when the handler reads the clock).
+ * `rename_all = "camelCase"` is a no-op for the single-word fields here but is
+ * declared for forward-compat.
+ *
+ * IMPORTANT (utoipa v4): every concrete `ApiEnvelope<X>` that needs a named
+ * OpenAPI component is declared in the `#[aliases(...)]` block below. Add a new
+ * alias line whenever a new payload type needs enveloping. NEVER register the
+ * bare `ApiEnvelope` in `components(schemas(...))` — utoipa errors on a bare
+ * generic, and an un-aliased generic inlines an anonymous schema.
+ */
+export type PeerShareTransferCancelEnvelope = {
+    data: PeerShareTransferCancelResultDto;
+    /**
+     * Server time when the response was built (unix epoch milliseconds).
+     */
+    ts: number;
+};
+
+/**
+ * `POST /remote-share/transfers/{id}/cancel` outcome.
+ */
+export type PeerShareTransferCancelOutcomeDto = 'cancelled' | 'not_inflight' | 'too_late';
+
+/**
+ * `POST /remote-share/transfers/{id}/cancel` response.
+ */
+export type PeerShareTransferCancelResultDto = {
+    outcome: PeerShareTransferCancelOutcomeDto;
+};
+
+/**
+ * `202` response for upload/download: the caller-issued transfer id the
+ * `remote-share.progress` / `remote-share.status_changed` WS events key off.
+ */
+export type PeerShareTransferStartedDto = {
+    transferId: string;
+};
+
+/**
+ * Canonical success envelope: `{ "data": T, "ts": <unix millis i64> }`.
+ *
+ * `ts` is `chrono::Utc::now().timestamp_millis()`, set in the webserver handler
+ * via [`ApiEnvelope::now`] (the contract carries only the type + the clock
+ * helper, not a hard dependency on when the handler reads the clock).
+ * `rename_all = "camelCase"` is a no-op for the single-word fields here but is
+ * declared for forward-compat.
+ *
+ * IMPORTANT (utoipa v4): every concrete `ApiEnvelope<X>` that needs a named
+ * OpenAPI component is declared in the `#[aliases(...)]` block below. Add a new
+ * alias line whenever a new payload type needs enveloping. NEVER register the
+ * bare `ApiEnvelope` in `components(schemas(...))` — utoipa errors on a bare
+ * generic, and an un-aliased generic inlines an anonymous schema.
+ */
+export type PeerShareTransferStartedEnvelope = {
+    data: PeerShareTransferStartedDto;
+    /**
+     * Server time when the response was built (unix epoch milliseconds).
+     */
+    ts: number;
+};
+
+/**
+ * One trash entry inside a peer share root.
+ */
+export type PeerShareTrashEntryDto = {
+    deletedAtMs: number;
+    isDir: boolean;
+    /**
+     * Root-relative path the entry had before deletion.
+     */
+    originalRel: string;
+    sizeBytes: number;
+    trashId: string;
+};
+
+/**
+ * `GET /peers/{peerId}/share/trash` response page.
+ */
+export type PeerShareTrashPageDto = {
+    cursor?: string | null;
+    entries: Array<PeerShareTrashEntryDto>;
+    truncated: boolean;
+};
+
+/**
+ * Canonical success envelope: `{ "data": T, "ts": <unix millis i64> }`.
+ *
+ * `ts` is `chrono::Utc::now().timestamp_millis()`, set in the webserver handler
+ * via [`ApiEnvelope::now`] (the contract carries only the type + the clock
+ * helper, not a hard dependency on when the handler reads the clock).
+ * `rename_all = "camelCase"` is a no-op for the single-word fields here but is
+ * declared for forward-compat.
+ *
+ * IMPORTANT (utoipa v4): every concrete `ApiEnvelope<X>` that needs a named
+ * OpenAPI component is declared in the `#[aliases(...)]` block below. Add a new
+ * alias line whenever a new payload type needs enveloping. NEVER register the
+ * bare `ApiEnvelope` in `components(schemas(...))` — utoipa errors on a bare
+ * generic, and an un-aliased generic inlines an anonymous schema.
+ */
+export type PeerShareTrashPageEnvelope = {
+    data: PeerShareTrashPageDto;
+    /**
+     * Server time when the response was built (unix epoch milliseconds).
+     */
+    ts: number;
+};
+
+/**
+ * `POST …/share/upload` body. `sources` are local host file/directory paths;
+ * the daemon registers them as `HostFileHandle`s so they never hit logs.
+ */
+export type PeerShareUploadRequest = {
+    /**
+     * Root-relative destination directory (absent/empty = root top level).
+     */
+    destDir?: string | null;
+    root: string;
+    /**
+     * Local absolute paths of the files/directories to upload.
+     */
+    sources: Array<string>;
+};
+
 export type PeerSnapshotDto = {
     addresses: Array<string>;
     /**
@@ -2999,10 +3363,123 @@ export type RelaySaveResultEnvelope = {
 };
 
 /**
+ * Reconcile summary shared by `PUT /remote-share/roots` and
+ * `POST /remote-share/suspend`.
+ */
+export type RemoteShareReconcileDto = {
+    failed: number;
+    registered: number;
+    unregistered: number;
+};
+
+/**
+ * Canonical success envelope: `{ "data": T, "ts": <unix millis i64> }`.
+ *
+ * `ts` is `chrono::Utc::now().timestamp_millis()`, set in the webserver handler
+ * via [`ApiEnvelope::now`] (the contract carries only the type + the clock
+ * helper, not a hard dependency on when the handler reads the clock).
+ * `rename_all = "camelCase"` is a no-op for the single-word fields here but is
+ * declared for forward-compat.
+ *
+ * IMPORTANT (utoipa v4): every concrete `ApiEnvelope<X>` that needs a named
+ * OpenAPI component is declared in the `#[aliases(...)]` block below. Add a new
+ * alias line whenever a new payload type needs enveloping. NEVER register the
+ * bare `ApiEnvelope` in `components(schemas(...))` — utoipa errors on a bare
+ * generic, and an un-aliased generic inlines an anonymous schema.
+ */
+export type RemoteShareReconcileEnvelope = {
+    data: RemoteShareReconcileDto;
+    /**
+     * Server time when the response was built (unix epoch milliseconds).
+     */
+    ts: number;
+};
+
+/**
+ * One authorized share root as the local owner sees it.
+ */
+export type RemoteShareRootDto = {
+    delete: boolean;
+    enabled: boolean;
+    /**
+     * Opaque root id assigned by the engine (stable across restarts).
+     */
+    id: string;
+    /**
+     * Label the peer sees in its directory tree.
+     */
+    label: string;
+    /**
+     * Absolute host path of the shared directory (local API only).
+     */
+    path: string;
+    read: boolean;
+    write: boolean;
+};
+
+/**
+ * One entry of the `PUT /remote-share/roots` whitelist write. `id` absent =
+ * new root (the engine assigns one).
+ */
+export type RemoteShareRootInputDto = {
+    delete: boolean;
+    enabled?: boolean;
+    id?: string | null;
+    label: string;
+    /**
+     * Absolute host path of the directory to share.
+     */
+    path: string;
+    read: boolean;
+    write: boolean;
+};
+
+/**
+ * `GET /remote-share/state` response. While the encryption session is locked
+ * the route returns 200 with `locked: true` and null `suspended`/`roots` so
+ * the settings page can render "unlock to manage" without exposing paths.
+ */
+export type RemoteShareStateDto = {
+    locked: boolean;
+    roots?: Array<RemoteShareRootDto> | null;
+    suspended?: boolean | null;
+};
+
+/**
+ * Canonical success envelope: `{ "data": T, "ts": <unix millis i64> }`.
+ *
+ * `ts` is `chrono::Utc::now().timestamp_millis()`, set in the webserver handler
+ * via [`ApiEnvelope::now`] (the contract carries only the type + the clock
+ * helper, not a hard dependency on when the handler reads the clock).
+ * `rename_all = "camelCase"` is a no-op for the single-word fields here but is
+ * declared for forward-compat.
+ *
+ * IMPORTANT (utoipa v4): every concrete `ApiEnvelope<X>` that needs a named
+ * OpenAPI component is declared in the `#[aliases(...)]` block below. Add a new
+ * alias line whenever a new payload type needs enveloping. NEVER register the
+ * bare `ApiEnvelope` in `components(schemas(...))` — utoipa errors on a bare
+ * generic, and an un-aliased generic inlines an anonymous schema.
+ */
+export type RemoteShareStateEnvelope = {
+    data: RemoteShareStateDto;
+    /**
+     * Server time when the response was built (unix epoch milliseconds).
+     */
+    ts: number;
+};
+
+/**
  * `PATCH /history/tags/{tag_id}` body.
  */
 export type RenameHistoryTagRequest = {
     name: string;
+};
+
+/**
+ * Request body for `PUT /remote-share/roots` — replaces the whole whitelist.
+ */
+export type ReplaceRemoteShareRootsRequest = {
+    roots: Array<RemoteShareRootInputDto>;
 };
 
 /**
@@ -3579,6 +4056,13 @@ export type SetHistoryTagInSidebarRequest = {
  */
 export type SetHistoryTagSidebarRequest = {
     tagIds: Array<string>;
+};
+
+/**
+ * Request body for `POST /remote-share/suspend`.
+ */
+export type SetRemoteShareSuspendedRequest = {
+    suspended: boolean;
 };
 
 export type SettingsDto = {
@@ -6823,6 +7307,597 @@ export type ListPeersResponses = {
 
 export type ListPeersResponse = ListPeersResponses[keyof ListPeersResponses];
 
+export type CopyPeerShareEntryData = {
+    body: PeerShareCopyRequest;
+    path: {
+        /**
+         * Peer device id
+         */
+        peer_id: string;
+    };
+    query?: never;
+    url: '/peers/{peer_id}/share/copy';
+};
+
+export type CopyPeerShareEntryErrors = {
+    /**
+     * Denied by the peer
+     */
+    403: ApiErrorResponse;
+    /**
+     * Entry not found
+     */
+    404: ApiErrorResponse;
+    /**
+     * Conflict
+     */
+    409: ApiErrorResponse;
+    /**
+     * Encryption session locked or peer locked
+     */
+    423: ApiErrorResponse;
+    /**
+     * Internal server error
+     */
+    500: ApiErrorResponse;
+    /**
+     * Peer unreachable
+     */
+    503: ApiErrorResponse;
+};
+
+export type CopyPeerShareEntryError = CopyPeerShareEntryErrors[keyof CopyPeerShareEntryErrors];
+
+export type CopyPeerShareEntryResponses = {
+    /**
+     * Mutation outcome
+     */
+    200: PeerShareMutationResultEnvelope;
+};
+
+export type CopyPeerShareEntryResponse = CopyPeerShareEntryResponses[keyof CopyPeerShareEntryResponses];
+
+export type DeletePeerShareEntryData = {
+    body: PeerShareDeleteRequest;
+    path: {
+        /**
+         * Peer device id
+         */
+        peer_id: string;
+    };
+    query?: never;
+    url: '/peers/{peer_id}/share/delete';
+};
+
+export type DeletePeerShareEntryErrors = {
+    /**
+     * Denied by the peer
+     */
+    403: ApiErrorResponse;
+    /**
+     * Entry not found
+     */
+    404: ApiErrorResponse;
+    /**
+     * Conflict
+     */
+    409: ApiErrorResponse;
+    /**
+     * Encryption session locked or peer locked
+     */
+    423: ApiErrorResponse;
+    /**
+     * Internal server error
+     */
+    500: ApiErrorResponse;
+    /**
+     * Peer unreachable
+     */
+    503: ApiErrorResponse;
+};
+
+export type DeletePeerShareEntryError = DeletePeerShareEntryErrors[keyof DeletePeerShareEntryErrors];
+
+export type DeletePeerShareEntryResponses = {
+    /**
+     * Mutation outcome
+     */
+    200: PeerShareMutationResultEnvelope;
+};
+
+export type DeletePeerShareEntryResponse = DeletePeerShareEntryResponses[keyof DeletePeerShareEntryResponses];
+
+export type DownloadPeerShareData = {
+    body: PeerShareDownloadRequest;
+    path: {
+        /**
+         * Peer device id
+         */
+        peer_id: string;
+    };
+    query?: never;
+    url: '/peers/{peer_id}/share/download';
+};
+
+export type DownloadPeerShareErrors = {
+    /**
+     * Invalid request
+     */
+    400: ApiErrorResponse;
+    /**
+     * Denied by the peer
+     */
+    403: ApiErrorResponse;
+    /**
+     * Encryption session locked or peer locked
+     */
+    423: ApiErrorResponse;
+    /**
+     * Internal server error
+     */
+    500: ApiErrorResponse;
+    /**
+     * Peer unreachable
+     */
+    503: ApiErrorResponse;
+};
+
+export type DownloadPeerShareError = DownloadPeerShareErrors[keyof DownloadPeerShareErrors];
+
+export type DownloadPeerShareResponses = {
+    /**
+     * Download accepted; track via remote-share.* events
+     */
+    202: PeerShareTransferStartedEnvelope;
+};
+
+export type DownloadPeerShareResponse = DownloadPeerShareResponses[keyof DownloadPeerShareResponses];
+
+export type EmptyPeerShareTrashData = {
+    body: PeerShareEmptyTrashRequest;
+    path: {
+        /**
+         * Peer device id
+         */
+        peer_id: string;
+    };
+    query?: never;
+    url: '/peers/{peer_id}/share/empty-trash';
+};
+
+export type EmptyPeerShareTrashErrors = {
+    /**
+     * Denied by the peer
+     */
+    403: ApiErrorResponse;
+    /**
+     * Entry not found
+     */
+    404: ApiErrorResponse;
+    /**
+     * Conflict
+     */
+    409: ApiErrorResponse;
+    /**
+     * Encryption session locked or peer locked
+     */
+    423: ApiErrorResponse;
+    /**
+     * Internal server error
+     */
+    500: ApiErrorResponse;
+    /**
+     * Peer unreachable
+     */
+    503: ApiErrorResponse;
+};
+
+export type EmptyPeerShareTrashError = EmptyPeerShareTrashErrors[keyof EmptyPeerShareTrashErrors];
+
+export type EmptyPeerShareTrashResponses = {
+    /**
+     * Mutation outcome
+     */
+    200: PeerShareMutationResultEnvelope;
+};
+
+export type EmptyPeerShareTrashResponse = EmptyPeerShareTrashResponses[keyof EmptyPeerShareTrashResponses];
+
+export type ListPeerShareData = {
+    body?: never;
+    path: {
+        /**
+         * Peer device id
+         */
+        peer_id: string;
+    };
+    query?: {
+        /**
+         * Share-root id. Absent → root list.
+         */
+        root?: string | null;
+        /**
+         * Root-relative directory path (default: root top level).
+         */
+        dir?: string | null;
+        /**
+         * Resume cursor from a previous page.
+         */
+        cursor?: string | null;
+        /**
+         * Page size (default 2000 — the client-side cap, spec §11.3).
+         */
+        limit?: number | null;
+    };
+    url: '/peers/{peer_id}/share/list';
+};
+
+export type ListPeerShareErrors = {
+    /**
+     * Invalid request
+     */
+    400: ApiErrorResponse;
+    /**
+     * Denied by the peer
+     */
+    403: ApiErrorResponse;
+    /**
+     * Root or entry not found
+     */
+    404: ApiErrorResponse;
+    /**
+     * Encryption session locked or peer locked
+     */
+    423: ApiErrorResponse;
+    /**
+     * Internal server error
+     */
+    500: ApiErrorResponse;
+    /**
+     * Peer unreachable
+     */
+    503: ApiErrorResponse;
+};
+
+export type ListPeerShareError = ListPeerShareErrors[keyof ListPeerShareErrors];
+
+export type ListPeerShareResponses = {
+    /**
+     * Root list or directory page
+     */
+    200: PeerShareListEnvelope;
+};
+
+export type ListPeerShareResponse = ListPeerShareResponses[keyof ListPeerShareResponses];
+
+export type MkdirPeerShareData = {
+    body: PeerShareMkdirRequest;
+    path: {
+        /**
+         * Peer device id
+         */
+        peer_id: string;
+    };
+    query?: never;
+    url: '/peers/{peer_id}/share/mkdir';
+};
+
+export type MkdirPeerShareErrors = {
+    /**
+     * Denied by the peer
+     */
+    403: ApiErrorResponse;
+    /**
+     * Entry not found
+     */
+    404: ApiErrorResponse;
+    /**
+     * Conflict
+     */
+    409: ApiErrorResponse;
+    /**
+     * Encryption session locked or peer locked
+     */
+    423: ApiErrorResponse;
+    /**
+     * Internal server error
+     */
+    500: ApiErrorResponse;
+    /**
+     * Peer unreachable
+     */
+    503: ApiErrorResponse;
+};
+
+export type MkdirPeerShareError = MkdirPeerShareErrors[keyof MkdirPeerShareErrors];
+
+export type MkdirPeerShareResponses = {
+    /**
+     * Mutation outcome
+     */
+    200: PeerShareMutationResultEnvelope;
+};
+
+export type MkdirPeerShareResponse = MkdirPeerShareResponses[keyof MkdirPeerShareResponses];
+
+export type RenamePeerShareData = {
+    body: PeerShareRenameRequest;
+    path: {
+        /**
+         * Peer device id
+         */
+        peer_id: string;
+    };
+    query?: never;
+    url: '/peers/{peer_id}/share/rename';
+};
+
+export type RenamePeerShareErrors = {
+    /**
+     * Denied by the peer
+     */
+    403: ApiErrorResponse;
+    /**
+     * Entry not found
+     */
+    404: ApiErrorResponse;
+    /**
+     * Conflict
+     */
+    409: ApiErrorResponse;
+    /**
+     * Encryption session locked or peer locked
+     */
+    423: ApiErrorResponse;
+    /**
+     * Internal server error
+     */
+    500: ApiErrorResponse;
+    /**
+     * Peer unreachable
+     */
+    503: ApiErrorResponse;
+};
+
+export type RenamePeerShareError = RenamePeerShareErrors[keyof RenamePeerShareErrors];
+
+export type RenamePeerShareResponses = {
+    /**
+     * Mutation outcome
+     */
+    200: PeerShareMutationResultEnvelope;
+};
+
+export type RenamePeerShareResponse = RenamePeerShareResponses[keyof RenamePeerShareResponses];
+
+export type StatPeerShareEntryData = {
+    body?: never;
+    path: {
+        /**
+         * Peer device id
+         */
+        peer_id: string;
+    };
+    query: {
+        root: string;
+        /**
+         * Root-relative path of the entry.
+         */
+        rel: string;
+    };
+    url: '/peers/{peer_id}/share/stat';
+};
+
+export type StatPeerShareEntryErrors = {
+    /**
+     * Entry not found
+     */
+    404: ApiErrorResponse;
+    /**
+     * Encryption session locked or peer locked
+     */
+    423: ApiErrorResponse;
+    /**
+     * Internal server error
+     */
+    500: ApiErrorResponse;
+    /**
+     * Peer unreachable
+     */
+    503: ApiErrorResponse;
+};
+
+export type StatPeerShareEntryError = StatPeerShareEntryErrors[keyof StatPeerShareEntryErrors];
+
+export type StatPeerShareEntryResponses = {
+    /**
+     * Entry metadata
+     */
+    200: PeerShareEntryEnvelope;
+};
+
+export type StatPeerShareEntryResponse = StatPeerShareEntryResponses[keyof StatPeerShareEntryResponses];
+
+export type GetPeerShareStateData = {
+    body?: never;
+    path: {
+        /**
+         * Peer device id
+         */
+        peer_id: string;
+    };
+    query?: never;
+    url: '/peers/{peer_id}/share/state';
+};
+
+export type GetPeerShareStateErrors = {
+    /**
+     * Encryption session locked
+     */
+    423: ApiErrorResponse;
+    /**
+     * Internal server error
+     */
+    500: ApiErrorResponse;
+    /**
+     * Peer unreachable
+     */
+    503: ApiErrorResponse;
+};
+
+export type GetPeerShareStateError = GetPeerShareStateErrors[keyof GetPeerShareStateErrors];
+
+export type GetPeerShareStateResponses = {
+    /**
+     * Peer share availability
+     */
+    200: PeerShareStateEnvelope;
+};
+
+export type GetPeerShareStateResponse = GetPeerShareStateResponses[keyof GetPeerShareStateResponses];
+
+export type ListPeerShareTrashData = {
+    body?: never;
+    path: {
+        /**
+         * Peer device id
+         */
+        peer_id: string;
+    };
+    query: {
+        root: string;
+        cursor?: string | null;
+        limit?: number | null;
+    };
+    url: '/peers/{peer_id}/share/trash';
+};
+
+export type ListPeerShareTrashErrors = {
+    /**
+     * Root not found
+     */
+    404: ApiErrorResponse;
+    /**
+     * Encryption session locked or peer locked
+     */
+    423: ApiErrorResponse;
+    /**
+     * Internal server error
+     */
+    500: ApiErrorResponse;
+    /**
+     * Peer unreachable
+     */
+    503: ApiErrorResponse;
+};
+
+export type ListPeerShareTrashError = ListPeerShareTrashErrors[keyof ListPeerShareTrashErrors];
+
+export type ListPeerShareTrashResponses = {
+    /**
+     * Trash page
+     */
+    200: PeerShareTrashPageEnvelope;
+};
+
+export type ListPeerShareTrashResponse = ListPeerShareTrashResponses[keyof ListPeerShareTrashResponses];
+
+export type RestorePeerShareTrashData = {
+    body: PeerShareRestoreRequest;
+    path: {
+        /**
+         * Peer device id
+         */
+        peer_id: string;
+    };
+    query?: never;
+    url: '/peers/{peer_id}/share/trash/restore';
+};
+
+export type RestorePeerShareTrashErrors = {
+    /**
+     * Denied by the peer
+     */
+    403: ApiErrorResponse;
+    /**
+     * Trash entry not found
+     */
+    404: ApiErrorResponse;
+    /**
+     * Conflict
+     */
+    409: ApiErrorResponse;
+    /**
+     * Encryption session locked or peer locked
+     */
+    423: ApiErrorResponse;
+    /**
+     * Internal server error
+     */
+    500: ApiErrorResponse;
+    /**
+     * Peer unreachable
+     */
+    503: ApiErrorResponse;
+};
+
+export type RestorePeerShareTrashError = RestorePeerShareTrashErrors[keyof RestorePeerShareTrashErrors];
+
+export type RestorePeerShareTrashResponses = {
+    /**
+     * Mutation outcome
+     */
+    200: PeerShareMutationResultEnvelope;
+};
+
+export type RestorePeerShareTrashResponse = RestorePeerShareTrashResponses[keyof RestorePeerShareTrashResponses];
+
+export type UploadPeerShareData = {
+    body: PeerShareUploadRequest;
+    path: {
+        /**
+         * Peer device id
+         */
+        peer_id: string;
+    };
+    query?: never;
+    url: '/peers/{peer_id}/share/upload';
+};
+
+export type UploadPeerShareErrors = {
+    /**
+     * Invalid request
+     */
+    400: ApiErrorResponse;
+    /**
+     * Denied by the peer
+     */
+    403: ApiErrorResponse;
+    /**
+     * Encryption session locked or peer locked
+     */
+    423: ApiErrorResponse;
+    /**
+     * Internal server error
+     */
+    500: ApiErrorResponse;
+    /**
+     * Peer unreachable
+     */
+    503: ApiErrorResponse;
+};
+
+export type UploadPeerShareError = UploadPeerShareErrors[keyof UploadPeerShareErrors];
+
+export type UploadPeerShareResponses = {
+    /**
+     * Upload accepted; track via remote-share.* events
+     */
+    202: PeerShareTransferStartedEnvelope;
+};
+
+export type UploadPeerShareResponse = UploadPeerShareResponses[keyof UploadPeerShareResponses];
+
 export type NotifyConnectivityOpportunityData = {
     body: ConnectivityOpportunityRequest;
     path?: never;
@@ -6876,6 +7951,127 @@ export type RefreshPresenceResponses = {
 };
 
 export type RefreshPresenceResponse = RefreshPresenceResponses[keyof RefreshPresenceResponses];
+
+export type ReplaceRemoteShareRootsData = {
+    body: ReplaceRemoteShareRootsRequest;
+    path?: never;
+    query?: never;
+    url: '/remote-share/roots';
+};
+
+export type ReplaceRemoteShareRootsErrors = {
+    /**
+     * Invalid request
+     */
+    400: ApiErrorResponse;
+    /**
+     * Encryption session locked
+     */
+    423: ApiErrorResponse;
+    /**
+     * Internal server error
+     */
+    500: ApiErrorResponse;
+};
+
+export type ReplaceRemoteShareRootsError = ReplaceRemoteShareRootsErrors[keyof ReplaceRemoteShareRootsErrors];
+
+export type ReplaceRemoteShareRootsResponses = {
+    /**
+     * Whitelist reconciled
+     */
+    200: RemoteShareReconcileEnvelope;
+};
+
+export type ReplaceRemoteShareRootsResponse = ReplaceRemoteShareRootsResponses[keyof ReplaceRemoteShareRootsResponses];
+
+export type GetRemoteShareStateData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/remote-share/state';
+};
+
+export type GetRemoteShareStateErrors = {
+    /**
+     * Internal server error
+     */
+    500: ApiErrorResponse;
+};
+
+export type GetRemoteShareStateError = GetRemoteShareStateErrors[keyof GetRemoteShareStateErrors];
+
+export type GetRemoteShareStateResponses = {
+    /**
+     * Local share state (locked shape while locked)
+     */
+    200: RemoteShareStateEnvelope;
+};
+
+export type GetRemoteShareStateResponse = GetRemoteShareStateResponses[keyof GetRemoteShareStateResponses];
+
+export type SetRemoteShareSuspendedData = {
+    body: SetRemoteShareSuspendedRequest;
+    path?: never;
+    query?: never;
+    url: '/remote-share/suspend';
+};
+
+export type SetRemoteShareSuspendedErrors = {
+    /**
+     * Encryption session locked
+     */
+    423: ApiErrorResponse;
+    /**
+     * Internal server error
+     */
+    500: ApiErrorResponse;
+};
+
+export type SetRemoteShareSuspendedError = SetRemoteShareSuspendedErrors[keyof SetRemoteShareSuspendedErrors];
+
+export type SetRemoteShareSuspendedResponses = {
+    /**
+     * Suspend state reconciled
+     */
+    200: RemoteShareReconcileEnvelope;
+};
+
+export type SetRemoteShareSuspendedResponse = SetRemoteShareSuspendedResponses[keyof SetRemoteShareSuspendedResponses];
+
+export type CancelRemoteShareTransferData = {
+    body?: never;
+    path: {
+        /**
+         * Caller-issued transfer id
+         */
+        transfer_id: string;
+    };
+    query?: never;
+    url: '/remote-share/transfers/{transfer_id}/cancel';
+};
+
+export type CancelRemoteShareTransferErrors = {
+    /**
+     * Encryption session locked
+     */
+    423: ApiErrorResponse;
+    /**
+     * Internal server error
+     */
+    500: ApiErrorResponse;
+};
+
+export type CancelRemoteShareTransferError = CancelRemoteShareTransferErrors[keyof CancelRemoteShareTransferErrors];
+
+export type CancelRemoteShareTransferResponses = {
+    /**
+     * Cancel outcome
+     */
+    200: PeerShareTransferCancelEnvelope;
+};
+
+export type CancelRemoteShareTransferResponse = CancelRemoteShareTransferResponses[keyof CancelRemoteShareTransferResponses];
 
 export type CountSearchEntriesData = {
     body: SearchCountRequestDto;

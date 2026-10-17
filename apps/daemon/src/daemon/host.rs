@@ -244,6 +244,7 @@ async fn run_daemon_surfaces(
     let restart = api_state.restart.clone();
     let lease_registry = api_state.lease_registry.clone();
     let graceful_stop_requested = api_state.graceful_stop_requested.clone();
+    let remote_share_tracker = api_state.remote_share.clone();
     let cancel = CancellationToken::new();
     let http_cancel = cancel.child_token();
     let cleanup_cancel = cancel.child_token();
@@ -263,6 +264,7 @@ async fn run_daemon_surfaces(
         event_tx,
         active_clipboard_tx.clone(),
         Arc::clone(&mobile_lan),
+        remote_share_tracker,
         event_cancel,
     ));
     let suspension_observer =
