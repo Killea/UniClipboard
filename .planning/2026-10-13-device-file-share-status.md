@@ -1,8 +1,8 @@
 # 设备文件共享 —— 现状与 Agent 交接
 
-- **最近更新**：2026-10-16（首次快照 2026-10-13）。
-- **性质**：进度快照 + **Agent 交接文档**，供接手 P7/Go 宿主的 agent 快速进入上下文。需求与决策见 §1/§2；已落地代码位置与不变量见 §3；下一步任务清单见 §5；gate 与硬约束见 §6/§7。
-- **一句话状态**：Engine 侧 holder 面、出站 client 面、Engine op 暴露与 **本仓 daemon HTTP/WS 面（P5）均已落地**：16 条 session-scoped 路由 + 2101–2121→稳定码 + 423 锁定语义 + `remote-share.*` 事件改名（daemon 登记表判别）+ OpenAPI/TS client 已重生成，本仓检查全绿（除按预期红的 provenance gate）。Engine 暂经本地 path 依赖消费。剩余：Go 宿主（拖放/`stat_local_paths`/选择器）、前端（P7）、三平台/双 peer 端到端（P9），以及合并前的 upstream 推送授权 + repin。
+- **最近更新**：2026-10-16（二次更新；首次快照 2026-10-13）。
+- **性质**：进度快照 + **Agent 交接文档**。需求与决策见 §1/§2；已落地代码位置与不变量见 §3；下一步任务清单见 §5；gate 与硬约束见 §6/§7。
+- **一句话状态**：**P5/P6/P7 已全部落地并分三 commit 提交**（daemon 面 `14108e723`、Go 宿主 `4f18f9687`、前端 `393916c89`）——16 条 session-scoped 路由 + `remote-share.*` 事件桥 + OpenAPI/SDK 再生成；Wails `EnableFileDrop` + `files-dropped` 事件 + `stat_local_paths`/`pick_files`/`pick_save_path`；前端「文件」Tab（懒加载目录树/面包屑/拖放确认/回收站/传输队列）+ 设置页「共享」分组 + 六语 i18n。本仓检查全绿（除按预期红的 provenance gate）。Engine 暂经本地 path 依赖消费。**剩余**：P8 `local_address` 暴露（Engine 侧 PathEvent↔remote_info 关联设计，本次查勘后确认是独立设计点）、P9 三平台双 peer 真机验收、合并前 upstream 推送授权 + repin。
 
 ## 1. 原始需求
 
@@ -82,7 +82,7 @@
 
 §19 裁定：**接受内容寻址残余风险**（持 digest 者可拉取同字节属既有属性，残余为存在性预言机 + 带宽占用），不加盐、不建白名单，写入 ADR-036。
 
-## 4.5 P5 daemon/API（本仓，hank_dev 工作树，未提交）
+## 4.5 P5 daemon/API（本仓，commit `14108e723`）
 
 2026-10-16：daemon HTTP/WS 面已按 spec §9/§12 落地并全绿。Engine 消费方式从 fork rev-pin 改为 **本地 path 依赖**（`Cargo.toml` → `../Engine-share-port/crates/uc-engine`），省掉每次 Engine 迭代的 push/rev 仪式；**合并前必须换回 `UniClipboard/Engine` 固定 rev**（`check-engine-repository.mjs` 当前按预期红）。
 
@@ -98,7 +98,28 @@
 
 验证：`cargo check --workspace --all-targets` 绿；`cargo test -p uc-webserver`（196 lib 测，含 remote_share 5 测）/`-p uc-daemon-contract`（111）/`-p uc-daemon` 绿；`cargo fmt --all -- --check`、`git diff --check` 绿；`bun run gen:api` 已重生成（363 schema / 114 路径 / 126 op，TS client 同步）。`check-engine-repository.mjs` 按预期红（path 依赖期）。
 
-## 5. 下一步任务清单（P5 → P7 → P9，建议顺序）
+### 4.6 P6 Go 宿主 + P7 前端（本仓，commits `4f18f9687` / `393916c89`）
+
+2026-10-16：宿主与前端按 spec §10/§11 落地。
+
+| 件 | 位置 / 内容 |
+| --- | --- |
+| 拖放面（Go） | `apps/gui-go/main.go`：`EnableFileDrop` + `events.Common.WindowFilesDropped` → `files-dropped` 事件 `{paths, targetId}`（`DropTargetDetails()` 可能 nil，已防护）；拖放区用 `data-file-drop-target` 标记 |
+| 宿主命令（Go） | `apps/gui-go/host_commands_files.go`：`stat_local_paths`（立即 lstat，拖放确认用）、`pick_files`、`pick_save_path`；`host_invoke.go` 给 stat 类短超时；`ipc-bindings.generated.ts` 同步；`command-coverage.sh` 0/55 |
+| daemon API 包装 | `apps/gui/src/api/daemon/remote-share.ts`：`callEnveloped` + `throwOnError` thunk 模式，与既有 wrapper 一致 |
+| Redux | `apps/gui/src/store/slices/remoteShareSlice.ts`：per-peer availability/roots/目录项/树/选中/传输，**纯内存不落盘**（§11.8）；`store/index.ts` 注册 |
+| 「文件」Tab | `apps/gui/src/components/device/share/`：`PeerShareTab`（root 选择器/面包屑/工具栏/懒加载树深度≤8/列表页≤2000/虚拟回收站/多选/行列上下文菜单/恢复/清空回收站二次确认）+ `PeerShareDialogs`（上传确认：条目数 + 字节+peer+ 目的地，§11.6；目标外拖放 no-op）+ `PeerShareTransferBar`（取消/消除经 cancel 路由）+ `useRemoteShareEvents`（`remote-share.*` @ `file-transfer` topic）+ `usePeerShare`/`peer-share-paths` |
+| Tab 门槛 | `PeerDetailPanel.tsx`：概览\|文件 双 Tab；offline/unsupported 隐藏，locked/suspended 出说明 + 重试；selector 容忍旧测试无 `remoteShare` state；侧栏 `HistorySidebar` 设备行 onClick → `/devices` 选中 peer |
+| 设置页 | `apps/gui/src/components/setting/SharingSection.tsx` + `settings-config.ts`：本机 roots 增删/label/grants(read/write/delete)/enabled/全局 suspend，`PUT /remote-share/roots` 整体替换；锁定态显示无路径说明 |
+| i18n | 六语（en/zh-CN/zh-TW/ja/ru/pt-BR）全键位，计数键按 `settings.*` 复数后缀惯例（各语系所需 plural form），`pageDescriptions.sharing` 补齐；zh-TW 繁简扫描已纠 `概览`→`概覽` |
+
+验证：Go build 绿（`/home/hank/gotoolchain/go/bin/go`）；coverage 0 unimplemented；前端 typecheck（新码干净，`localLog.test.ts` 旧错误为 HEAD 既有基线）、lint 0 警告、**229 文件 / 1469 测试全绿**、i18n parity + typography + settings 契约全过。曾修：typography 拒绝 `Input` text-role 覆盖；`zh-TW` 简字扫描误报收窄后仅一处真问题。
+
+### 4.7 P8 `local_address`（查勘结论：独立设计点，未实施）
+
+§14 要求的 `local_address` 不在 iroh `remote_info`/`TransportAddrInfo` 面内（只有 remote 侧地址）；它只出现在 `observed_connections.rs` 的 `PathEvent::{Opened,Selected,Closed}`（`local_addr`/`remote_addr` 配对）。要投影到 `SpaceMember` 需把 PathEvent 观测记录（`path_key(id)` 键）与 `path_for` 的 remote_info 探测做关联——属 Engine 侧独立设计与 commit（含 uc-core `ConnectionPath`/`SpaceMember` 字段扩展、桌面 `PeerSnapshotDto`/前端行展示）。本仓当前不显示 local_address 不影响 §11 其余验收。
+
+## 5. 下一步任务清单（P5–P7 已完成；剩余 P8 → P9 → 收尾）
 
 ### ~~P4 传输编排（Engine 仓）~~ 已完成（`90141f9e`，未推送）
 
@@ -111,15 +132,18 @@ holder 侧全部落地：两阶段上传（StageUpload 含 ticket 清单 + `tran
 - ~~daemon 路由~~：16 条路由 + WS `remote-share.*` 改名 + OpenAPI/SDK 再生成全部落地；Engine 暂经本地 path 依赖消费（合并前换回 pinned rev）。
 - 下一步是 Go 宿主（拖放/`stat_local_paths`/选择器）与 P7 前端，之后才有用户可感知能力 + 端到端验证。
 
-### P7 前端（本仓）
+### ~~P7 前端（本仓）~~ 已完成（2026-10-16，`393916c89`，见 §4.6）
 
-- 设备详情面板「文件」Tab：渲染对端授权目录树（消费 P2 的 ListRoots/List/Stat）。
-- **上传入口**：目录树内拖放 **本地文件**（HTML5 DnD，跨平台 best-effort）+ 上传按钮（原生文件/文件夹选择器，兜底，跨平台保证）。上传来源是 **本地文件**，非剪贴板物化。
-- 六语 i18n。
+- ~~设备详情面板「文件」Tab + 上传入口（Wails 原生拖放/选择器，非 HTML5 DnD）+ 六语 i18n~~ 全部落地。
+
+### P8 `local_address` 暴露（Engine 仓，未实施）
+
+- 见 §4.7 查勘结论：`local_addr` 只在 `PathEvent` 观测流中，`remote_info` 探针面没有；需在 `observed_connections` ↔ `path_for` 之间建关联后投影到 `SpaceMember` → `PeerSnapshotDto` → 前端概览行。
+- 规格明确：RTT 非目标，无稳定 API 时不加。
 
 ### 收尾
 
-- 两 peer 端到端验证（推送 + rev-pin 后；三台开发机两两组合为真实测试床，见 §9）。
+- P9：两 peer 端到端验证（推送 + rev-pin 后；三台开发机两两组合为真实测试床，见 §9）：双向传输、上传/下载、删除/重命名、进度/取消、锁定/挂起/不支持态；**未执行项记「跳过」，不得记「通过」**。
 - 合并与发布：需明确授权（推 `github.com/UniClipboard/Engine` + 发发布标签 + 本仓 rev-pin；见 §7-7）。
 
 ## 6. 验证与 gate（诚实清单）
