@@ -97,7 +97,22 @@ func (h *HostService) openMainWindow() {
 	w := h.app.Window.NewWithOptions(quietOptions(application.WebviewWindowOptions{
 		Name: "main", Title: "UniClipboard", URL: "/", Width: 1100, Height: 720, MinWidth: 900, MinHeight: 600,
 		Mac: application.MacWindow{TitleBar: application.MacTitleBarHiddenInset},
+		// OS-level file drop stays host-side so the frontend only sees paths,
+		// never raw filesystem handles; drop zones declare themselves with
+		// `data-file-drop-target` and get their id echoed back as targetId.
+		EnableFileDrop: true,
 	}))
+	w.OnWindowEvent(events.Common.WindowFilesDropped, func(e *application.WindowEvent) {
+		paths := e.Context().DroppedFiles()
+		if len(paths) == 0 {
+			return
+		}
+		payload := filesDroppedPayload{Paths: paths}
+		if details := e.Context().DropTargetDetails(); details != nil {
+			payload.TargetID = details.ElementID
+		}
+		h.emit(filesDroppedEvent, payload)
+	})
 	w.RegisterHook(events.Common.WindowClosing, func(e *application.WindowEvent) {
 		if h.quitting.Load() {
 			return

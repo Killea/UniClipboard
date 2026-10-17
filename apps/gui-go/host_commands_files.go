@@ -22,6 +22,26 @@ import (
 // hand-off so at most one decrypted copy lingers, and is never anywhere the app indexes or syncs.
 const imageHandoffDir = "uniclipboard-image-handoff"
 
+// filesDroppedEvent forwards OS file drops to the frontend. The payload carries the dropped
+// local paths plus the id of the element that marked itself via `data-file-drop-target`, so
+// drop zones outside the remote-share surface stay inert.
+const filesDroppedEvent = "files-dropped"
+
+// filesDroppedPayload is the host event emitted for a window-level file drop.
+type filesDroppedPayload struct {
+	Paths    []string `json:"paths"`
+	TargetID string   `json:"targetId"`
+}
+
+// localPathStat answers stat_local_paths: existence, kind and size for dropped/picked local
+// paths. stat is instant so callers can price a drop before starting an upload.
+type localPathStat struct {
+	Path      string `json:"path"`
+	Exists    bool   `json:"exists"`
+	IsDir     bool   `json:"isDir"`
+	SizeBytes int64  `json:"sizeBytes"`
+}
+
 func notFound(format string, a ...any) error {
 	return commandError{Code: "NotFound", Message: fmt.Sprintf(format, a...)}
 }
@@ -238,6 +258,19 @@ func init() {
 			}
 			return path, nil
 		},
+		"pick_files": func(_ context.Context, h *HostService, _ commandArgs) (any, error) {
+			paths, err := h.app.Dialog.OpenFile().
+				CanChooseFiles(true).
+				CanChooseDirectories(false).
+				PromptForMultipleSelection()
+			if err != nil {
+				return nil, internalError(err)
+			}
+			if len(paths) == 0 {
+				return nil, nil
+			}
+			return paths, nil
+		},
 		"save_files_as": func(_ context.Context, h *HostService, args commandArgs) (any, error) {
 			var paths []string
 			if err := args.decode("paths", &paths); err != nil {
@@ -299,6 +332,36 @@ func init() {
 				return nil, notFound("Path does not exist: %s", path)
 			}
 			return nil, wrapInternal(openWithSystem(path, true))
+		},
+		"pick_save_path": func(_ context.Context, h *HostService, args commandArgs) (any, error) {
+			var fileName string
+			if err := args.decode("fileName", &fileName); err != nil {
+				return nil, err
+			}
+			path, ok, err := h.chooseSaveFile(sanitizeImageFileName(fileName), "", "")
+			if err != nil {
+				return nil, internalError(err)
+			}
+			if !ok {
+				return nil, nil
+			}
+			return path, nil
+		},
+		"stat_local_paths": func(_ context.Context, _ *HostService, args commandArgs) (any, error) {
+			var paths []string
+			if err := args.decode("paths", &paths); err != nil {
+				return nil, err
+			}
+			stats := make([]localPathStat, 0, len(paths))
+			for _, path := range paths {
+				info, err := os.Lstat(path)
+				if err != nil {
+					stats = append(stats, localPathStat{Path: path})
+					continue
+				}
+				stats = append(stats, localPathStat{Path: path, Exists: true, IsDir: info.IsDir(), SizeBytes: info.Size()})
+			}
+			return stats, nil
 		},
 		"save_image_as": func(_ context.Context, h *HostService, args commandArgs) (any, error) {
 			var name string

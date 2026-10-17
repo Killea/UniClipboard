@@ -274,6 +274,26 @@ export const commands = {
 	timestamp: number,
 } | null) => typedError<SaveFilesAsResult | null, CommandError>(__TAURI_INVOKE("save_files_as", { paths, trace })),
 	/**
+	 *  Native save-as dialog for a remote-share download target.
+	 *
+	 *  弹原生另存框，默认文件名由调用方给（远程条目名）；取消返回 null，
+	 *  返回宿主绝对目标路径。
+	 */
+	pickSavePath: (fileName: string, trace: {
+	trace_id: string,
+	timestamp: number,
+} | null) => typedError<string | null, CommandError>(__TAURI_INVOKE("pick_save_path", { fileName, trace })),
+	/**
+	 *  Stat local file/drop paths without touching contents.
+	 *
+	 *  对拖放/选择的本地路径返回存在性、目录标记与字节数；立即返回，
+	 *  供远程共享上传确认条在启动传输前给出总量预估。
+	 */
+	statLocalPaths: (paths: string[], trace: {
+	trace_id: string,
+	timestamp: number,
+} | null) => typedError<LocalPathStat[], CommandError>(__TAURI_INVOKE("stat_local_paths", { paths, trace })),
+	/**
 	 *  Hide the quick panel, re-activate the previous app, and paste.
 	 * 
 	 *  隐藏快捷面板，重新激活之前的应用，并粘贴。
@@ -410,6 +430,15 @@ export const commands = {
 	trace_id: string,
 	timestamp: number,
 } | null) => typedError<string | null, CommandError>(__TAURI_INVOKE("pick_directory", { trace })),
+	/**
+	 *  Native multi-file picker for remote-share "upload files".
+	 *
+	 *  弹原生多选文件框（仅文件）；取消返回 null。返回宿主绝对路径数组。
+	 */
+	pickFiles: (trace: {
+	trace_id: string,
+	timestamp: number,
+} | null) => typedError<string[] | null, CommandError>(__TAURI_INVOKE("pick_files", { trace })),
 	/**
 	 *  Prompt for a save location and export the current configuration to an
 	 *  encrypted `.ucbundle` there.
@@ -705,6 +734,13 @@ export type ImportConfigStageResult = {
 	 *  the operator to re-enter their passphrase to unlock afterwards.
 	 */
 	unlockRequiredAfterApply: boolean,
+};
+
+export type LocalPathStat = {
+	path: string,
+	exists: boolean,
+	isDir: boolean,
+	sizeBytes: number,
 };
 
 export type ModifierDoubleTapAvailability = "supported" | "accessibility_permission_required" | "unsupported_display_session";

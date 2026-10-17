@@ -117,7 +117,11 @@ func (a commandArgs) channel(key string) (func(*HostService, any), error) {
 	return func(h *HostService, message any) { h.emit("channel://"+ref.ID, message) }, nil
 }
 
-// commandTimeout bounds a single host command invocation.
-func commandTimeout(string) time.Duration {
+// commandTimeout bounds a single host command invocation. stat_local_paths is a pure
+// lstat loop used to price a pending drop and must not share the generic fence.
+func commandTimeout(name string) time.Duration {
+	if name == "stat_local_paths" {
+		return 5 * time.Second
+	}
 	return 30 * time.Second
 }
