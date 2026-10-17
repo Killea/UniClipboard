@@ -8,6 +8,8 @@ function PeerDetailPanelContainer(props: {
   deviceId: string
   device: SpaceMember
   status?: DeviceRowStatus
+  /** Sidebar deep-link lands directly on the「文件」tab (spec §11.1). */
+  initialTab?: 'files'
   onUnpair: (peerId: string) => void
 }) {
   const globalSyncOff = useSettingSelector(({ setting }) => setting?.sync.syncEnabled === false)

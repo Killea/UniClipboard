@@ -4,6 +4,7 @@ import { appApi } from './api'
 import clipboardReducer from './slices/clipboardSlice'
 import devicesReducer from './slices/devicesSlice'
 import fileTransferReducer from './slices/fileTransferSlice'
+import remoteShareReducer from './slices/remoteShareSlice'
 import statsReducer from './slices/statsSlice'
 
 const diagnosticsEnhancer = createDiagnosticsEnhancer()
@@ -15,6 +16,7 @@ export const store = configureStore({
     stats: statsReducer,
     devices: devicesReducer,
     fileTransfer: fileTransferReducer,
+    remoteShare: remoteShareReducer,
   },
   middleware: getDefaultMiddleware => getDefaultMiddleware().concat(appApi.middleware),
   enhancers: getDefaultEnhancers => {

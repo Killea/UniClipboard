@@ -212,7 +212,8 @@
       "security": "管理這台裝置的自動解鎖偏好。",
       "network": "調整連線方式、中繼伺服器與傳輸效能。",
       "storage": "查看空間使用量，管理歷史記錄與快取。",
-      "about": "查看應用程式版本與專案資訊。"
+      "about": "查看應用程式版本與專案資訊。",
+      "sharing": "本機向已配對裝置開放的目錄（經 P2P 傳輸）"
     },
     "sectionHeadings": {
       "syncBehavior": "同步行為",
@@ -236,7 +237,8 @@
       "storage": "存儲管理",
       "about": "關於",
       "shortcuts": "快捷鍵",
-      "quickPanel": "快捷面板"
+      "quickPanel": "快捷面板",
+      "sharing": "共享"
     },
     "sections": {
       "general": {
@@ -868,6 +870,31 @@
           "repository": "程式碼儲存庫"
         },
         "selfMaintained": "自維護分支版本，僅透過手動重新安裝取得更新。"
+      }
+    },
+    "sharing": {
+      "title": "向已配對裝置共享",
+      "rootsTitle": "共享目錄",
+      "locked": "解鎖後可管理共享目錄。",
+      "empty": "尚未共享任何目錄。對端只能瀏覽你在此明確加入的目錄。",
+      "add": "加入目錄…",
+      "apply": "套用",
+      "saved": "共享目錄已更新",
+      "remove": "移除",
+      "enabled": "啟用",
+      "labelPlaceholder": "對端可見的名稱",
+      "suspend": {
+        "label": "暫停全部共享",
+        "description": "暫停後所有共享目錄不可存取，直到恢復；進行中的傳輸將停止。"
+      },
+      "grants": {
+        "read": "讀取",
+        "write": "寫入",
+        "delete": "刪除"
+      },
+      "errors": {
+        "loadFailed": "共享狀態載入失敗",
+        "saveFailed": "共享設定儲存失敗"
       }
     }
   },
@@ -1580,7 +1607,9 @@
     },
     "tabs": {
       "connected": "已連接裝置",
-      "requests": "配對請求"
+      "requests": "配對請求",
+      "overview": "概覽",
+      "files": "文件"
     },
     "sections": {
       "requests": "配對請求",
@@ -2108,6 +2137,87 @@
           "internal": "內部錯誤 —— 請查看 daemon 日誌。"
         }
       }
+    },
+    "share": {
+      "loading": "載入中…",
+      "offline": "對端離線",
+      "locked": "對端未解鎖，共享暫不可用",
+      "retry": "重試",
+      "suspended": "對端已暫停全部共享",
+      "noRoots": "對端尚未開放任何目錄",
+      "noRootsHint": "只能在那台裝置上設定要開放的目錄",
+      "rootPicker": "共享根目錄",
+      "trash": "回收站",
+      "trashHint": "此處項目可還原或清空；項目保留 7 天後自動清理",
+      "trashEmpty": "回收站為空",
+      "dirEmpty": "此目錄為空",
+      "uploadFiles": "上傳檔案",
+      "uploadFolder": "上傳資料夾",
+      "mkdir": "新建",
+      "refresh": "重新整理",
+      "loadMore": "載入更多",
+      "depthLimit": "已到目錄深度上限，請改用列表分頁瀏覽",
+      "actions": {
+        "menu": "操作",
+        "download": "下載…",
+        "rename": "重新命名…",
+        "copy": "複製到…",
+        "delete": "刪除",
+        "restore": "還原",
+        "emptyTrash": "清空回收站",
+        "clearSelection": "清除選擇",
+        "cancelTransfer": "取消傳輸",
+        "dismissTransfer": "移除"
+      },
+      "transfer": {
+        "completed": "已完成",
+        "failed": "失敗",
+        "cancelled": "已取消"
+      },
+      "uploadConfirm": {
+        "title": "上傳到對端",
+        "cancel": "取消",
+        "confirm": "上傳",
+        "body_other": "上傳 {{count}} 項（共 {{size}}）到 {{peer}} 的 {{destination}}？"
+      },
+      "dialogs": {
+        "mkdirTitle": "新建資料夾",
+        "renameTitle": "重新命名",
+        "copyTitle": "複製到目錄（根內相對路徑）",
+        "namePlaceholder": "名稱",
+        "cancel": "取消",
+        "confirm": "確定"
+      },
+      "emptyTrash": {
+        "title": "清空回收站",
+        "description": "將永久刪除對端該根目錄回收站中的全部內容，不可復原。",
+        "cancel": "取消",
+        "confirm": "清空回收站"
+      },
+      "errors": {
+        "locked": "對端未解鎖，共享暫不可用",
+        "unsupported": "對端版本不支援檔案共享",
+        "unsupported_request": "對端不支援該操作",
+        "suspended": "對端已暫停共享",
+        "revoked": "該共享目錄已被對端撤銷",
+        "denied": "對端授權不允許此操作",
+        "reserved_name": "該名稱為保留名",
+        "not_found": "找不到",
+        "conflict": "同名項目已存在",
+        "root_gone": "共享目錄在對端已不存在",
+        "quota": "對端儲存配額不足",
+        "too_large": "檔案過大",
+        "too_many_entries": "項目過多",
+        "io": "對端讀寫錯誤",
+        "cancelled": "傳輸已取消",
+        "too_late": "取消過晚，傳輸已結束",
+        "interrupted": "傳輸中斷",
+        "unavailable": "對端共享服務不可用",
+        "session_locked": "解鎖後才能使用共享"
+      },
+      "selected_other": "已選 {{count}} 項",
+      "transfersActive_other": "{{count}} 個傳輸中",
+      "transfersDone_other": "{{count}} 個已結束"
     }
   },
   "pairing": {

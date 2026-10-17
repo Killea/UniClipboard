@@ -9,6 +9,7 @@ import {
 } from 'react'
 import { useTranslation } from 'react-i18next'
 import { shallowEqual } from 'react-redux'
+import { useLocation, useNavigate } from 'react-router'
 import type { SpaceMember } from '@/api/daemon/members'
 import { unpairDevice } from '@/api/daemon/members'
 import {
@@ -47,13 +48,17 @@ const log = createLogger('devices-page')
 
 type Selection =
   | { kind: 'local' }
-  | { kind: 'peer'; id: string }
+  | { kind: 'peer'; id: string; /** Deep-link target inside the peer panel. */ tab?: 'files' }
   | { kind: 'removed'; id: string }
   | {
       kind: 'mobile'
       id: string
       pendingCredential?: RegisterMobileDeviceResult
     }
+
+/** `location.state` key the sidebar uses to deep-link a device row into the
+ * Devices page — `{ kind, id, tab? }` (spec §11.1). */
+export const DEVICES_SELECT_STATE = 'devicesSelect'
 
 type UnpairState = { targetId: string | null; busy: boolean }
 type UnpairAction =
@@ -230,6 +235,25 @@ export function useDevicesPage() {
 
   // ── selection ────────────────────────────────────────────────
   const [selection, setSelection] = useState<Selection>({ kind: 'local' })
+
+  // Sidebar device rows deep-link here: state carries `{ id, mobile, tab }`,
+  // consumed once and cleared so reloads don't re-fire the jump (§11.1).
+  const location = useLocation()
+  const navigate = useNavigate()
+  useEffect(() => {
+    const deepLink = (
+      location.state as {
+        [DEVICES_SELECT_STATE]?: { id?: string; mobile?: boolean; tab?: 'files' }
+      } | null
+    )?.[DEVICES_SELECT_STATE]
+    if (!deepLink?.id) return
+    setSelection(
+      deepLink.mobile
+        ? { kind: 'mobile', id: deepLink.id }
+        : { kind: 'peer', id: deepLink.id, tab: deepLink.tab }
+    )
+    navigate(location.pathname, { replace: true, state: null })
+  }, [location, navigate])
   const selectedPeer =
     selection.kind === 'peer' ? peers.find(p => p.peerId === selection.id) : undefined
   const selectedRemovedDevice =

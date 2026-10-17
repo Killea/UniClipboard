@@ -1,5 +1,6 @@
 import {
   Command,
+  FolderOutput,
   HardDrive,
   Info,
   Palette,
@@ -11,6 +12,7 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import type { ComponentType } from 'react'
+import SharingSection from '@/components/setting/SharingSection'
 import ShortcutsSection from '@/components/setting/ShortcutsSection'
 import AboutSection from './AboutSection'
 import AppearanceSection from './AppearanceSection'
@@ -52,6 +54,11 @@ export const SETTINGS_CATEGORIES: SettingsCategory[] = [
     id: 'sync',
     icon: RefreshCw,
     Component: SyncSection,
+  },
+  {
+    id: 'sharing',
+    icon: FolderOutput,
+    Component: SharingSection,
   },
   {
     id: 'security',

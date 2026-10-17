@@ -212,7 +212,8 @@
       "security": "Gerencie o desbloqueio automático neste dispositivo.",
       "network": "Configure conexões, servidores de retransmissão e desempenho de transferência.",
       "storage": "Veja o uso de espaço e gerencie o histórico e o cache.",
-      "about": "Veja a versão do aplicativo e as informações do projeto."
+      "about": "Veja a versão do aplicativo e as informações do projeto.",
+      "sharing": "Diretórios que este dispositivo expõe a dispositivos pareados via P2P"
     },
     "sectionHeadings": {
       "syncBehavior": "Comportamento da sincronização",
@@ -236,7 +237,8 @@
       "storage": "Armazenamento",
       "about": "Sobre",
       "shortcuts": "Atalhos",
-      "quickPanel": "Painel rápido"
+      "quickPanel": "Painel rápido",
+      "sharing": "Compartilhamento"
     },
     "sections": {
       "general": {
@@ -868,6 +870,31 @@
           "repository": "Repositório"
         },
         "selfMaintained": "Fork mantido de forma independente. Atualizações somente por reinstalação manual."
+      }
+    },
+    "sharing": {
+      "title": "Compartilhar com dispositivos pareados",
+      "rootsTitle": "Diretórios compartilhados",
+      "locked": "Desbloqueie o app para gerenciar diretórios compartilhados.",
+      "empty": "Nenhum diretório compartilhado. Dispositivos só veem o que você adicionar aqui.",
+      "add": "Adicionar diretório…",
+      "apply": "Aplicar",
+      "saved": "Diretórios compartilhados atualizados",
+      "remove": "Remover",
+      "enabled": "Ativado",
+      "labelPlaceholder": "Nome visível aos dispositivos",
+      "suspend": {
+        "label": "Pausar todo o compartilhamento",
+        "description": "Todos os diretórios compartilhados ficam indisponíveis até retomar; transferências em andamento param."
+      },
+      "grants": {
+        "read": "Leitura",
+        "write": "Escrita",
+        "delete": "Exclusão"
+      },
+      "errors": {
+        "loadFailed": "Falha ao carregar o estado de compartilhamento",
+        "saveFailed": "Falha ao salvar configurações de compartilhamento"
       }
     }
   },
@@ -1592,7 +1619,9 @@
     },
     "tabs": {
       "connected": "Dispositivos conectados",
-      "requests": "Solicitações de pareamento"
+      "requests": "Solicitações de pareamento",
+      "overview": "Visão geral",
+      "files": "Arquivos"
     },
     "sections": {
       "requests": "Solicitações de pareamento",
@@ -2124,6 +2153,95 @@
           "internal": "Erro interno — consulte os logs do daemon."
         }
       }
+    },
+    "share": {
+      "loading": "Carregando…",
+      "offline": "Dispositivo offline",
+      "locked": "Dispositivo bloqueado — compartilhamento indisponível",
+      "retry": "Tentar novamente",
+      "suspended": "O dispositivo pausou todo o compartilhamento",
+      "noRoots": "O dispositivo ainda não compartilhou nenhum diretório",
+      "noRootsHint": "Diretórios compartilhados só podem ser configurados naquele dispositivo",
+      "rootPicker": "Raiz compartilhada",
+      "trash": "Lixeira",
+      "trashHint": "Itens aqui podem ser restaurados ou esvaziados; expiram após 7 dias",
+      "trashEmpty": "Lixeira vazia",
+      "dirEmpty": "Este diretório está vazio",
+      "uploadFiles": "Enviar arquivos",
+      "uploadFolder": "Enviar pasta",
+      "mkdir": "Nova pasta",
+      "refresh": "Atualizar",
+      "loadMore": "Carregar mais",
+      "depthLimit": "Limite de profundidade de diretórios atingido — continue pela lista",
+      "actions": {
+        "menu": "Ações",
+        "download": "Baixar…",
+        "rename": "Renomear…",
+        "copy": "Copiar para…",
+        "delete": "Excluir",
+        "restore": "Restaurar",
+        "emptyTrash": "Esvaziar lixeira",
+        "clearSelection": "Limpar seleção",
+        "cancelTransfer": "Cancelar transferência",
+        "dismissTransfer": "Dispensar"
+      },
+      "transfer": {
+        "completed": "Concluída",
+        "failed": "Falhou",
+        "cancelled": "Cancelada"
+      },
+      "uploadConfirm": {
+        "title": "Enviar ao dispositivo",
+        "cancel": "Cancelar",
+        "confirm": "Enviar",
+        "body_one": "Enviar {{count}} item ({{size}}) para {{peer}} em {{destination}}?",
+        "body_many": "Enviar {{count}} itens ({{size}}) para {{peer}} em {{destination}}?",
+        "body_other": "Enviar {{count}} itens ({{size}}) para {{peer}} em {{destination}}?"
+      },
+      "dialogs": {
+        "mkdirTitle": "Nova pasta",
+        "renameTitle": "Renomear",
+        "copyTitle": "Copiar para diretório (caminho relativo à raiz)",
+        "namePlaceholder": "Nome",
+        "cancel": "Cancelar",
+        "confirm": "OK"
+      },
+      "emptyTrash": {
+        "title": "Esvaziar lixeira",
+        "description": "Excluir permanentemente todo o conteúdo da lixeira desta raiz no dispositivo. Não é possível desfazer.",
+        "cancel": "Cancelar",
+        "confirm": "Esvaziar"
+      },
+      "errors": {
+        "locked": "Dispositivo bloqueado — compartilhamento indisponível",
+        "unsupported": "A versão do dispositivo não suporta compartilhamento de arquivos",
+        "unsupported_request": "O dispositivo não suporta esta operação",
+        "suspended": "O dispositivo suspendeu o compartilhamento",
+        "revoked": "Esta raiz compartilhada foi revogada pelo dispositivo",
+        "denied": "Negado pelas permissões de compartilhamento do dispositivo",
+        "reserved_name": "Este nome é reservado",
+        "not_found": "Não encontrado",
+        "conflict": "Já existe um item com este nome",
+        "root_gone": "O diretório compartilhado não existe mais no dispositivo",
+        "quota": "Cota de armazenamento do dispositivo excedida",
+        "too_large": "Arquivo muito grande",
+        "too_many_entries": "Itens demais",
+        "io": "Erro de E/S no dispositivo",
+        "cancelled": "Transferência cancelada",
+        "too_late": "Tarde demais para cancelar — a transferência já terminou",
+        "interrupted": "Transferência interrompida",
+        "unavailable": "Serviço de compartilhamento do dispositivo indisponível",
+        "session_locked": "Desbloqueie o app para usar o compartilhamento"
+      },
+      "selected_one": "{{count}} selecionado",
+      "selected_many": "{{count}} selecionados",
+      "selected_other": "{{count}} selecionados",
+      "transfersActive_one": "{{count}} transferindo",
+      "transfersActive_many": "{{count}} transferindo",
+      "transfersActive_other": "{{count}} transferindo",
+      "transfersDone_one": "{{count}} concluída",
+      "transfersDone_many": "{{count}} concluídas",
+      "transfersDone_other": "{{count}} concluídas"
     }
   },
   "pairing": {

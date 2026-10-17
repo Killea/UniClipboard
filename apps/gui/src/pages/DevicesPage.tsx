@@ -149,6 +149,11 @@ const DevicesPage: React.FC = () => {
               deviceId={selectedPeer.peerId}
               device={selectedPeer}
               status={getDeviceTrustStatusForPeer(selectedPeer.peerId)}
+              initialTab={
+                selection.kind === 'peer' && selection.id === selectedPeer.peerId
+                  ? selection.tab
+                  : undefined
+              }
               onUnpair={handleUnpairRequest}
             />
           )}

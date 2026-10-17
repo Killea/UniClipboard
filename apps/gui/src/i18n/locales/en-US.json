@@ -212,7 +212,8 @@
       "security": "Manage automatic unlocking on this device.",
       "network": "Configure connections, relay servers, and transfer performance.",
       "storage": "Check space usage and manage history and caches.",
-      "about": "View the app version and project information."
+      "about": "View the app version and project information.",
+      "sharing": "Directories this device exposes to paired peers over P2P"
     },
     "sectionHeadings": {
       "syncBehavior": "Sync behavior",
@@ -236,7 +237,8 @@
       "storage": "Storage",
       "about": "About",
       "shortcuts": "Shortcuts",
-      "quickPanel": "Quick Panel"
+      "quickPanel": "Quick Panel",
+      "sharing": "Sharing"
     },
     "sections": {
       "general": {
@@ -868,6 +870,31 @@
           "repository": "Repository"
         },
         "selfMaintained": "Self-maintained fork. Updates are delivered by manual reinstall only."
+      }
+    },
+    "sharing": {
+      "title": "Share with paired devices",
+      "rootsTitle": "Shared directories",
+      "locked": "Unlock the app to manage shared directories.",
+      "empty": "No directories shared. Peers can only browse what you explicitly add here.",
+      "add": "Add directory…",
+      "apply": "Apply",
+      "saved": "Shared directories updated",
+      "remove": "Remove",
+      "enabled": "Enabled",
+      "labelPlaceholder": "Label shown to peers",
+      "suspend": {
+        "label": "Pause all sharing",
+        "description": "Suspends every shared directory until resumed; in-flight transfers stop."
+      },
+      "grants": {
+        "read": "Read",
+        "write": "Write",
+        "delete": "Delete"
+      },
+      "errors": {
+        "loadFailed": "Failed to load sharing state",
+        "saveFailed": "Failed to save sharing settings"
       }
     }
   },
@@ -1583,7 +1610,9 @@
     },
     "tabs": {
       "connected": "Connected Devices",
-      "requests": "Pairing Requests"
+      "requests": "Pairing Requests",
+      "overview": "Overview",
+      "files": "Files"
     },
     "sections": {
       "requests": "Pairing Requests",
@@ -2113,7 +2142,92 @@
         }
       }
     },
-    "deviceTrustUnavailable": "Device status is temporarily unavailable. Try again shortly."
+    "deviceTrustUnavailable": "Device status is temporarily unavailable. Try again shortly.",
+    "share": {
+      "loading": "Loading…",
+      "offline": "Peer is offline",
+      "locked": "Peer is locked — sharing is unavailable until it unlocks",
+      "retry": "Retry",
+      "suspended": "Peer has paused all sharing",
+      "noRoots": "The peer has not shared any directories",
+      "noRootsHint": "Shared directories can only be configured on that device",
+      "rootPicker": "Shared root",
+      "trash": "Trash",
+      "trashHint": "Items here can be restored or emptied; entries expire after 7 days",
+      "trashEmpty": "Trash is empty",
+      "dirEmpty": "This directory is empty",
+      "uploadFiles": "Upload files",
+      "uploadFolder": "Upload folder",
+      "mkdir": "New folder",
+      "refresh": "Refresh",
+      "loadMore": "Load more",
+      "depthLimit": "Directory depth limit reached — keep browsing with the list",
+      "actions": {
+        "menu": "Actions",
+        "download": "Download…",
+        "rename": "Rename…",
+        "copy": "Copy to…",
+        "delete": "Delete",
+        "restore": "Restore",
+        "emptyTrash": "Empty trash",
+        "clearSelection": "Clear selection",
+        "cancelTransfer": "Cancel transfer",
+        "dismissTransfer": "Dismiss"
+      },
+      "transfer": {
+        "completed": "Completed",
+        "failed": "Failed",
+        "cancelled": "Cancelled"
+      },
+      "uploadConfirm": {
+        "title": "Upload to peer",
+        "cancel": "Cancel",
+        "confirm": "Upload",
+        "body_one": "Upload {{count}} item ({{size}}) to {{peer}} at {{destination}}?",
+        "body_other": "Upload {{count}} items ({{size}}) to {{peer}} at {{destination}}?"
+      },
+      "dialogs": {
+        "mkdirTitle": "New folder",
+        "renameTitle": "Rename",
+        "copyTitle": "Copy to directory (root-relative path)",
+        "namePlaceholder": "Name",
+        "cancel": "Cancel",
+        "confirm": "OK"
+      },
+      "emptyTrash": {
+        "title": "Empty trash",
+        "description": "Permanently delete everything in this root’s trash on the peer. This cannot be undone.",
+        "cancel": "Cancel",
+        "confirm": "Empty trash"
+      },
+      "errors": {
+        "locked": "Peer is locked — sharing is unavailable",
+        "unsupported": "Peer does not support file sharing",
+        "unsupported_request": "Operation not supported by the peer",
+        "suspended": "Peer has suspended sharing",
+        "revoked": "Share root has been revoked by the peer",
+        "denied": "Denied by the peer’s share grants",
+        "reserved_name": "That name is reserved",
+        "not_found": "Not found",
+        "conflict": "Name already exists",
+        "root_gone": "Shared directory no longer exists on the peer",
+        "quota": "Peer storage quota exceeded",
+        "too_large": "File too large",
+        "too_many_entries": "Too many entries",
+        "io": "I/O error on the peer",
+        "cancelled": "Transfer cancelled",
+        "too_late": "Too late to cancel — transfer already finished",
+        "interrupted": "Interrupted",
+        "unavailable": "Peer share service unavailable",
+        "session_locked": "Unlock the app to use sharing"
+      },
+      "selected_one": "{{count}} selected",
+      "selected_other": "{{count}} selected",
+      "transfersActive_one": "{{count}} transferring",
+      "transfersActive_other": "{{count}} transferring",
+      "transfersDone_one": "{{count}} finished",
+      "transfersDone_other": "{{count}} finished"
+    }
   },
   "pairing": {
     "globalRequest": {

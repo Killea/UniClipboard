@@ -212,7 +212,8 @@
       "security": "管理这台设备的自动解锁偏好。",
       "network": "调整连接方式、中继服务器与传输性能。",
       "storage": "查看空间占用，管理历史记录与缓存。",
-      "about": "查看应用版本与项目信息。"
+      "about": "查看应用版本与项目信息。",
+      "sharing": "本机向已配对设备开放的目录（经 P2P 传输）"
     },
     "sectionHeadings": {
       "syncBehavior": "同步行为",
@@ -236,7 +237,8 @@
       "storage": "存储管理",
       "about": "关于",
       "shortcuts": "快捷键",
-      "quickPanel": "快捷面板"
+      "quickPanel": "快捷面板",
+      "sharing": "共享"
     },
     "sections": {
       "general": {
@@ -868,6 +870,31 @@
           "repository": "代码仓库"
         },
         "selfMaintained": "自维护分支版本，仅通过手动重新安装获得更新。"
+      }
+    },
+    "sharing": {
+      "title": "向已配对设备共享",
+      "rootsTitle": "共享目录",
+      "locked": "解锁后可管理共享目录。",
+      "empty": "尚未共享任何目录。对端只能浏览你在此显式添加的目录。",
+      "add": "添加目录…",
+      "apply": "应用",
+      "saved": "共享目录已更新",
+      "remove": "移除",
+      "enabled": "启用",
+      "labelPlaceholder": "对端可见的名称",
+      "suspend": {
+        "label": "暂停全部共享",
+        "description": "暂停后所有共享目录不可访问，直到恢复；进行中的传输将停止。"
+      },
+      "grants": {
+        "read": "读取",
+        "write": "写入",
+        "delete": "删除"
+      },
+      "errors": {
+        "loadFailed": "共享状态加载失败",
+        "saveFailed": "共享设置保存失败"
       }
     }
   },
@@ -1579,7 +1606,9 @@
     },
     "tabs": {
       "connected": "已连接设备",
-      "requests": "配对请求"
+      "requests": "配对请求",
+      "overview": "概览",
+      "files": "文件"
     },
     "sections": {
       "requests": "配对请求",
@@ -2108,7 +2137,88 @@
         }
       }
     },
-    "deviceTrustUnavailable": "设备状态暂时不可用。请稍后重试。"
+    "deviceTrustUnavailable": "设备状态暂时不可用。请稍后重试。",
+    "share": {
+      "loading": "加载中…",
+      "offline": "对端离线",
+      "locked": "对端未解锁，共享暂不可用",
+      "retry": "重试",
+      "suspended": "对端已暂停全部共享",
+      "noRoots": "对端尚未开放任何目录",
+      "noRootsHint": "只能在那台设备上配置要开放的目录",
+      "rootPicker": "共享根目录",
+      "trash": "回收站",
+      "trashHint": "此处条目可还原或清空；条目保留 7 天后自动清理",
+      "trashEmpty": "回收站为空",
+      "dirEmpty": "此目录为空",
+      "uploadFiles": "上传文件",
+      "uploadFolder": "上传文件夹",
+      "mkdir": "新建",
+      "refresh": "刷新",
+      "loadMore": "加载更多",
+      "depthLimit": "已到目录深度上限，请改用列表分页浏览",
+      "actions": {
+        "menu": "操作",
+        "download": "下载…",
+        "rename": "重命名…",
+        "copy": "复制到…",
+        "delete": "删除",
+        "restore": "还原",
+        "emptyTrash": "清空回收站",
+        "clearSelection": "清除选择",
+        "cancelTransfer": "取消传输",
+        "dismissTransfer": "移除"
+      },
+      "transfer": {
+        "completed": "已完成",
+        "failed": "失败",
+        "cancelled": "已取消"
+      },
+      "uploadConfirm": {
+        "title": "上传到对端",
+        "cancel": "取消",
+        "confirm": "上传",
+        "body_other": "上传 {{count}} 项（共 {{size}}）到 {{peer}} 的 {{destination}}？"
+      },
+      "dialogs": {
+        "mkdirTitle": "新建文件夹",
+        "renameTitle": "重命名",
+        "copyTitle": "复制到目录（根内相对路径）",
+        "namePlaceholder": "名称",
+        "cancel": "取消",
+        "confirm": "确定"
+      },
+      "emptyTrash": {
+        "title": "清空回收站",
+        "description": "将永久删除对端该根目录回收站中的全部内容，不可撤销。",
+        "cancel": "取消",
+        "confirm": "清空回收站"
+      },
+      "errors": {
+        "locked": "对端未解锁，共享暂不可用",
+        "unsupported": "对端版本不支持文件共享",
+        "unsupported_request": "对端不支持该操作",
+        "suspended": "对端已暂停共享",
+        "revoked": "该共享目录已被对端撤销",
+        "denied": "对端授权不允许此操作",
+        "reserved_name": "该名称为保留名",
+        "not_found": "未找到",
+        "conflict": "同名条目已存在",
+        "root_gone": "共享目录在对端已不存在",
+        "quota": "对端存储配额不足",
+        "too_large": "文件过大",
+        "too_many_entries": "条目过多",
+        "io": "对端读写错误",
+        "cancelled": "传输已取消",
+        "too_late": "取消过晚，传输已结束",
+        "interrupted": "传输中断",
+        "unavailable": "对端共享服务不可用",
+        "session_locked": "解锁后才能使用共享"
+      },
+      "selected_other": "已选 {{count}} 项",
+      "transfersActive_other": "{{count}} 个传输中",
+      "transfersDone_other": "{{count}} 个已结束"
+    }
   },
   "pairing": {
     "globalRequest": {

@@ -10,6 +10,7 @@ import { ThemeToggle } from '@/components/motion/theme-toggle'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { useLibraryChrome } from '@/contexts/library-chrome-context'
 import { useSidebarSlot } from '@/contexts/sidebar-slot-context'
+import { DEVICES_SELECT_STATE } from '@/hooks/useDevicesPage'
 import { useLibraryCounts } from '@/hooks/useLibraryCounts'
 import { useMobileDeviceList } from '@/hooks/useMobileDeviceList'
 import { useWindowDragging } from '@/hooks/useWindowDragging'
@@ -325,6 +326,20 @@ function HistorySidebar(props: HistorySidebarProps) {
                   key={device.id}
                   icon={device.mobile ? Smartphone : MonitorCog}
                   label={device.name}
+                  // §11.1: a device row jumps to Devices; an online peer also
+                  // lands on its「文件」tab. Offline rows just select the device.
+                  onClick={() => {
+                    closeOverlay()
+                    navigate('/devices', {
+                      state: {
+                        [DEVICES_SELECT_STATE]: {
+                          id: device.id,
+                          mobile: device.mobile,
+                          tab: device.online && !device.mobile ? 'files' : undefined,
+                        },
+                      },
+                    })
+                  }}
                   trailing={
                     <span
                       aria-hidden="true"
