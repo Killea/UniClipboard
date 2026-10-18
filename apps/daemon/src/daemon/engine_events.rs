@@ -173,6 +173,7 @@ fn peer_to_dto(peer: PeerConnectionSummary) -> PeerSnapshotDto {
         }
         .to_string(),
         connection_address: peer.connection_address,
+        connection_local_address: peer.connection_local_address,
     }
 }
 

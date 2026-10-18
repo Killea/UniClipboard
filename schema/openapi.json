@@ -5081,6 +5081,11 @@
             "nullable": true,
             "type": "string"
           },
+          "connectionLocalAddress": {
+            "description": "活跃路径的本端侧地址（直连=本机出口 IP,中继=relay URL）。\n来自 Engine PathEvent 观测,观测缺失时为 `None`。",
+            "nullable": true,
+            "type": "string"
+          },
           "deviceName": {
             "nullable": true,
             "type": "string"
@@ -7489,6 +7494,11 @@
           },
           "connectionAddress": {
             "description": "当前活跃连接地址。直连时为对端 IP:port,中转时为 relay 地址。",
+            "nullable": true,
+            "type": "string"
+          },
+          "connectionLocalAddress": {
+            "description": "活跃路径的本端侧地址（直连=本机出口 IP,中继=relay URL）。\n来自 Engine PathEvent 观测,观测缺失时为 `None`。",
             "nullable": true,
             "type": "string"
           },

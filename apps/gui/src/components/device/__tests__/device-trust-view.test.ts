@@ -14,6 +14,7 @@ const admittedPeer: SpaceMember = {
   connected: true,
   channel: 'direct',
   connectionAddress: null,
+  connectionLocalAddress: null,
 }
 
 const snapshot: DeviceTrustSnapshot = {

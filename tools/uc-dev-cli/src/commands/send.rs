@@ -1222,6 +1222,7 @@ mod tests {
             pairing_state: "paired".to_string(),
             channel: "unknown".to_string(),
             connection_address: None,
+            connection_local_address: None,
         }
     }
 

@@ -48,6 +48,8 @@ export interface PeerSnapshotPayloadItem {
   channel?: 'direct' | 'relay' | 'offline' | 'unknown'
   /** 当前活跃连接地址；直连=对端 IP:port，中转=relay 地址。 */
   connectionAddress?: string | null
+  /** 活跃路径的本端侧地址（PathEvent 观测；缺失为 null）。 */
+  connectionLocalAddress?: string | null
 }
 
 /** Payload for `peers.changed` events — a full snapshot of the peer list. */

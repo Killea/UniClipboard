@@ -84,6 +84,7 @@ const device: SpaceMember = {
   connected: true,
   channel: 'direct',
   connectionAddress: '192.168.1.2:5000',
+  connectionLocalAddress: null,
 }
 
 function renderPanel({

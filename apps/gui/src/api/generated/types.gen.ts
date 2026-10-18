@@ -2847,6 +2847,11 @@ export type PeerSnapshotDto = {
      * 当前活跃连接地址。直连时为对端 IP:port,中转时为 relay 地址。
      */
     connectionAddress?: string | null;
+    /**
+     * 活跃路径的本端侧地址（直连=本机出口 IP,中继=relay URL）。
+     * 来自 Engine PathEvent 观测,观测缺失时为 `None`。
+     */
+    connectionLocalAddress?: string | null;
     deviceName?: string | null;
     isPaired: boolean;
     pairingState: string;
@@ -4346,6 +4351,11 @@ export type SpaceMemberDto = {
      * 当前活跃连接地址。直连时为对端 IP:port,中转时为 relay 地址。
      */
     connectionAddress?: string | null;
+    /**
+     * 活跃路径的本端侧地址（直连=本机出口 IP,中继=relay URL）。
+     * 来自 Engine PathEvent 观测,观测缺失时为 `None`。
+     */
+    connectionLocalAddress?: string | null;
     deviceName: string;
     lastSeenAtMs?: number | null;
     pairingState: string;

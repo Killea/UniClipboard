@@ -202,6 +202,7 @@ mod tests {
             connected,
             channel: "direct".into(),
             connection_address: None,
+            connection_local_address: None,
         }
     }
 

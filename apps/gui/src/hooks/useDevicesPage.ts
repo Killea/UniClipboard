@@ -535,6 +535,7 @@ function peerSnapshotToMember(p: PeerSnapshotPayloadItem): SpaceMember {
     connected: p.connected,
     channel: p.channel ?? 'unknown',
     connectionAddress: p.connectionAddress ?? null,
+    connectionLocalAddress: p.connectionLocalAddress ?? null,
   }
 }
 

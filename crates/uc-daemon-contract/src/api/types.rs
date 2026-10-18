@@ -91,6 +91,9 @@ pub struct PeerSnapshotDto {
     pub channel: String,
     /// 当前活跃连接地址。直连时为对端 IP:port,中转时为 relay 地址。
     pub connection_address: Option<String>,
+    /// 活跃路径的本端侧地址（直连=本机出口 IP,中继=relay URL）。
+    /// 来自 Engine PathEvent 观测,观测缺失时为 `None`。
+    pub connection_local_address: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
@@ -107,6 +110,9 @@ pub struct SpaceMemberDto {
     pub channel: String,
     /// 当前活跃连接地址。直连时为对端 IP:port,中转时为 relay 地址。
     pub connection_address: Option<String>,
+    /// 活跃路径的本端侧地址（直连=本机出口 IP,中继=relay URL）。
+    /// 来自 Engine PathEvent 观测,观测缺失时为 `None`。
+    pub connection_local_address: Option<String>,
 }
 
 /// Result of a `POST /presence/refresh` round.

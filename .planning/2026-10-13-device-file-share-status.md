@@ -2,7 +2,7 @@
 
 - **最近更新**：2026-10-16（二次更新；首次快照 2026-10-13）。
 - **性质**：进度快照 + **Agent 交接文档**。需求与决策见 §1/§2；已落地代码位置与不变量见 §3；下一步任务清单见 §5；gate 与硬约束见 §6/§7。
-- **一句话状态**：**P5/P6/P7 已全部落地并分三 commit 提交**（daemon 面 `14108e723`、Go 宿主 `4f18f9687`、前端 `393916c89`）——16 条 session-scoped 路由 + `remote-share.*` 事件桥 + OpenAPI/SDK 再生成；Wails `EnableFileDrop` + `files-dropped` 事件 + `stat_local_paths`/`pick_files`/`pick_save_path`；前端「文件」Tab（懒加载目录树/面包屑/拖放确认/回收站/传输队列）+ 设置页「共享」分组 + 六语 i18n。本仓检查全绿（除按预期红的 provenance gate）。Engine 暂经本地 path 依赖消费。**剩余**：P8 `local_address` 暴露（Engine 侧 PathEvent↔remote_info 关联设计，本次查勘后确认是独立设计点）、P9 三平台双 peer 真机验收、合并前 upstream 推送授权 + repin。
+- **一句话状态**：**P5/P6/P7/P8 已全部落地**——daemon 面 `14108e723`、Go 宿主 `4f18f9687`、前端 `393916c89`、P8 `local_address`（Engine `2ab5a866` + 本仓侧）。16 条 session-scoped 路由 + `remote-share.*` 事件桥 + OpenAPI/SDK 再生成；Wails `EnableFileDrop` + `files-dropped` + `stat_local_paths`/`pick_files`/`pick_save_path`；前端「文件」Tab + 设置页「共享」+ 六语 i18n；概览地址行显示 `本端 → 对端 · 直连/中继`。本仓检查全绿（除按预期红的 provenance gate）。Engine 暂经本地 path 依赖消费。**剩余**：P9 三平台双 peer 真机验收、合并前 upstream 推送授权 + repin。
 
 ## 1. 原始需求
 
@@ -115,9 +115,11 @@
 
 验证：Go build 绿（`/home/hank/gotoolchain/go/bin/go`）；coverage 0 unimplemented；前端 typecheck（新码干净，`localLog.test.ts` 旧错误为 HEAD 既有基线）、lint 0 警告、**229 文件 / 1469 测试全绿**、i18n parity + typography + settings 契约全过。曾修：typography 拒绝 `Input` text-role 覆盖；`zh-TW` 简字扫描误报收窄后仅一处真问题。
 
-### 4.7 P8 `local_address`（查勘结论：独立设计点，未实施）
+### 4.7 P8 `local_address`（已完成：Engine `2ab5a866` + 本仓）
 
-§14 要求的 `local_address` 不在 iroh `remote_info`/`TransportAddrInfo` 面内（只有 remote 侧地址）；它只出现在 `observed_connections.rs` 的 `PathEvent::{Opened,Selected,Closed}`（`local_addr`/`remote_addr` 配对）。要投影到 `SpaceMember` 需把 PathEvent 观测记录（`path_key(id)` 键）与 `path_for` 的 remote_info 探测做关联——属 Engine 侧独立设计与 commit（含 uc-core `ConnectionPath`/`SpaceMember` 字段扩展、桌面 `PeerSnapshotDto`/前端行展示）。本仓当前不显示 local_address 不影响 §11 其余验收。
+§14 落地：`local_addr` 只在 `PathEvent` 观测流（`remote_info` 无 local 侧）→ `observed_connections.rs` 新增 `PathLocalAddrs`（`(peer, remote_addr) → local_addr` 登记簿，Opened/Selected 写入、Closed/连接收尾清账，**与 recorder 开关解耦**）；`conn_path::path_for` 以选中的 active `TransportAddr` 回查补 `ConnectionPath.local_address`（clipboard 遥测调用点传 None 不变）；`PeerSnapshotView`/`PeerConnectionSummary` 增 `connection_local_address`（Debug 脱敏由 public_contract 覆盖）。spec 措辞「投影到 SpaceMember」实际落在 `PeerSnapshotView`（运行时快照；`SpaceMember` 是持久成员记录不含地址字段）。
+
+本仓链路：`PeerSnapshotDto`/`SpaceMemberDto` + `peers.changed` WS payload 增 `connectionLocalAddress` → `SpaceMember`/`peerSnapshotToMember` 透传 → 概览地址行渲染 `本端 → 对端 · 直连/中继`（无本端地址时维持原对端展示）。Engine 侧验证：infra-p2p 290 + core/application 1429 + engine 293 + public_contract 50 全绿。
 
 ## 5. 下一步任务清单（P5–P7 已完成；剩余 P8 → P9 → 收尾）
 

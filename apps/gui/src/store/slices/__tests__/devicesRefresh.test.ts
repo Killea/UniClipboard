@@ -19,6 +19,7 @@ const peer = {
   channel: 'direct' as const,
   lastSeenAtMs: null,
   connectionAddress: null,
+  connectionLocalAddress: null,
 }
 const makeStore = () => configureStore({ reducer: { devices } })
 

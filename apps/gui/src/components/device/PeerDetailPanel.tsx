@@ -322,10 +322,12 @@ const PeerDetailPanel: React.FC<PeerDetailPanelProps> = ({
                     )}
                   </PanelFactRow>
                 )}
-                {device?.connectionAddress && (
+                {(device?.connectionAddress || device?.connectionLocalAddress) && (
                   <PanelFactRow label={t('devices.settings.fields.address')}>
                     <span className="truncate font-mono text-ui-caption font-medium">
-                      {device.connectionAddress}
+                      {device?.connectionLocalAddress
+                        ? `${device.connectionLocalAddress} → ${device.connectionAddress ?? '—'} · ${channelLabel}`
+                        : device?.connectionAddress}
                     </span>
                   </PanelFactRow>
                 )}

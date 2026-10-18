@@ -59,6 +59,7 @@ export interface SpaceMember {
   connected: boolean
   channel: ConnectionChannel
   connectionAddress: string | null
+  connectionLocalAddress: string | null
 }
 
 /**
