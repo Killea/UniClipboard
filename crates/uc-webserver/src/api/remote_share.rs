@@ -1294,14 +1294,16 @@ async fn post_peer_share_upload(
         if req.sources.is_empty() {
             return Err(ApiError::bad_request("at least one source is required"));
         }
+        // `register_input` proves readability; the engine consumes `sources`
+        // as plain filesystem paths, so the handles must carry the real
+        // paths, not the opaque registry ids.
         let mut sources = Vec::with_capacity(req.sources.len());
         for source in &req.sources {
-            sources.push(
-                state
-                    .file_handles
-                    .register_input(Path::new(source))
-                    .map_err(|_| ApiError::bad_request("a source path is not readable"))?,
-            );
+            state
+                .file_handles
+                .register_input(Path::new(source))
+                .map_err(|_| ApiError::bad_request("a source path is not readable"))?;
+            sources.push(uc_engine::HostFileHandle::new(source.clone()));
         }
         let transfer_id = uuid::Uuid::new_v4().to_string();
         spawn_transfer(
@@ -1351,10 +1353,15 @@ async fn post_peer_share_download(
 ) -> Result<(StatusCode, Json<PeerShareTransferStartedEnvelope>), ApiError> {
     let span = info_span!("api.remote_share.download", peer_id = %peer_id);
     async move {
-        let target = state
+        // `register_output` proves writability and creates the placeholder;
+        // the engine consumes `target` as a plain filesystem path (like
+        // `FetchBlobToPathCommand::target_path`), so the handle must carry
+        // the real path, not the opaque registry id.
+        state
             .file_handles
             .register_output(Path::new(&req.target))
             .map_err(|_| ApiError::bad_request("the target path is not writable"))?;
+        let target = uc_engine::HostFileHandle::new(req.target.clone());
         let transfer_id = uuid::Uuid::new_v4().to_string();
         spawn_transfer(
             &state,
