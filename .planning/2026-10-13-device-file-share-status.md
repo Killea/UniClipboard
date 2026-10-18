@@ -197,3 +197,37 @@ holder 侧全部落地：两阶段上传（StageUpload 含 ticket 清单 + `tran
 - 三台开发机同交换机：Linux 本机 `192.168.99.1`；Windows(Legion) `192.168.99.2`（`ssh windows`，用户 `hankw`，远程 shell 是 cmd，多命令用 `&` 连接）；Mac mini `192.168.99.3`（`ssh mac-mini`，用户 `hank`；交换机断线备用 `ssh mac-mini-wifi` → `192.168.50.170`）。三平台两两组合是 P9 端到端验收的真实测试床。
 - 本机工具链：`go` 不在 PATH，需 `/home/hank/sdk/go1.27.1/bin/go`（`apps/gui-go/go.mod` 要 `go 1.26` + toolchain `1.27.1`）；**Wails CLI 未安装**，故出不了完整应用包；`apps/gui-go/build.sh` 在非 Darwin 直接 `exit 2`，仓库无 Linux 打包路径。
 - Rust 工具链 `1.95.0-x86_64-unknown-linux-gnu`。磁盘紧张（约 1.1T，长期 97% 满）；`cargo test --workspace` 前留意 `target/` 占用，必要时清本仓或主仓的 `target/`。
+
+## 10. 部署与真机验证（2026-10-18）
+
+### 部署状态
+
+| 机器 | 代码 | daemon | remote-share |
+| --- | --- | --- | --- |
+| Linux 本机 | hank_dev `7f8140364` + Engine `5f3ff22a` | 新二进制运行中（`target/release/uniclipd`） | `/remote-share/state` 200；根 `linux-share` 已注册 |
+| Windows Legion | 部署仓 `7f81403` + Engine `5f3ff22a` | `UniClipDaemonDev` 计划任务运行中（PID 61168，端口 55454） | serve 面正常（export/list 均 ok） |
+| Mac mini | 已同步构建 | **阻塞**：SSH/launchd 环境 Keychain 不解锁（`security` 报 user interaction not allowed），Engine 起不来 | 未验证（跳过，非通过） |
+
+### 已修复的真机缺陷（P9 期间发现）
+
+1. **Windows stable 编译失败**（Engine `655b4e57`）：`MetadataExt::file_index` 系列是不稳定 API `windows_by_handle`；改为 `GetFileInformationByHandle` 句柄方案。
+2. **iroh-blobs entry-state 分歧**（Engine `5f3ff22a`）：下载完成后字节+bitfield 齐但 DB entry 停在 `Partial`，`export_with_opts` 永久拒绝落地；`fetch_to_path` 增加 `export_ranges` 流式兜底（不经 entry-state 门控）。上游根因未修，属适配层规避。
+3. **daemon 句柄/路径错配**（本仓 `7f8140364`）：`register_input/register_output` 返回不透明注册 ID，而 Engine 契约把 `sources`/`target` 的 `HostFileHandle` 当裸路径用——上传报 `peer_share_local NotFound`，下载写到 daemon CWD 下的 `desktop-file-N`（字节其实早已完整落盘，只是落错了地方）。保留 register 调用做读写校验，真实路径原样透传。
+
+### 双向验收结果（Linux ↔ Windows）
+
+| 方向 | 用例 | 结果 |
+| --- | --- | --- |
+| Linux 下载自 Windows | big.bin 2MB | **通过**，MD5 双端一致 `b2d1236c…` |
+| Linux 下载自 Windows | from-windows.txt 22B | 通过 |
+| Linux 上传至 Windows | rs-upload.txt 24B | 通过，内容一致 |
+| Windows 下载自 Linux | hello.txt 22B | 通过 |
+| Windows 上传至 Linux | from-windows.txt 22B | 通过 |
+
+未执行项记 **跳过**：Mac 相关全部组合、文件夹传输、mkdir/rename/copy/delete/trash 动词、进度事件流、取消、锁定/挂起态、逃逸探针真机复测、GUI 前端端到端操作（daemon API 层验证已覆盖 wire+ 落盘正确性）。
+
+### 遗留观察
+
+- Windows 侧 share-test 目录出现 `.uniclipboard-staging-<uuid>` 残留目录——stage→commit 后的租约/清理路径待确认是延迟清扫还是泄漏。
+- Mac 需要交互式桌面会话启动 daemon（Keychain 授权）才能纳入矩阵。
+- Engine fork 与上游的分歧（`export_ranges` 兜底、Windows 句柄身份、PathLocalAddrs、Cancelled 类别等）在转正前需推 `UniClipboard/Engine` + 发标签 + 本仓 repin；`check-engine-repository.mjs` 当前按预期红。
